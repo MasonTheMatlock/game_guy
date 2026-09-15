@@ -1,0 +1,27 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Ex_4_1",
+            "type": "ccs-debug",
+            "request": "launch",
+            "projectInfo": {
+                "name": "Ex_4_1",
+                "resourceId": "/Ex_4_1"
+            },
+            "connections": [
+                {
+                    "name": "Texas Instruments XDS100v2 USB Debug Probe",
+                    "cores": [
+                        {
+                            "name": "C28xx",
+                            "debuggerSettings": {
+                                "data": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<PropertyValues/>\n"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

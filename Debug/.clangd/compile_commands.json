@@ -1,0 +1,67 @@
+[
+   {
+      "directory" : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/Debug",
+      "command"   : "clang++ -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/hal\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1\" -I\"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/common/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/headers/include\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/grlib\" -D_DEBUG -xc",
+      "file"      : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/Ex_4_1.c"
+   },
+   {
+      "directory" : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/Debug",
+      "command"   : "clang++ -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/hal\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1\" -I\"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/common/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/headers/include\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/grlib\" -D_DEBUG",
+      "file"      : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/F2806x_CodeStartBranch.asm"
+   },
+   {
+      "directory" : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/Debug",
+      "command"   : "clang++ -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/hal\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1\" -I\"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/common/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/headers/include\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/grlib\" -D_DEBUG -xc",
+      "file"      : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/F2806x_CpuTimers.c"
+   },
+   {
+      "directory" : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/Debug",
+      "command"   : "clang++ -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/hal\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1\" -I\"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/common/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/headers/include\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/grlib\" -D_DEBUG -xc",
+      "file"      : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/F2806x_DefaultIsr.c"
+   },
+   {
+      "directory" : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/Debug",
+      "command"   : "clang++ -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/hal\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1\" -I\"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/common/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/headers/include\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/grlib\" -D_DEBUG -xc",
+      "file"      : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/F2806x_GlobalVariableDefs.c"
+   },
+   {
+      "directory" : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/Debug",
+      "command"   : "clang++ -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/hal\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1\" -I\"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/common/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/headers/include\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/grlib\" -D_DEBUG -xc",
+      "file"      : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/F2806x_PieCtrl.c"
+   },
+   {
+      "directory" : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/Debug",
+      "command"   : "clang++ -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/hal\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1\" -I\"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/common/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/headers/include\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/grlib\" -D_DEBUG -xc",
+      "file"      : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/F2806x_PieVect.c"
+   },
+   {
+      "directory" : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/Debug",
+      "command"   : "clang++ -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/hal\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1\" -I\"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/common/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/headers/include\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/grlib\" -D_DEBUG -xc",
+      "file"      : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/F2806x_SysCtrl.c"
+   },
+   {
+      "directory" : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/Debug",
+      "command"   : "clang++ -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/hal\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1\" -I\"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/common/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/headers/include\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/grlib\" -D_DEBUG",
+      "file"      : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/F2806x_usDelay.asm"
+   },
+   {
+      "directory" : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/Debug",
+      "command"   : "clang++ -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/hal\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1\" -I\"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/common/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/headers/include\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/grlib\" -D_DEBUG -xc",
+      "file"      : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/board_support/F2806x_Gpio.c"
+   },
+   {
+      "directory" : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/Debug",
+      "command"   : "clang++ -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/hal\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1\" -I\"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/common/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/headers/include\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/grlib\" -D_DEBUG -xc",
+      "file"      : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/grlib/rectangle.c"
+   },
+   {
+      "directory" : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/Debug",
+      "command"   : "clang++ -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/hal\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1\" -I\"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/common/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/headers/include\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/grlib\" -D_DEBUG -xc",
+      "file"      : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/hal/HAL_F28069_KITRONIX320X240_SSD2119_SPI.c"
+   },
+   {
+      "directory" : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/Debug",
+      "command"   : "clang++ -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/hal\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1\" -I\"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/common/include\" -I\"C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/headers/include\" -I\"C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/grlib\" -D_DEBUG -xc",
+      "file"      : "C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/Ex_4_1/hal/kitronix320x240x16_ssd2119_spi.c"
+   }
+]
