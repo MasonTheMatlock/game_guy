@@ -41,20 +41,22 @@
 // TMS320C28x (C2000) compatibility note:
 //
 // The C28x core has no native 8-bit-wide storage -- "char" is 16 bits on
-// this architecture. Since the C standard requires int8_t/uint8_t to be
+// this architecture. Since the C standard requires int16_t/uint16_t to be
 // *exactly* 8 bits, the TI C2000 compiler's <stdint.h> correctly omits
 // them (it does provide the 16/32-bit types, which map onto native int/
 // long). grlib was originally written for 8-bit-char MCUs (MSP430,
-// Stellaris/Tiva) and uses uint8_t/int8_t for small fields (font format,
+// Stellaris/Tiva) and uses uint16_t/int16_t for small fields (font format,
 // bits-per-pixel, etc.), so we substitute a 16-bit stand-in here purely so
 // this unmodified grlib source compiles on C2000. These fields only ever
 // hold small values, so the extra width is harmless.
 //
 //*****************************************************************************
+/*
 #if defined(_TMS320C28X) || defined(__TMS320C28XX__) || defined(__TMS320C28X__)
-typedef char            int8_t;
-typedef unsigned char   uint8_t;
+typedef char            int16_t;
+typedef unsigned char   uint16_t;
 #endif
+*/
 
 #define NDEBUG
 #include "assert.h"
@@ -97,12 +99,12 @@ extern "C"
 //*****************************************************************************
 typedef struct Graphics_Image
 {
-    uint8_t bPP;	             //!< Bits per pixel and Compressed/Uncompressed
+    uint16_t bPP;	             //!< Bits per pixel and Compressed/Uncompressed
     uint16_t xSize;              //!< xSize
     uint16_t ySize;              //!< ySize
     uint16_t numColors;          //!< Number of Colors in Palette
     const uint32_t  * pPalette;  //!< Pointer to Palette
-    const uint8_t * pPixel;      //!< Pointer to pixel data;
+    const uint16_t * pPixel;      //!< Pointer to pixel data;
 } Graphics_Image;
 
 //*****************************************************************************
@@ -135,7 +137,7 @@ typedef struct Graphics_Display
     void (*callPixelDraw)(void *displayData, int16_t x, int16_t y,
     		uint16_t value);	//!< A pointer to the function to draw a pixel on this display.
     void (*callPixelDrawMultiple)(void *displayData, int16_t x, int16_t y,
-    		int16_t x0, int16_t count, int16_t bPP, const uint8_t *data,
+    		int16_t x0, int16_t count, int16_t bPP, const uint16_t *data,
     		const uint32_t *pucPalette);	//!< A pointer to the function to draw multiple pixels on this display.
     void (*callLineDrawH)(void *displayData, int16_t x1, int16_t x2, int16_t y,
     		uint16_t value);	//!< A pointer to the function to draw a horizontal line on this display.
@@ -155,12 +157,12 @@ typedef struct Graphics_Display
 //*****************************************************************************
 typedef struct Graphics_Font
 {
-    uint8_t format;		//!< The format of the font.  Can be one of FONT_FMT_UNCOMPRESSED or FONT_FMT_PIXEL_RLE.
-    uint8_t maxWidth;	//!< The maximum width of a character; this is the width of the widest character in the font, though any individual character may be narrower than this width.
-    uint8_t height;		//!< The height of the character cell; this may be taller than the font data for the characters (to provide inter-line spacing).
-    uint8_t baseline;	//!< The offset between the top of the character cell and the baseline of  the glyph.  The baseline is the bottom row of a capital letter, below which only the descenders of the lower case letters occur.
+    uint16_t format;		//!< The format of the font.  Can be one of FONT_FMT_UNCOMPRESSED or FONT_FMT_PIXEL_RLE.
+    uint16_t maxWidth;	//!< The maximum width of a character; this is the width of the widest character in the font, though any individual character may be narrower than this width.
+    uint16_t height;		//!< The height of the character cell; this may be taller than the font data for the characters (to provide inter-line spacing).
+    uint16_t baseline;	//!< The offset between the top of the character cell and the baseline of  the glyph.  The baseline is the bottom row of a capital letter, below which only the descenders of the lower case letters occur.
     uint16_t offset[96];//!< The offset within data to the data for each character in the font.
-    const uint8_t *data;//!< A pointer to the data for the font.
+    const uint16_t *data;//!< A pointer to the data for the font.
 } Graphics_Font;
 
 //*****************************************************************************
@@ -177,14 +179,14 @@ typedef struct Graphics_Font
 //*****************************************************************************
 typedef struct Graphics_FontEx
 {
-    uint8_t format;			//!< The format of the font.  Can be one of FONT_FMT_EX_UNCOMPRESSED or FONT_FMT_EX_PIXEL_RLE.
-    uint8_t maxWidth;		//!< The maximum width of a character; this is the width of the widest character in the font, though any individual character may be narrower than this width.
-    uint8_t height;			//!< The height of the character cell; this may be taller than the font data for the characters (to provide inter-line spacing).
-    uint8_t baseline;		//!< The offset between the top of the character cell and the baseline of the glyph.  The baseline is the bottom row of a capital letter, below which only the descenders of the lower case letters occur.
-    uint8_t first;		//!< The codepoint number representing the first character encoded in the font.
-    uint8_t last;			//!< The codepoint number representing the last character encoded in the font.
+    uint16_t format;			//!< The format of the font.  Can be one of FONT_FMT_EX_UNCOMPRESSED or FONT_FMT_EX_PIXEL_RLE.
+    uint16_t maxWidth;		//!< The maximum width of a character; this is the width of the widest character in the font, though any individual character may be narrower than this width.
+    uint16_t height;			//!< The height of the character cell; this may be taller than the font data for the characters (to provide inter-line spacing).
+    uint16_t baseline;		//!< The offset between the top of the character cell and the baseline of the glyph.  The baseline is the bottom row of a capital letter, below which only the descenders of the lower case letters occur.
+    uint16_t first;		//!< The codepoint number representing the first character encoded in the font.
+    uint16_t last;			//!< The codepoint number representing the last character encoded in the font.
     const uint16_t *offset;	//!< A pointer to a table containing the offset within data to the data for each character in the font.
-    const uint8_t *data;	//!< A pointer to the data for the font.
+    const uint16_t *data;	//!< A pointer to the data for the font.
 } Graphics_FontEx;
 
 //*****************************************************************************
@@ -210,147 +212,6 @@ typedef struct Graphics_Context
 // be removed at some point in the future.
 //
 //*****************************************************************************
-#define ClrAliceBlue                 GRAPHICS_COLOR_ALICE_BLUE
-#define ClrAntiqueWhite              GRAPHICS_COLOR_ANTIQUE_WHITE
-#define ClrAqua                      GRAPHICS_COLOR_AQUA
-#define ClrAquamarine                GRAPHICS_COLOR_AQUAMARINE
-#define ClrAzure                     GRAPHICS_COLOR_AZURE
-#define ClrBeige                     GRAPHICS_COLOR_BEIGE
-#define ClrBisque                    GRAPHICS_COLOR_BISQUE
-#define ClrBlack                     GRAPHICS_COLOR_BLACK
-#define ClrBlanchedAlmond            GRAPHICS_COLOR_BLANCHED_ALMOND
-#define ClrBlue                      GRAPHICS_COLOR_BLUE
-#define ClrBlueViolet                GRAPHICS_COLOR_BLUE_VIOLET
-#define ClrBrown                     GRAPHICS_COLOR_BROWN
-#define ClrBurlyWood                 GRAPHICS_COLOR_BURLY_WOOD
-#define ClrCadetBlue                 GRAPHICS_COLOR_CADET_BLUE
-#define ClrChartreuse                GRAPHICS_COLOR_CHARTREUSE
-#define ClrChocolate                 GRAPHICS_COLOR_CHOCOLATE
-#define ClrCoral                     GRAPHICS_COLOR_CORAL
-#define ClrCornflowerBlue            GRAPHICS_COLOR_CORNFLOWER_BLUE
-#define ClrCornsilk                  GRAPHICS_COLOR_CORNSILK
-#define ClrCrimson                   GRAPHICS_COLOR_CRIMSON
-#define ClrCyan                      GRAPHICS_COLOR_CYAN
-#define ClrDarkBlue                  GRAPHICS_COLOR_DARK_BLUE
-#define ClrDarkCyan                  GRAPHICS_COLOR_DARK_CYAN
-#define ClrDarkGoldenrod             GRAPHICS_COLOR_DARK_GOLDENROD
-#define ClrDarkGray                  GRAPHICS_COLOR_DARK_GRAY
-#define ClrDarkGreen                 GRAPHICS_COLOR_DARK_GREEN
-#define ClrDarkKhaki                 GRAPHICS_COLOR_DARK_KHAKI
-#define ClrDarkMagenta               GRAPHICS_COLOR_DARK_MAGENTA
-#define ClrDarkOliveGreen            GRAPHICS_COLOR_DARK_OLIVE_GREEN
-#define ClrDarkOrange                GRAPHICS_COLOR_DARK_ORANGE
-#define ClrDarkOrchid                GRAPHICS_COLOR_DARK_ORCHID
-#define ClrDarkRed                   GRAPHICS_COLOR_DARK_RED
-#define ClrDarkSalmon                GRAPHICS_COLOR_DARK_SALMON
-#define ClrDarkSeaGreen              GRAPHICS_COLOR_DARK_SEA_GREEN
-#define ClrDarkSlateBlue             GRAPHICS_COLOR_DARK_SLATE_BLUE
-#define ClrDarkSlateGray             GRAPHICS_COLOR_DARK_SLATE_GRAY
-#define ClrDarkTurquoise             GRAPHICS_COLOR_DARK_TURQUOISE
-#define ClrDarkViolet                GRAPHICS_COLOR_DARK_VIOLET
-#define ClrDeepPink                  GRAPHICS_COLOR_DEEP_PINK
-#define ClrDeepSkyBlue               GRAPHICS_COLOR_DEEP_SKY_BLUE
-#define ClrDimGray                   GRAPHICS_COLOR_DIM_GRAY
-#define ClrDodgerBlue                GRAPHICS_COLOR_DODGER_BLUE
-#define ClrFireBrick                 GRAPHICS_COLOR_FIRE_BRICK
-#define ClrFloralWhite               GRAPHICS_COLOR_FLORAL_WHITE
-#define ClrForestGreen               GRAPHICS_COLOR_FOREST_GREEN
-#define ClrFuchsia                   GRAPHICS_COLOR_FUCHSIA
-#define ClrGainsboro                 GRAPHICS_COLOR_GAINSBORO
-#define ClrGhostWhite                GRAPHICS_COLOR_GHOST_WHITE
-#define ClrGold                      GRAPHICS_COLOR_GOLD
-#define ClrGoldenrod                 GRAPHICS_COLOR_GOLDENRON
-#define ClrGray                      GRAPHICS_COLOR_GRAY
-#define ClrGreen                     GRAPHICS_COLOR_GREEN
-#define ClrGreenYellow               GRAPHICS_COLOR_GREEN_YELLOW
-#define ClrHoneydew                  GRAPHICS_COLOR_HONEYDEW
-#define ClrHotPink                   GRAPHICS_COLOR_HOT_PINK
-#define ClrIndianRed                 GRAPHICS_COLOR_INDIAN_RED
-#define ClrIndigo                    GRAPHICS_COLOR_INDIGO
-#define ClrIvory                     GRAPHICS_COLOR_IVORY
-#define ClrKhaki                     GRAPHICS_COLOR_KHAKI
-#define ClrLavender                  GRAPHICS_COLOR_LAVENDER
-#define ClrLavenderBlush             GRAPHICS_COLOR_LAVENDER_BLUSH
-#define ClrLawnGreen                 GRAPHICS_COLOR_LAWN_GREEN
-#define ClrLemonChiffon              GRAPHICS_COLOR_LEMON_CHIFFON
-#define ClrLightBlue                 GRAPHICS_COLOR_LIGHT_BLUE
-#define ClrLightCoral                GRAPHICS_COLOR_LIGHT_CORAL
-#define ClrLightCyan                 GRAPHICS_COLOR_LIGHT_CYAN
-#define ClrLightGoldenrodYellow      GRAPHICS_COLOR_LIGHT_GOLDENRON_YELLOW
-#define ClrLightGreen                GRAPHICS_COLOR_LIGHT_GREEN
-#define ClrLightGrey                 GRAPHICS_COLOR_LIGHT_GRAY
-#define ClrLightPink                 GRAPHICS_COLOR_LIGHT_PINK
-#define ClrLightSalmon               GRAPHICS_COLOR_LIGHT_SALMON
-#define ClrLightSeaGreen             GRAPHICS_COLOR_LIGHT_SEA_GREEN
-#define ClrLightSkyBlue              GRAPHICS_COLOR_LIGHT_SKY_BLUE
-#define ClrLightSlateGray            GRAPHICS_COLOR_LIGHT_SLATE_GRAY
-#define ClrLightSteelBlue            GRAPHICS_COLOR_LIGHT_STEEL_BLUE
-#define ClrLightYellow               GRAPHICS_COLOR_LIGHT_YELLOW
-#define ClrLime                      GRAPHICS_COLOR_LIME
-#define ClrLimeGreen                 GRAPHICS_COLOR_LIME_GREEN
-#define ClrLinen                     GRAPHICS_COLOR_LINEN
-#define ClrMagenta                   GRAPHICS_COLOR_MAGENTA
-#define ClrMaroon                    GRAPHICS_COLOR_MAROON
-#define ClrMediumAquamarine          GRAPHICS_COLOR_MEDIUM_AQUAMARINE
-#define ClrMediumBlue                GRAPHICS_COLOR_MEDIUM_BLUE
-#define ClrMediumOrchid              GRAPHICS_COLOR_MEDIUM_ORCHID
-#define ClrMediumPurple              GRAPHICS_COLOR_MEDIUM_PURPLE
-#define ClrMediumSeaGreen            GRAPHICS_COLOR_MEDIUM_SEA_GREEN
-#define ClrMediumSlateBlue           GRAPHICS_COLOR_MEDIUM_SLATE_BLUE
-#define ClrMediumSpringGreen         GRAPHICS_COLOR_MEDIUM_SPRING_GREEN
-#define ClrMediumTurquoise           GRAPHICS_COLOR_MEDIUM_TURQUOISE
-#define ClrMediumVioletRed           GRAPHICS_COLOR_MEDIUM_VIOLET_RED
-#define ClrMidnightBlue              GRAPHICS_COLOR_MIGNIGHT_BLUE
-#define ClrMintCream                 GRAPHICS_COLOR_MINT_CREAM
-#define ClrMistyRose                 GRAPHICS_COLOR_MISTY_ROSE
-#define ClrMoccasin                  GRAPHICS_COLOR_MOCCASIN
-#define ClrNavajoWhite               GRAPHICS_COLOR_NAVAJO_WHITE
-#define ClrNavy                      GRAPHICS_COLOR_NAVY
-#define ClrOldLace                   GRAPHICS_COLOR_OLD_LACE
-#define ClrOlive                     GRAPHICS_COLOR_OLIVE
-#define ClrOliveDrab                 GRAPHICS_COLOR_OLIVE_DRAB
-#define ClrOrange                    GRAPHICS_COLOR_ORANGE
-#define ClrOrangeRed                 GRAPHICS_COLOR_ORANGE_RED
-#define ClrOrchid                    GRAPHICS_COLOR_ORCHID
-#define ClrPaleGoldenrod             GRAPHICS_COLOR_PALE_GOLDENRON
-#define ClrPaleGreen                 GRAPHICS_COLOR_PALE_GREEN
-#define ClrPaleTurquoise             GRAPHICS_COLOR_PALE_TURQUOISE
-#define ClrPaleVioletRed             GRAPHICS_COLOR_PALE_VIOLET_RED
-#define ClrPapayaWhip                GRAPHICS_COLOR_PAPAYA_WHIP
-#define ClrPeachPuff                 GRAPHICS_COLOR_PEACH_PUFF
-#define ClrPeru                      GRAPHICS_COLOR_PERU
-#define ClrPink                      GRAPHICS_COLOR_PINK
-#define ClrPlum                      GRAPHICS_COLOR_PLUM
-#define ClrPowderBlue                GRAPHICS_COLOR_POWDER_BLUE
-#define ClrPurple                    GRAPHICS_COLOR_PURPLE
-#define ClrRed                       GRAPHICS_COLOR_RED
-#define ClrRosyBrown                 GRAPHICS_COLOR_ROSY_BROWN
-#define ClrRoyalBlue                 GRAPHICS_COLOR_ROYAL_BLUE
-#define ClrSaddleBrown               GRAPHICS_COLOR_SADDLE_BROWN
-#define ClrSalmon                    GRAPHICS_COLOR_SALMON
-#define ClrSandyBrown                GRAPHICS_COLOR_SANDY_BROWN
-#define ClrSeaGreen                  GRAPHICS_COLOR_SEA_GREEN
-#define ClrSeashell                  GRAPHICS_COLOR_SEASHELL
-#define ClrSienna                    GRAPHICS_COLOR_SIENNA
-#define ClrSilver                    GRAPHICS_COLOR_SILVER
-#define ClrSkyBlue                   GRAPHICS_COLOR_SKY_BLUE
-#define ClrSlateBlue                 GRAPHICS_COLOR_SLATE_BLUE
-#define ClrSlateGray                 GRAPHICS_COLOR_SLATE_GRAY
-#define ClrSnow                      GRAPHICS_COLOR_SNOW
-#define ClrSpringGreen               GRAPHICS_COLOR_SPRING_GREEN
-#define ClrSteelBlue                 GRAPHICS_COLOR_STEEL_BLUE
-#define ClrTan                       GRAPHICS_COLOR_TAN
-#define ClrTeal                      GRAPHICS_COLOR_TEAL
-#define ClrThistle                   GRAPHICS_COLOR_THISTLE
-#define ClrTomato                    GRAPHICS_COLOR_TOMATO
-#define ClrTurquoise                 GRAPHICS_COLOR_TURQUOISE
-#define ClrViolet                    GRAPHICS_COLOR_VIOLET
-#define ClrWheat                     GRAPHICS_COLOR_WHEAT
-#define ClrWhite                     GRAPHICS_COLOR_WHITE
-#define ClrWhiteSmoke                GRAPHICS_COLOR_WHITE_SMOKE
-#define ClrYellow                    GRAPHICS_COLOR_YELLOW
-#define ClrYellowGreen               GRAPHICS_COLOR_YELLOW_GREEN
-#define ClrBlack                     GRAPHICS_COLOR_BLACK
 #define FONT_FMT_UNCOMPRESSED			GRAPHICS_FONT_FMT_UNCOMPRESSED
 #define FONT_FMT_PIXEL_RLE				GRAPHICS_FONT_FMT_PIXEL_RLE
 #define FONT_EX_MARKER					GRAPHICS_FONT_EX_MARKER
@@ -598,151 +459,65 @@ typedef struct Graphics_Context
 
 //*****************************************************************************
 //
-// A set of color definitions.  This set is the subset of the X11 colors (from
-// rgb.txt) that are supported by typical web browsers.
+// A set of color definitions in RGB 256 format.
 //
 //*****************************************************************************
-#define GRAPHICS_COLOR_ALICE_BLUE 				 0x00F0F8FF
-#define GRAPHICS_COLOR_ANTIQUE_WHITE			 0x00FAEBD7
-#define GRAPHICS_COLOR_AQUA						 0x0000FFFF
-#define GRAPHICS_COLOR_AQUAMARINE				 0x007FFFD4
-#define GRAPHICS_COLOR_AZURE					 0x00F0FFFF
-#define GRAPHICS_COLOR_BEIGE					 0x00F5F5DC
-#define GRAPHICS_COLOR_BISQUE					 0x00FFE4C4
-#define GRAPHICS_COLOR_BLACK					 0x00000000
-#define GRAPHICS_COLOR_BLANCHED_ALMOND			 0x00FFEBCD
-#define GRAPHICS_COLOR_BLUE						 0x000000FF
-#define GRAPHICS_COLOR_BLUE_VIOLET				 0x008A2BE2
-#define GRAPHICS_COLOR_BROWN					 0x00A52A2A
-#define GRAPHICS_COLOR_BURLY_WOOD				 0x00DEB887
-#define GRAPHICS_COLOR_CADET_BLUE				 0x005F9EA0
-#define GRAPHICS_COLOR_CHARTREUSE				 0x007FFF00
-#define GRAPHICS_COLOR_CHOCOLATE				 0x00D2691E
-#define GRAPHICS_COLOR_CORAL					 0x00FF7F50
-#define GRAPHICS_COLOR_CORNFLOWER_BLUE			 0x006495ED
-#define GRAPHICS_COLOR_CORNSILK					 0x00FFF8DC
-#define GRAPHICS_COLOR_CRIMSON					 0x00DC143C
-#define GRAPHICS_COLOR_CYAN						 0x0000FFFF
-#define GRAPHICS_COLOR_DARK_BLUE				 0x0000008B
-#define GRAPHICS_COLOR_DARK_CYAN				 0x00008B8B
-#define GRAPHICS_COLOR_DARK_GOLDENROD			 0x00B8860B
-#define GRAPHICS_COLOR_DARK_GRAY				 0x00A9A9A9
-#define GRAPHICS_COLOR_DARK_GREEN				 0x00006400
-#define GRAPHICS_COLOR_DARK_KHAKI				 0x00BDB76B
-#define GRAPHICS_COLOR_DARK_MAGENTA				 0x008B008B
-#define GRAPHICS_COLOR_DARK_OLIVE_GREEN			 0x00556B2F
-#define GRAPHICS_COLOR_DARK_ORANGE				 0x00FF8C00
-#define GRAPHICS_COLOR_DARK_ORCHID				 0x009932CC
-#define GRAPHICS_COLOR_DARK_RED					 0x008B0000
-#define GRAPHICS_COLOR_DARK_SALMON				 0x00E9967A
-#define GRAPHICS_COLOR_DARK_SEA_GREEN			 0x008FBC8F
-#define GRAPHICS_COLOR_DARK_SLATE_BLUE			 0x00483D8B
-#define GRAPHICS_COLOR_DARK_SLATE_GRAY			 0x002F4F4F
-#define GRAPHICS_COLOR_DARK_TURQUOISE			 0x0000CED1
-#define GRAPHICS_COLOR_DARK_VIOLET				 0x009400D3
-#define GRAPHICS_COLOR_DEEP_PINK				 0x00FF1493
-#define GRAPHICS_COLOR_DEEP_SKY_BLUE			 0x0000BFFF
-#define GRAPHICS_COLOR_DIM_GRAY					 0x00696969
-#define GRAPHICS_COLOR_DODGER_BLUE				 0x001E90FF
-#define GRAPHICS_COLOR_FIRE_BRICK				 0x00B22222
-#define GRAPHICS_COLOR_FLORAL_WHITE				 0x00FFFAF0
-#define GRAPHICS_COLOR_FOREST_GREEN				 0x00228B22
-#define GRAPHICS_COLOR_FUCHSIA					 0x00FF00FF
-#define GRAPHICS_COLOR_GAINSBORO				 0x00DCDCDC
-#define GRAPHICS_COLOR_GHOST_WHITE				 0x00F8F8FF
-#define GRAPHICS_COLOR_GOLD						 0x00FFD700
-#define GRAPHICS_COLOR_GOLDENRON				 0x00DAA520
-#define GRAPHICS_COLOR_GRAY						 0x00808080
-#define GRAPHICS_COLOR_GREEN					 0x00008000
-#define GRAPHICS_COLOR_GREEN_YELLOW				 0x00ADFF2F
-#define GRAPHICS_COLOR_HONEYDEW					 0x00F0FFF0
-#define GRAPHICS_COLOR_HOT_PINK					 0x00FF69B4
-#define GRAPHICS_COLOR_INDIAN_RED				 0x00CD5C5C
-#define GRAPHICS_COLOR_INDIGO					 0x004B0082
-#define GRAPHICS_COLOR_IVORY					 0x00FFFFF0
-#define GRAPHICS_COLOR_KHAKI					 0x00F0E68C
-#define GRAPHICS_COLOR_LAVENDER					 0x00E6E6FA
-#define GRAPHICS_COLOR_LAVENDER_BLUSH			 0x00FFF0F5
-#define GRAPHICS_COLOR_LAWN_GREEN				 0x007CFC00
-#define GRAPHICS_COLOR_LEMON_CHIFFON			 0x00FFFACD
-#define GRAPHICS_COLOR_LIGHT_BLUE				 0x00ADD8E6
-#define GRAPHICS_COLOR_LIGHT_CORAL				 0x00F08080
-#define GRAPHICS_COLOR_LIGHT_CYAN				 0x00E0FFFF
-#define GRAPHICS_COLOR_LIGHT_GOLDENRON_YELLOW	 0x00FAFAD2
-#define GRAPHICS_COLOR_LIGHT_GREEN				 0x0090EE90
-#define GRAPHICS_COLOR_LIGHT_GRAY				 0x00D3D3D3
-#define GRAPHICS_COLOR_LIGHT_PINK				 0x00FFB6C1
-#define GRAPHICS_COLOR_LIGHT_SALMON				 0x00FFA07A
-#define GRAPHICS_COLOR_LIGHT_SEA_GREEN			 0x0020B2AA
-#define GRAPHICS_COLOR_LIGHT_SKY_BLUE			 0x0087CEFA
-#define GRAPHICS_COLOR_LIGHT_SLATE_GRAY			 0x00778899
-#define GRAPHICS_COLOR_LIGHT_STEEL_BLUE			 0x00B0C4DE
-#define GRAPHICS_COLOR_LIGHT_YELLOW				 0x00FFFFE0
-#define GRAPHICS_COLOR_LIME						 0x0000FF00
-#define GRAPHICS_COLOR_LIME_GREEN				 0x0032CD32
-#define GRAPHICS_COLOR_LINEN					 0x00FAF0E6
-#define GRAPHICS_COLOR_MAGENTA					 0x00FF00FF
-#define GRAPHICS_COLOR_MAROON					 0x00800000
-#define GRAPHICS_COLOR_MEDIUM_AQUAMARINE		 0x0066CDAA
-#define GRAPHICS_COLOR_MEDIUM_BLUE				 0x000000CD
-#define GRAPHICS_COLOR_MEDIUM_ORCHID			 0x00BA55D3
-#define GRAPHICS_COLOR_MEDIUM_PURPLE			 0x009370DB
-#define GRAPHICS_COLOR_MEDIUM_SEA_GREEN			 0x003CB371
-#define GRAPHICS_COLOR_MEDIUM_SLATE_BLUE		 0x007B68EE
-#define GRAPHICS_COLOR_MEDIUM_SPRING_GREEN		 0x0000FA9A
-#define GRAPHICS_COLOR_MEDIUM_TURQUOISE			 0x0048D1CC
-#define GRAPHICS_COLOR_MEDIUM_VIOLET_RED		 0x00C71585
-#define GRAPHICS_COLOR_MIGNIGHT_BLUE			 0x00191970
-#define GRAPHICS_COLOR_MINT_CREAM				 0x00F5FFFA
-#define GRAPHICS_COLOR_MISTY_ROSE				 0x00FFE4E1
-#define GRAPHICS_COLOR_MOCCASIN					 0x00FFE4B5
-#define GRAPHICS_COLOR_NAVAJO_WHITE				 0x00FFDEAD
-#define GRAPHICS_COLOR_NAVY						 0x00000080
-#define GRAPHICS_COLOR_OLD_LACE					 0x00FDF5E6
-#define GRAPHICS_COLOR_OLIVE					 0x00808000
-#define GRAPHICS_COLOR_OLIVE_DRAB				 0x006B8E23
-#define GRAPHICS_COLOR_ORANGE					 0x00FFA500
-#define GRAPHICS_COLOR_ORANGE_RED				 0x00FF4500
-#define GRAPHICS_COLOR_ORCHID					 0x00DA70D6
-#define GRAPHICS_COLOR_PALE_GOLDENRON			 0x00EEE8AA
-#define GRAPHICS_COLOR_PALE_GREEN				 0x0098FB98
-#define GRAPHICS_COLOR_PALE_TURQUOISE			 0x00AFEEEE
-#define GRAPHICS_COLOR_PALE_VIOLET_RED			 0x00DB7093
-#define GRAPHICS_COLOR_PAPAYA_WHIP				 0x00FFEFD5
-#define GRAPHICS_COLOR_PEACH_PUFF				 0x00FFDAB9
-#define GRAPHICS_COLOR_PERU						 0x00CD853F
-#define GRAPHICS_COLOR_PINK						 0x00FFC0CB
-#define GRAPHICS_COLOR_PLUM						 0x00DDA0DD
-#define GRAPHICS_COLOR_POWDER_BLUE				 0x00B0E0E6
-#define GRAPHICS_COLOR_PURPLE					 0x00800080
-#define GRAPHICS_COLOR_RED						 0x00FF0000
-#define GRAPHICS_COLOR_ROSY_BROWN				 0x00BC8F8F
-#define GRAPHICS_COLOR_ROYAL_BLUE				 0x004169E1
-#define GRAPHICS_COLOR_SADDLE_BROWN				 0x008B4513
-#define GRAPHICS_COLOR_SALMON					 0x00FA8072
-#define GRAPHICS_COLOR_SANDY_BROWN				 0x00F4A460
-#define GRAPHICS_COLOR_SEA_GREEN				 0x002E8B57
-#define GRAPHICS_COLOR_SEASHELL					 0x00FFF5EE
-#define GRAPHICS_COLOR_SIENNA					 0x00A0522D
-#define GRAPHICS_COLOR_SILVER					 0x00C0C0C0
-#define GRAPHICS_COLOR_SKY_BLUE					 0x0087CEEB
-#define GRAPHICS_COLOR_SLATE_BLUE				 0x006A5ACD
-#define GRAPHICS_COLOR_SLATE_GRAY				 0x00708090
-#define GRAPHICS_COLOR_SNOW						 0x00FFFAFA
-#define GRAPHICS_COLOR_SPRING_GREEN				 0x0000FF7F
-#define GRAPHICS_COLOR_STEEL_BLUE				 0x004682B4
-#define GRAPHICS_COLOR_TAN						 0x00D2B48C
-#define GRAPHICS_COLOR_TEAL						 0x00008080
-#define GRAPHICS_COLOR_THISTLE					 0x00D8BFD8
-#define GRAPHICS_COLOR_TOMATO					 0x00FF6347
-#define GRAPHICS_COLOR_TURQUOISE				 0x0040E0D0
-#define GRAPHICS_COLOR_VIOLET					 0x00EE82EE
-#define GRAPHICS_COLOR_WHEAT					 0x00F5DEB3
-#define GRAPHICS_COLOR_WHITE					 0x00FFFFFF
-#define GRAPHICS_COLOR_WHITE_SMOKE				 0x00F5F5F5
-#define GRAPHICS_COLOR_YELLOW					 0x00FFFF00
-#define GRAPHICS_COLOR_YELLOW_GREEN				 0x009ACD32
-#define GRAPHICS_COLOR_BLACK					 0x00000000
+// Primary & System Colors
+#define COLOR_BLACK           0x0000
+#define COLOR_WHITE           0xFFFF
+#define COLOR_RED             0xF800
+#define COLOR_GREEN           0x07E0
+#define COLOR_BLUE            0x001F
+
+// Common UI & Secondary Colors
+#define COLOR_YELLOW          0xFFE0
+#define COLOR_CYAN            0x07FF
+#define COLOR_MAGENTA         0xF81F
+#define COLOR_ORANGE          0xFD20
+#define COLOR_PINK            0xFE19
+
+// Grayscale Spectrum
+#define COLOR_LIGHT_GRAY      0xC618
+#define COLOR_SILVER          0xC618
+#define COLOR_GRAY            0x8410
+#define COLOR_DARK_GRAY       0x4208
+#define COLOR_CHARCOAL        0x3229
+
+// Deep & Earthy Tones
+#define COLOR_NAVY            0x0010
+#define COLOR_MAROON          0x8000
+#define COLOR_PURPLE          0x8010
+#define COLOR_DARK_PURPLE     0x4008
+#define COLOR_BROWN           0x9240
+#define COLOR_OLIVE           0x8400
+
+// Vibrant Accent Colors
+#define COLOR_LIME            0x07E0
+#define COLOR_TEAL            0x0410
+#define COLOR_GOLD            0xFEA0
+#define COLOR_VIOLET          0xEC1D
+#define COLOR_INDIGO          0x4810
+#define COLOR_TURQUOISE       0x471A
+#define COLOR_CORAL           0xFBEA
+#define COLOR_CRIMSON         0xD8A7
+#define COLOR_KHAKI           0xF731
+#define COLOR_PLUM            0xDD1B
+#define COLOR_SKY_BLUE        0x867D
+#define COLOR_MINT            0x9FD3
+
+// Official Tetris Tetromino Colors (RGB565)
+#define COLOR_TETRIS_I_CYAN    0x07FF  // Cyan (I-Piece)
+#define COLOR_TETRIS_O_YELLOW  0xFFE0  // Yellow (O-Piece)
+#define COLOR_TETRIS_T_PURPLE  0x8010  // Purple (T-Piece)
+#define COLOR_TETRIS_S_GREEN   0x07E0  // Green (S-Piece)
+#define COLOR_TETRIS_Z_RED     0xF800  // Red (Z-Piece)
+#define COLOR_TETRIS_J_BLUE    0x001F  // Blue (J-Piece)
+#define COLOR_TETRIS_L_ORANGE  0xFD20  // Orange (L-Piece)
+
+// Additional Gameplay UI Colors
+#define COLOR_TETRIS_GHOST     0x4208  // Dark Gray for piece projection shadow
+#define COLOR_TETRIS_GRID      0x2104  // Very dim gray for background grid lines
+
 
 //*****************************************************************************
 //
@@ -986,10 +761,10 @@ extern void Graphics_drawRectangle(const Graphics_Context *context,
 		const Graphics_Rectangle *rect);
 extern void Graphics_fillRectangle(const Graphics_Context *context,
 		const Graphics_Rectangle *rect);
-extern void Graphics_drawString(const Graphics_Context *context, int8_t *string,
+extern void Graphics_drawString(const Graphics_Context *context, int16_t *string,
        int32_t  lLength, int32_t  x, int32_t  y, bool  opaque);
 extern int32_t  Graphics_getStringWidth(const Graphics_Context *context,
-		const int8_t *string, int32_t  lLength);
+		const int16_t *string, int32_t  lLength);
 extern int32_t  Graphics_isOverlappingRectangle(Graphics_Rectangle *psRect1,
 		Graphics_Rectangle *psRect2);
 extern int32_t  Graphics_getRectangleIntersection(Graphics_Rectangle *psRect1,
@@ -1000,13 +775,13 @@ extern uint16_t Graphics_getDisplayWidth(Graphics_Context *context);
 extern uint16_t Graphics_getDisplayHeight(Graphics_Context *context);
 extern void Graphics_setFont(Graphics_Context *context,
 		const Graphics_Font *font);
-extern uint8_t Graphics_getFontBaseline(const Graphics_Font *font);
+extern uint16_t Graphics_getFontBaseline(const Graphics_Font *font);
 extern void Graphics_setForegroundColor(Graphics_Context *context,
 		int32_t value);
 extern void Graphics_setForegroundColorTranslated(Graphics_Context *context,
 		int32_t value);
-extern uint8_t Graphics_getFontHeight(const Graphics_Font *font);
-extern uint8_t Graphics_getFontMaxWidth(const Graphics_Font *font);
+extern uint16_t Graphics_getFontHeight(const Graphics_Font *font);
+extern uint16_t Graphics_getFontMaxWidth(const Graphics_Font *font);
 extern uint16_t Graphics_getImageColors(const Graphics_Image *image);
 extern uint16_t Graphics_getImageHeight(const Graphics_Image *image);
 extern uint16_t Graphics_getImageWidth(const Graphics_Image *image);
@@ -1016,11 +791,11 @@ extern uint32_t Graphics_getOffscreen4BppImageSize(uint16_t width,
 		uint16_t height);
 extern uint32_t Graphics_getOffScreen8BPPSize(uint16_t width, uint16_t height);
 extern void  Graphics_drawStringCentered(const Graphics_Context *context,
-		int8_t *string, int32_t  length, int32_t  x, int32_t  y,
+		int16_t *string, int32_t  length, int32_t  x, int32_t  y,
 		bool  opaque);
-extern uint8_t Graphics_getStringHeight(const Graphics_Context *context);
-extern uint8_t Graphics_getStringMaxWidth(const Graphics_Context *context);
-extern uint8_t Graphics_getStringBaseline(const Graphics_Context *context);
+extern uint16_t Graphics_getStringHeight(const Graphics_Context *context);
+extern uint16_t Graphics_getStringMaxWidth(const Graphics_Context *context);
+extern uint16_t Graphics_getStringBaseline(const Graphics_Context *context);
 extern uint32_t Graphics_translateColorOnDisplay(const Graphics_Display *display,
 		uint32_t value);
 extern void Graphics_drawHorizontalLineOnDisplay(
@@ -1045,16 +820,16 @@ extern void Graphics_clearDisplayOnDisplay(const Graphics_Display *display,
 		uint16_t value);
 extern void Graphics_drawMultiplePixelsOnDisplay(
 		const Graphics_Display *display, uint16_t x, uint16_t y, uint16_t x0,
-		uint16_t  count, uint16_t bPP, const uint8_t *data,
+		uint16_t  count, uint16_t bPP, const uint16_t *data,
 		const uint32_t *pucPalette);
 extern void Graphics_initOffscreen1BppImage(Graphics_Display *display,
-        uint8_t *image, int32_t width, int32_t height);
+        uint16_t *image, int32_t width, int32_t height);
 extern void Graphics_initOffscreen4BppImage(Graphics_Display *display,
-        uint8_t *image, int32_t width, int32_t height);
+        uint16_t *image, int32_t width, int32_t height);
 extern void Graphics_setOffscreen4BppPalette(Graphics_Display *display,
         uint32_t *ppalette, uint32_t offset, uint32_t count);
 extern void Graphics_initOffscreen8BppImage(Graphics_Display *display,
-        uint8_t *image, int32_t width, int32_t height);
+        uint16_t *image, int32_t width, int32_t height);
 extern void Graphics_setOffscreen8BppPalette(Graphics_Display *display,
         uint32_t *ppalette, uint32_t offset, uint32_t count);
 

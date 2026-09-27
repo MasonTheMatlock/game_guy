@@ -356,7 +356,7 @@ Kitronix320x240x16_SSD2119PixelDrawMultiple(void *pvDisplayData,
                                             int16_t X0,
                                             int16_t Count,
                                             int16_t BPP,
-                                            const uint8_t *puint8Data,
+                                            const uint16_t *puint16Data,
                                             const uint32_t *pucPalette)
 {
     uint16_t Data;
@@ -384,7 +384,7 @@ Kitronix320x240x16_SSD2119PixelDrawMultiple(void *pvDisplayData,
         while(Count > 0)
         {
             // Get the next byte of image data
-            Data = *puint8Data++;
+            Data = *puint16Data++;
 
             // Loop through the pixels in this byte of image data
             for(; (X0 < 8) && Count; X0++, Count--)
@@ -420,7 +420,7 @@ Kitronix320x240x16_SSD2119PixelDrawMultiple(void *pvDisplayData,
             {
                 // Get the upper nibble of the next byte of pixel data
                 // and extract the corresponding entry from the palette
-                Data = (*puint8Data >> 4);
+                Data = (*puint16Data >> 4);
                 Data = (*(uint16_t *)(pucPalette + Data));
                 // Write to LCD screen
                 HAL_LCD_writeData(Data);
@@ -435,7 +435,7 @@ Kitronix320x240x16_SSD2119PixelDrawMultiple(void *pvDisplayData,
                     // Get the lower nibble of the next byte of pixel
                     // data and extract the corresponding entry from
                     // the palette
-                    Data = (*puint8Data++ & 15);
+                    Data = (*puint16Data++ & 15);
                     Data = (*(uint16_t *)(pucPalette + Data));
                     // Write to LCD screen
                     HAL_LCD_writeData(Data);
@@ -458,7 +458,7 @@ Kitronix320x240x16_SSD2119PixelDrawMultiple(void *pvDisplayData,
         {
             // Get the next byte of pixel data and extract the
             // corresponding entry from the palette
-            Data = *puint8Data++;
+            Data = *puint16Data++;
             Data = (*(uint16_t *)(pucPalette + Data));
             // Write to LCD screen
             HAL_LCD_writeData(Data);
@@ -483,8 +483,8 @@ Kitronix320x240x16_SSD2119PixelDrawMultiple(void *pvDisplayData,
         {
             // Get the next byte of pixel data and extract the
             // corresponding entry from the palette
-            usData = *((uint16_t *)puint8Data);
-            puint8Data += 2;
+            usData = *((uint16_t *)puint16Data);
+            puint16Data += 2;
 
             // Translate this palette entry and write it to the screen
             HAL_LCD_writeData(usData);
