@@ -6,21 +6,45 @@ SHELL = cmd.exe
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
-../grlib/rectangle.c 
+../grlib/context.c \
+../grlib/display.c \
+../grlib/line.c \
+../grlib/rectangle.c \
+../grlib/string.c 
 
 C_DEPS += \
-./grlib/rectangle.d 
+./grlib/context.d \
+./grlib/display.d \
+./grlib/line.d \
+./grlib/rectangle.d \
+./grlib/string.d 
 
 OBJS += \
-./grlib/rectangle.obj 
+./grlib/context.obj \
+./grlib/display.obj \
+./grlib/line.obj \
+./grlib/rectangle.obj \
+./grlib/string.obj 
 
 OBJS__QUOTED += \
-"grlib\rectangle.obj" 
+"grlib\context.obj" \
+"grlib\display.obj" \
+"grlib\line.obj" \
+"grlib\rectangle.obj" \
+"grlib\string.obj" 
 
 C_DEPS__QUOTED += \
-"grlib\rectangle.d" 
+"grlib\context.d" \
+"grlib\display.d" \
+"grlib\line.d" \
+"grlib\rectangle.d" \
+"grlib\string.d" 
 
 C_SRCS__QUOTED += \
-"../grlib/rectangle.c" 
+"../grlib/context.c" \
+"../grlib/display.c" \
+"../grlib/line.c" \
+"../grlib/rectangle.c" \
+"../grlib/string.c" 
 
 

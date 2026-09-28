@@ -108,5 +108,6 @@ SUBDIRS := \
 . \
 board_support \
 grlib \
+grlib/fonts \
 hal \
 

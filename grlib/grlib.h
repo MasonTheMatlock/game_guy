@@ -459,64 +459,64 @@ typedef struct Graphics_Context
 
 //*****************************************************************************
 //
-// A set of color definitions in RGB 256 format.
+// Corrected TI grlib Color Definitions (24-bit 0x00RRGGBB Format)
 //
 //*****************************************************************************
 // Primary & System Colors
-#define COLOR_BLACK           0x0000
-#define COLOR_WHITE           0xFFFF
-#define COLOR_RED             0xF800
-#define COLOR_GREEN           0x07E0
-#define COLOR_BLUE            0x001F
+#define COLOR_BLACK           0x00000000
+#define COLOR_WHITE           0x00FFFFFF
+#define COLOR_RED             0x00FF0000  // This will now render RED
+#define COLOR_GREEN           0x0000FF00
+#define COLOR_BLUE            0x000000FF
 
 // Common UI & Secondary Colors
-#define COLOR_YELLOW          0xFFE0
-#define COLOR_CYAN            0x07FF
-#define COLOR_MAGENTA         0xF81F
-#define COLOR_ORANGE          0xFD20
-#define COLOR_PINK            0xFE19
+#define COLOR_YELLOW          0x00FFFF00
+#define COLOR_CYAN            0x0000FFFF
+#define COLOR_MAGENTA         0x00FF00FF
+#define COLOR_ORANGE          0x00FFA500
+#define COLOR_PINK            0x00FFC0CB
 
 // Grayscale Spectrum
-#define COLOR_LIGHT_GRAY      0xC618
-#define COLOR_SILVER          0xC618
-#define COLOR_GRAY            0x8410
-#define COLOR_DARK_GRAY       0x4208
-#define COLOR_CHARCOAL        0x3229
+#define COLOR_LIGHT_GRAY      0x00D3D3D3
+#define COLOR_SILVER          0x00C0C0C0
+#define COLOR_GRAY            0x00808080
+#define COLOR_DARK_GRAY       0x00404040
+#define COLOR_CHARCOAL        0x0036454F
 
 // Deep & Earthy Tones
-#define COLOR_NAVY            0x0010
-#define COLOR_MAROON          0x8000
-#define COLOR_PURPLE          0x8010
-#define COLOR_DARK_PURPLE     0x4008
-#define COLOR_BROWN           0x9240
-#define COLOR_OLIVE           0x8400
+#define COLOR_NAVY            0x00000080
+#define COLOR_MAROON          0x00800000
+#define COLOR_PURPLE          0x00800080
+#define COLOR_DARK_PURPLE     0x004B0082
+#define COLOR_BROWN           0x00A52A2A
+#define COLOR_OLIVE           0x00808000
 
 // Vibrant Accent Colors
-#define COLOR_LIME            0x07E0
-#define COLOR_TEAL            0x0410
-#define COLOR_GOLD            0xFEA0
-#define COLOR_VIOLET          0xEC1D
-#define COLOR_INDIGO          0x4810
-#define COLOR_TURQUOISE       0x471A
-#define COLOR_CORAL           0xFBEA
-#define COLOR_CRIMSON         0xD8A7
-#define COLOR_KHAKI           0xF731
-#define COLOR_PLUM            0xDD1B
-#define COLOR_SKY_BLUE        0x867D
-#define COLOR_MINT            0x9FD3
+#define COLOR_LIME            0x0000FF00
+#define COLOR_TEAL            0x00008080
+#define COLOR_GOLD            0x00FFD700
+#define COLOR_VIOLET          0x00EE82EE
+#define COLOR_INDIGO          0x004B0082
+#define COLOR_TURQUOISE       0x0040E0D0
+#define COLOR_CORAL           0x00FF7F50
+#define COLOR_CRIMSON         0x00DC143C
+#define COLOR_KHAKI           0x00F0E68C
+#define COLOR_PLUM            0x00DDA0DD
+#define COLOR_SKY_BLUE        0x0087CEEB
+#define COLOR_MINT            0x0098FF98
 
-// Official Tetris Tetromino Colors (RGB565)
-#define COLOR_TETRIS_I_CYAN    0x07FF  // Cyan (I-Piece)
-#define COLOR_TETRIS_O_YELLOW  0xFFE0  // Yellow (O-Piece)
-#define COLOR_TETRIS_T_PURPLE  0x8010  // Purple (T-Piece)
-#define COLOR_TETRIS_S_GREEN   0x07E0  // Green (S-Piece)
-#define COLOR_TETRIS_Z_RED     0xF800  // Red (Z-Piece)
-#define COLOR_TETRIS_J_BLUE    0x001F  // Blue (J-Piece)
-#define COLOR_TETRIS_L_ORANGE  0xFD20  // Orange (L-Piece)
+// Official Tetris Tetromino Colors (TI grlib 24-bit)
+#define COLOR_TETRIS_I_CYAN    0x0000FFFF  // Cyan (I-Piece)
+#define COLOR_TETRIS_O_YELLOW  0x00FFFF00  // Yellow (O-Piece)
+#define COLOR_TETRIS_T_PURPLE  0x00800080  // Purple (T-Piece)
+#define COLOR_TETRIS_S_GREEN   0x0000FF00  // Green (S-Piece)
+#define COLOR_TETRIS_Z_RED     0x00FF0000  // Red (Z-Piece)
+#define COLOR_TETRIS_J_BLUE    0x000000FF  // Blue (J-Piece)
+#define COLOR_TETRIS_L_ORANGE  0x00FF7F00  // Orange (L-Piece)
 
 // Additional Gameplay UI Colors
-#define COLOR_TETRIS_GHOST     0x4208  // Dark Gray for piece projection shadow
-#define COLOR_TETRIS_GRID      0x2104  // Very dim gray for background grid lines
+#define COLOR_TETRIS_GHOST     0x00404040  // Dark Gray for piece shadow
+#define COLOR_TETRIS_GRID      0x00202020  // Very dim gray for background grid
 
 
 //*****************************************************************************

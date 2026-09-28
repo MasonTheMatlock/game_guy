@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Ex_4_1",
+            "name": "game_guy",
             "type": "ccs-debug",
             "request": "launch",
             "projectInfo": {
@@ -22,6 +22,15 @@
                     ]
                 }
             ]
+        },
+        {
+            "name": "Ex_4_1",
+            "type": "ccs-debug",
+            "request": "launch",
+            "projectInfo": {
+                "name": "Ex_4_1",
+                "resourceId": "/Ex_4_1"
+            }
         }
     ]
 }

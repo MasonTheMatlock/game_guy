@@ -1,6 +1,8 @@
 eclipse.preferences.version=1
 encoding//Debug/board_support/subdir_rules.mk=UTF-8
 encoding//Debug/board_support/subdir_vars.mk=UTF-8
+encoding//Debug/grlib/fonts/subdir_rules.mk=UTF-8
+encoding//Debug/grlib/fonts/subdir_vars.mk=UTF-8
 encoding//Debug/grlib/subdir_rules.mk=UTF-8
 encoding//Debug/grlib/subdir_vars.mk=UTF-8
 encoding//Debug/hal/subdir_rules.mk=UTF-8
@@ -12,6 +14,8 @@ encoding//Debug/subdir_rules.mk=UTF-8
 encoding//Debug/subdir_vars.mk=UTF-8
 encoding//Release/board_support/subdir_rules.mk=UTF-8
 encoding//Release/board_support/subdir_vars.mk=UTF-8
+encoding//Release/grlib/fonts/subdir_rules.mk=UTF-8
+encoding//Release/grlib/fonts/subdir_vars.mk=UTF-8
 encoding//Release/grlib/subdir_rules.mk=UTF-8
 encoding//Release/grlib/subdir_vars.mk=UTF-8
 encoding//Release/hal/subdir_rules.mk=UTF-8
