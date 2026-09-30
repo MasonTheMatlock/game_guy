@@ -37,7 +37,7 @@ hal/kitronix320x240x16_ssd2119_spi.obj: C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-
 hal/kitronix320x240x16_ssd2119_spi.obj: C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include/sys/_stdint.h
 hal/kitronix320x240x16_ssd2119_spi.obj: ../hal/HAL_F28069_KITRONIX320X240_SSD2119_SPI.h
 hal/kitronix320x240x16_ssd2119_spi.obj: ../hal/kitronix320x240x16_ssd2119_spi.h
-hal/kitronix320x240x16_ssd2119_spi.obj: C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/game_guy/grlib/grlib.h
+hal/kitronix320x240x16_ssd2119_spi.obj: C:/Users/Mason/TI/ccs\ elec\ 1520/game_guy/grlib/grlib.h
 hal/kitronix320x240x16_ssd2119_spi.obj: C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include/stdbool.h
 hal/kitronix320x240x16_ssd2119_spi.obj: C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include/assert.h
 
@@ -115,7 +115,7 @@ C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include/sys/_stdint.h:
 
 ../hal/kitronix320x240x16_ssd2119_spi.h:
 
-C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/game_guy/grlib/grlib.h:
+C:/Users/Mason/TI/ccs\ elec\ 1520/game_guy/grlib/grlib.h:
 
 C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include/stdbool.h:
 

@@ -32,9 +32,9 @@ main.obj: C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/common/include
 main.obj: C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/common/include/F2806x_Dma_defines.h
 main.obj: C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/common/include/F2806x_Cla_defines.h
 main.obj: C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/common/include/F2806x_DefaultISR.h
-main.obj: C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/game_guy/hal/HAL_F28069_KITRONIX320X240_SSD2119_SPI.h
-main.obj: C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/game_guy/hal/kitronix320x240x16_ssd2119_spi.h
-main.obj: C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/game_guy/grlib/grlib.h
+main.obj: C:/Users/Mason/TI/ccs\ elec\ 1520/game_guy/hal/HAL_F28069_KITRONIX320X240_SSD2119_SPI.h
+main.obj: C:/Users/Mason/TI/ccs\ elec\ 1520/game_guy/hal/kitronix320x240x16_ssd2119_spi.h
+main.obj: C:/Users/Mason/TI/ccs\ elec\ 1520/game_guy/grlib/grlib.h
 main.obj: C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include/stdint.h
 main.obj: C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include/_ti_config.h
 main.obj: C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include/linkage.h
@@ -116,11 +116,11 @@ C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/common/include/F2806x_Cl
 
 C:/ti/c2000/C2000Ware_26_01_00_00/device_support/f2806x/common/include/F2806x_DefaultISR.h:
 
-C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/game_guy/hal/HAL_F28069_KITRONIX320X240_SSD2119_SPI.h:
+C:/Users/Mason/TI/ccs\ elec\ 1520/game_guy/hal/HAL_F28069_KITRONIX320X240_SSD2119_SPI.h:
 
-C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/game_guy/hal/kitronix320x240x16_ssd2119_spi.h:
+C:/Users/Mason/TI/ccs\ elec\ 1520/game_guy/hal/kitronix320x240x16_ssd2119_spi.h:
 
-C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/game_guy/grlib/grlib.h:
+C:/Users/Mason/TI/ccs\ elec\ 1520/game_guy/grlib/grlib.h:
 
 C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include/stdint.h:
 

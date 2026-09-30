@@ -19,13 +19,6 @@
 Graphics_Context g_sContext;
 
 
-
-// Function Prototypes
-void Init_Joystick_ADC(void);
-void Init_Switch_GPIO(void);
-void Read_Joystick(uint16_t *x_val, uint16_t *y_val, uint16_t *sw_val);
-void Calibrate_Joystick(void);
-
 void main(void)
 {
 #ifdef _RELEASE
@@ -89,24 +82,24 @@ void main(void)
     // Main animation loop
     while(1)
     {
-        // 1. Read joystick hardware position and bank B switch vectors
+        // Read joystick hardware position and bank B switch vectors
         Read_Joystick(&raw_x, &raw_y, &raw_sw);
 
-        // 2. Compute motion step increments from analog deviations
+        // Compute motion from analog deviations
         if (raw_x < (center_x - JOY_DEADZONE)) {
             x1 -= 3; // Move Left
         } else if (raw_x > (center_x + JOY_DEADZONE)) {
             x1 += 3; // Move Right
         }
 
-        // Corrected Y-axis inversion mapping
+        // Corrected Y-axis inversion
         if (raw_y < (center_y - JOY_DEADZONE)) {
             y1 -= 3; // Move Up
         } else if (raw_y > (center_y + JOY_DEADZONE)) {
             y1 += 3; // Move Down
         }
 
-        // 3. Keep within physical constraint safety margins (Clears header board line)
+        // Clear header board line
         if (x1 < 0) x1 = 0;
         if (x1 > (LCD_HORIZONTAL_MAX - SQUARE_SIZE)) x1 = LCD_HORIZONTAL_MAX - SQUARE_SIZE;
         if (y1 < 35) y1 = 35;
@@ -118,26 +111,26 @@ void main(void)
         // 4. Perform visual screen updates if positioning OR button state modified
         if ((x1 != prev_x) || (y1 != prev_y))
         {
-            // Erase the old square trace frame with a black rectangle override
+            // Erase the old square trace frame with a black rectangle, override
             Graphics_setForegroundColor(&g_sContext, COLOR_BLACK);
             box.xMin = prev_x; box.xMax = prev_x + SQUARE_SIZE - 1;
             box.yMin = prev_y; box.yMax = prev_y + SQUARE_SIZE - 1;
             Graphics_fillRectangle(&g_sContext, &box);
 
-            // Draw new square positioning frame
+            // Draw new square position
             Graphics_setForegroundColor(&g_sContext, active_color);
             box.xMin = x1; box.xMax = x1 + SQUARE_SIZE - 1;
             box.yMin = y1; box.yMax = y1 + SQUARE_SIZE - 1;
             Graphics_fillRectangle(&g_sContext, &box);
 
-            // Update cached tracking states
+            // Update tracking states
             prev_x = x1;
             prev_y = y1;
             prev_sw = raw_sw;
         }
         else if (raw_sw != prev_sw)
         {
-            // Force color shift redraw immediately when holding button still
+            // Force redraw immediately when holding button
             Graphics_setForegroundColor(&g_sContext, active_color);
             box.xMin = x1; box.xMax = x1 + SQUARE_SIZE - 1;
             box.yMin = y1; box.yMax = y1 + SQUARE_SIZE - 1;

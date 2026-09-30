@@ -141,20 +141,20 @@ endif
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXE_OUTPUTS += \
-Ex_4_1.out 
+game_guy.out 
 
 EXE_OUTPUTS__QUOTED += \
-"Ex_4_1.out" 
+"game_guy.out" 
 
 
 # All Target
 all: $(OBJS) $(CMD_SRCS) $(GEN_CMDS)
-	@$(MAKE) --no-print-directory -Onone "Ex_4_1.out"
+	@$(MAKE) --no-print-directory -Onone "game_guy.out"
 
 # Tool invocations
-Ex_4_1.out: $(OBJS) $(CMD_SRCS) $(GEN_CMDS)
+game_guy.out: $(OBJS) $(CMD_SRCS) $(GEN_CMDS)
 	@echo 'C2000 Linker - building target: "$@"'
-	"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/bin/cl2000" -v28 -ml -mt --cla_support=cla0 --float_support=fpu32 --vcu_support=vcu0 --define=_DEBUG --undefine=_RELEASE -g --c99 --diag_warning=225 --diag_wrap=off --display_error_number --abi=coffabi --ramfunc=off -z -m"Ex_4_1.map" --heap_size=4 --stack_size=0x300 --warn_sections -i"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/lib" -i"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include" --reread_libs --diag_wrap=off --display_error_number --xml_link_info="Ex_4_1_linkInfo.xml" --rom_model -o "Ex_4_1.out" $(ORDERED_OBJS)
+	"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/bin/cl2000" -v28 -ml -mt --cla_support=cla0 --float_support=fpu32 --vcu_support=vcu0 --define=_DEBUG --undefine=_RELEASE -g --c99 --diag_warning=225 --diag_wrap=off --display_error_number --abi=coffabi --ramfunc=off -z -m"game_guy.map" --heap_size=4 --stack_size=0x300 --warn_sections -i"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/lib" -i"C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include" --reread_libs --diag_wrap=off --display_error_number --xml_link_info="game_guy_linkInfo.xml" --rom_model -o "game_guy.out" $(ORDERED_OBJS)
 	@echo 'Finished building target: "$@"'
 	@echo ' '
 
