@@ -8,6 +8,7 @@ SHELL = cmd.exe
 C_SRCS += \
 ../grlib/context.c \
 ../grlib/display.c \
+../grlib/fontcm20b.c \
 ../grlib/line.c \
 ../grlib/rectangle.c \
 ../grlib/string.c 
@@ -15,6 +16,7 @@ C_SRCS += \
 C_DEPS += \
 ./grlib/context.d \
 ./grlib/display.d \
+./grlib/fontcm20b.d \
 ./grlib/line.d \
 ./grlib/rectangle.d \
 ./grlib/string.d 
@@ -22,6 +24,7 @@ C_DEPS += \
 OBJS += \
 ./grlib/context.obj \
 ./grlib/display.obj \
+./grlib/fontcm20b.obj \
 ./grlib/line.obj \
 ./grlib/rectangle.obj \
 ./grlib/string.obj 
@@ -29,6 +32,7 @@ OBJS += \
 OBJS__QUOTED += \
 "grlib\context.obj" \
 "grlib\display.obj" \
+"grlib\fontcm20b.obj" \
 "grlib\line.obj" \
 "grlib\rectangle.obj" \
 "grlib\string.obj" 
@@ -36,6 +40,7 @@ OBJS__QUOTED += \
 C_DEPS__QUOTED += \
 "grlib\context.d" \
 "grlib\display.d" \
+"grlib\fontcm20b.d" \
 "grlib\line.d" \
 "grlib\rectangle.d" \
 "grlib\string.d" 
@@ -43,6 +48,7 @@ C_DEPS__QUOTED += \
 C_SRCS__QUOTED += \
 "../grlib/context.c" \
 "../grlib/display.c" \
+"../grlib/fontcm20b.c" \
 "../grlib/line.c" \
 "../grlib/rectangle.c" \
 "../grlib/string.c" 

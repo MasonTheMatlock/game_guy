@@ -1,10 +1,10 @@
 ******************************************************************************
              TMS320C2000 Linker PC v25.11.1                    
 ******************************************************************************
->> Linked Sun Sep 27 17:42:39 2026
+>> Linked Tue Sep 29 17:20:53 2026
 
 OUTPUT FILE NAME:   <Ex_4_1.out>
-ENTRY POINT SYMBOL: "_c_int00"  address: 003f49cc
+ENTRY POINT SYMBOL: "_c_int00"  address: 003f51fb
 
 
 MEMORY CONFIGURATION
@@ -20,7 +20,7 @@ PAGE 0:
   FLASHE                003e4000   00004000  00000000  00004000  RWIX
   FLASHD                003e8000   00004000  00000004  00003ffc  RWIX
   FLASHC                003ec000   00004000  00000000  00004000  RWIX
-  FLASHA                003f4000   00003f80  00000c32  0000334e  RWIX
+  FLASHA                003f4000   00003f80  00001db1  000021cf  RWIX
   CSM_RSVD              003f7f80   00000076  00000000  00000076  RWIX
   BEGIN                 003f7ff6   00000002  00000002  00000000  RWIX
   CSM_PWL_P0            003f7ff8   00000008  00000000  00000008  RWIX
@@ -87,7 +87,7 @@ PAGE 1:
   SPIB                  00007740   00000010  00000010  00000000  RWIX
   SCIB                  00007750   00000010  00000010  00000000  RWIX
   I2CA                  00007900   00000040  00000022  0000001e  RWIX
-  RAML5                 0000c000   00002000  00000022  00001fde  RWIX
+  RAML5                 0000c000   00002000  00000032  00001fce  RWIX
   RAML6                 0000e000   00002000  00000000  00002000  RWIX
   RAML7                 00010000   00002000  00000000  00002000  RWIX
   RAML8                 00012000   00002000  00000000  00002000  RWIX
@@ -102,11 +102,12 @@ SECTION ALLOCATION MAP
  output                                  attributes/
 section   page    origin      length       input sections
 --------  ----  ----------  ----------   ----------------
-.cinit     0    003f4c18    0000001a     
-                  003f4c18    0000000e     rts2800_fpu32.lib : exit.c.obj (.cinit)
-                  003f4c26    00000005                       : _lock.c.obj (.cinit:__lock)
-                  003f4c2b    00000005                       : _lock.c.obj (.cinit:__unlock)
-                  003f4c30    00000002     --HOLE-- [fill = 0]
+.cinit     0    003f5d90    00000022     
+                  003f5d90    0000000e     rts2800_fpu32.lib : exit.c.obj (.cinit)
+                  003f5d9e    00000008     main.obj (.cinit)
+                  003f5da6    00000005     rts2800_fpu32.lib : _lock.c.obj (.cinit:__lock)
+                  003f5dab    00000005                       : _lock.c.obj (.cinit:__unlock)
+                  003f5db0    00000002     --HOLE-- [fill = 0]
 
 .pinit     0    003f4000    00000000     UNINITIALIZED
 
@@ -114,24 +115,30 @@ section   page    origin      length       input sections
 *          0    003e8000    00000004     RUN ADDR = 00008000
                   003e8000    00000004     F2806x_usDelay.obj (.TI.ramfunc)
 
-.text      0    003f4000    00000b18     
+.text      0    003f4000    00001371     
                   003f4000    0000039b     F2806x_DefaultIsr.obj (.text:retain)
                   003f439b    00000307     kitronix320x240x16_ssd2119_spi.obj (.text)
-                  003f46a2    00000190     F2806x_SysCtrl.obj (.text)
-                  003f4832    000000fb     Ex_4_1.obj (.text)
-                  003f492d    0000009f     HAL_F28069_KITRONIX320X240_SSD2119_SPI.obj (.text)
-                  003f49cc    00000056     rts2800_fpu32.lib : boot28.asm.obj (.text)
-                  003f4a22    00000029                       : exit.c.obj (.text)
-                  003f4a4b    00000028     F2806x_PieCtrl.obj (.text)
-                  003f4a73    00000026     F2806x_PieVect.obj (.text)
-                  003f4a99    00000024     rts2800_fpu32.lib : cpy_tbl.c.obj (.text)
-                  003f4abd    00000020                       : memcpy.c.obj (.text)
-                  003f4add    00000015     F2806x_Gpio.obj (.text)
-                  003f4af2    00000012     rts2800_fpu32.lib : args_main.c.obj (.text)
-                  003f4b04    00000009                       : _lock.c.obj (.text)
-                  003f4b0d    00000008     F2806x_CodeStartBranch.obj (.text)
-                  003f4b15    00000002     rts2800_fpu32.lib : pre_init.c.obj (.text)
-                  003f4b17    00000001                       : startup.c.obj (.text)
+                  003f46a2    000002cc     string.obj (.text)
+                  003f496e    0000020a     line.obj (.text)
+                  003f4b78    000001b3     main.obj (.text)
+                  003f4d2b    00000190     F2806x_SysCtrl.obj (.text)
+                  003f4ebb    00000115     rectangle.obj (.text)
+                  003f4fd0    0000010a     context.obj (.text)
+                  003f50da    0000009f     HAL_F28069_KITRONIX320X240_SSD2119_SPI.obj (.text)
+                  003f5179    00000082     display.obj (.text)
+                  003f51fb    00000056     rts2800_fpu32.lib : boot28.asm.obj (.text)
+                  003f5251    0000002a                       : l_div28.asm.obj (.text)
+                  003f527b    00000029                       : exit.c.obj (.text)
+                  003f52a4    00000028     F2806x_PieCtrl.obj (.text)
+                  003f52cc    00000026     F2806x_PieVect.obj (.text)
+                  003f52f2    00000024     rts2800_fpu32.lib : cpy_tbl.c.obj (.text)
+                  003f5316    00000020                       : memcpy.c.obj (.text)
+                  003f5336    00000015     F2806x_Gpio.obj (.text)
+                  003f534b    00000012     rts2800_fpu32.lib : args_main.c.obj (.text)
+                  003f535d    00000009                       : _lock.c.obj (.text)
+                  003f5366    00000008     F2806x_CodeStartBranch.obj (.text)
+                  003f536e    00000002     rts2800_fpu32.lib : pre_init.c.obj (.text)
+                  003f5370    00000001                       : startup.c.obj (.text)
 
 codestart 
 *          0    003f7ff6    00000002     
@@ -140,14 +147,19 @@ codestart
 .stack     1    00000050    00000300     UNINITIALIZED
                   00000050    00000300     --HOLE--
 
-.ebss      1    0000c000    00000022     UNINITIALIZED
+.ebss      1    0000c000    00000032     UNINITIALIZED
                   0000c000    00000018     F2806x_CpuTimers.obj (.ebss)
-                  0000c018    00000006     rts2800_fpu32.lib : exit.c.obj (.ebss)
-                  0000c01e    00000002                       : _lock.c.obj (.ebss:__lock)
-                  0000c020    00000002                       : _lock.c.obj (.ebss:__unlock)
+                  0000c018    00000010     main.obj (.ebss)
+                  0000c028    00000006     rts2800_fpu32.lib : exit.c.obj (.ebss)
+                  0000c02e    00000002                       : _lock.c.obj (.ebss:__lock)
+                  0000c030    00000002                       : _lock.c.obj (.ebss:__unlock)
 
-.econst    0    003f4b18    00000100     
-                  003f4b18    00000100     F2806x_PieVect.obj (.econst:_PieVectTableInit)
+.econst    0    003f5372    00000a1e     
+                  003f5372    00000890     fontcmss20b.obj (.econst:_g_pucCmss20bData)
+                  003f5c02    00000100     F2806x_PieVect.obj (.econst:_PieVectTableInit)
+                  003f5d02    00000066     fontcmss20b.obj (.econst:_g_sFontCmss20b)
+                  003f5d68    00000016     kitronix320x240x16_ssd2119_spi.obj (.econst:_g_sKitronix320x240x16_SSD2119)
+                  003f5d7e    00000012     main.obj (.econst:.string)
 
 .reset     0    003fffc0    00000002     DSECT
                   003fffc0    00000002     rts2800_fpu32.lib : boot28.asm.obj (.reset)
@@ -387,11 +399,11 @@ MODULE SUMMARY
        Module                                       code   initialized data   uninitialized data
        ------                                       ----   ----------------   ------------------
     .\
-       Ex_4_1.obj                                   251    0                  0                 
+       main.obj                                     435    26                 16                
        F2806x_CodeStartBranch.obj                   10     0                  0                 
        F2806x_usDelay.obj                           8      0                  0                 
     +--+--------------------------------------------+------+------------------+--------------------+
-       Total:                                       269    0                  0                 
+       Total:                                       453    26                 16                
                                                                                                 
     .\board_support\
        F2806x_GlobalVariableDefs.obj                0      0                  3550              
@@ -404,15 +416,30 @@ MODULE SUMMARY
     +--+--------------------------------------------+------+------------------+--------------------+
        Total:                                       1422   256                3574              
                                                                                                 
+    .\grlib\
+       string.obj                                   716    0                  0                 
+       line.obj                                     522    0                  0                 
+       rectangle.obj                                277    0                  0                 
+       context.obj                                  266    0                  0                 
+       display.obj                                  130    0                  0                 
+    +--+--------------------------------------------+------+------------------+--------------------+
+       Total:                                       1911   0                  0                 
+                                                                                                
+    .\grlib\fonts\
+       fontcmss20b.obj                              0      2294               0                 
+    +--+--------------------------------------------+------+------------------+--------------------+
+       Total:                                       0      2294               0                 
+                                                                                                
     .\hal\
-       kitronix320x240x16_ssd2119_spi.obj           775    0                  0                 
+       kitronix320x240x16_ssd2119_spi.obj           775    22                 0                 
        HAL_F28069_KITRONIX320X240_SSD2119_SPI.obj   159    0                  0                 
     +--+--------------------------------------------+------+------------------+--------------------+
-       Total:                                       934    0                  0                 
+       Total:                                       934    22                 0                 
                                                                                                 
     C:\ti\ccs2101\ccs\tools\compiler\ti-cgt-c2000_25.11.1.LTS\lib\rts2800_fpu32.lib
        boot28.asm.obj                               86     0                  0                 
        exit.c.obj                                   41     14                 6                 
+       l_div28.asm.obj                              42     0                  0                 
        cpy_tbl.c.obj                                36     0                  0                 
        memcpy.c.obj                                 32     0                  0                 
        _lock.c.obj                                  9      10                 4                 
@@ -420,11 +447,11 @@ MODULE SUMMARY
        pre_init.c.obj                               2      0                  0                 
        startup.c.obj                                1      0                  0                 
     +--+--------------------------------------------+------+------------------+--------------------+
-       Total:                                       225    24                 10                
+       Total:                                       267    24                 10                
                                                                                                 
        Stack:                                       0      0                  768               
     +--+--------------------------------------------+------+------------------+--------------------+
-       Grand Total:                                 2850   280                4352              
+       Grand Total:                                 4987   2622               4368              
 
 
 GLOBAL DATA SYMBOLS: SORTED BY DATA PAGE
@@ -531,15 +558,22 @@ address     data page           name
 0000c000     300 (0000c000)     _CpuTimer0
 0000c008     300 (0000c000)     _CpuTimer1
 0000c010     300 (0000c000)     _CpuTimer2
-0000c018     300 (0000c000)     ___TI_enable_exit_profile_output
-0000c01a     300 (0000c000)     ___TI_cleanup_ptr
-0000c01c     300 (0000c000)     ___TI_dtors_ptr
-0000c01e     300 (0000c000)     __lock
-0000c020     300 (0000c000)     __unlock
+0000c018     300 (0000c000)     _center_x
+0000c019     300 (0000c000)     _center_y
+0000c01a     300 (0000c000)     _g_sContext
+0000c028     300 (0000c000)     ___TI_enable_exit_profile_output
+0000c02a     300 (0000c000)     ___TI_cleanup_ptr
+0000c02c     300 (0000c000)     ___TI_dtors_ptr
+0000c02e     300 (0000c000)     __lock
+0000c030     300 (0000c000)     __unlock
 
 003d7e80    f5fa (003d7e80)     _PartIdRegs
 
-003f4b18    fd2c (003f4b00)     _PieVectTableInit
+003f5c02    fd70 (003f5c00)     _PieVectTableInit
+
+003f5d02    fd74 (003f5d00)     _g_sFontCmss20b
+
+003f5d68    fd75 (003f5d40)     _g_sKitronix320x240x16_SSD2119
 
 003f7ff8    fdff (003f7fc0)     _CsmPwl
 
@@ -549,7 +583,11 @@ GLOBAL SYMBOLS: SORTED ALPHABETICALLY BY Name
 page  address   name                                     
 ----  -------   ----                                     
 0     003f4000  .text                                    
-0     003f4a22  C$$EXIT                                  
+0     003f527b  C$$EXIT                                  
+0     003f5251  L$$DIV                                   
+0     003f5260  L$$MOD                                   
+0     003f526e  UL$$DIV                                  
+0     003f5275  UL$$MOD                                  
 0     003f40be  _ADCINT1_ISR                             
 0     003f40c8  _ADCINT2_ISR                             
 0     003f42d0  _ADCINT3_ISR                             
@@ -569,6 +607,7 @@ page  address   name
 0     003f433e  _CLA1_INT6_ISR                           
 0     003f4348  _CLA1_INT7_ISR                           
 0     003f4352  _CLA1_INT8_ISR                           
+0     003f4cf6  _Calibrate_Joystick                      
 1     00001400  _Cla1Regs                                
 1     00006400  _Comp1Regs                               
 1     00006420  _Comp2Regs                               
@@ -581,7 +620,7 @@ page  address   name
 1     00000c10  _CpuTimer2Regs                           
 1     003f7ff8  _CsmPwl                                  
 1     00000ae0  _CsmRegs                                 
-0     003f47a6  _CsmUnlock                               
+0     003f4e2f  _CsmUnlock                               
 0     003f4014  _DATALOG_ISR                             
 0     003f4244  _DINTCH1_ISR                             
 0     003f424e  _DINTCH2_ISR                             
@@ -591,9 +630,8 @@ page  address   name
 0     003f4276  _DINTCH6_ISR                             
 0     00008000  _DSP28x_usDelay                          
 1     00000880  _DevEmuRegs                              
-0     003f46c6  _DisableDog                              
+0     003f4d4f  _DisableDog                              
 1     00001000  _DmaRegs                                 
-0     003f4832  _DrawFilledRectangle                     
 0     003f42bc  _ECAN0INTA_ISR                           
 0     003f42c6  _ECAN1INTA_ISR                           
 0     003f41a4  _ECAP1_INT_ISR                           
@@ -639,20 +677,59 @@ page  address   name
 1     00006b40  _EQep2Regs                               
 1     00000d01  _EmuBMode                                
 1     00000d00  _EmuKey                                  
-0     003f4a6a  _EnableInterrupts                        
-0     003f481c  _ExtOscSel                               
+0     003f52c3  _EnableInterrupts                        
+0     003f4ea5  _ExtOscSel                               
 1     00000a80  _FlashRegs                               
 1     00000d04  _Flash_CPUScaleFactor                    
 1     00000d02  _Flash_CallbackPtr                       
 1     00006f80  _GpioCtrlRegs                            
 1     00006fc0  _GpioDataRegs                            
 1     00006fe0  _GpioIntRegs                             
-0     003f49c6  _HAL_LCD_delay30ms                       
-0     003f49c1  _HAL_LCD_deselectLCD                     
-0     003f4987  _HAL_LCD_initLCD                         
-0     003f49bc  _HAL_LCD_selectLCD                       
-0     003f49a0  _HAL_LCD_writeCommand                    
-0     003f49b0  _HAL_LCD_writeData                       
+0     003f50ae  _Graphics_clearDisplay                   
+0     003f51ee  _Graphics_clearDisplayOnDisplay          
+0     003f51a0  _Graphics_drawHorizontalLineOnDisplay    
+0     003f4ac5  _Graphics_drawLine                       
+0     003f496e  _Graphics_drawLineH                      
+0     003f49a9  _Graphics_drawLineV                      
+0     003f5187  _Graphics_drawMultiplePixelsOnDisplay    
+0     003f50ba  _Graphics_drawPixel                      
+0     003f5179  _Graphics_drawPixelOnDisplay             
+0     003f4ebb  _Graphics_drawRectangle                  
+0     003f4729  _Graphics_drawString                     
+0     003f4937  _Graphics_drawStringCentered             
+0     003f51b4  _Graphics_drawVerticalLineOnDisplay      
+0     003f4f04  _Graphics_fillRectangle                  
+0     003f51c7  _Graphics_fillRectangleOnDisplay         
+0     003f50a7  _Graphics_flushBuffer                    
+0     003f51e3  _Graphics_flushOnDisplay                 
+0     003f509c  _Graphics_getDisplayHeight               
+0     003f5096  _Graphics_getDisplayWidth                
+0     003f506f  _Graphics_getFontBaseline                
+0     003f508c  _Graphics_getFontHeight                  
+0     003f5091  _Graphics_getFontMaxWidth                
+0     003f50a2  _Graphics_getHeightOfDisplay             
+0     003f4f6d  _Graphics_getRectangleIntersection       
+0     003f492e  _Graphics_getStringBaseline              
+0     003f495c  _Graphics_getStringHeight                
+0     003f4965  _Graphics_getStringMaxWidth              
+0     003f46c2  _Graphics_getStringWidth                 
+0     003f50d5  _Graphics_getWidthOfDisplay              
+0     003f4fd0  _Graphics_initContext                    
+0     003f4fb7  _Graphics_isPointWithinRectangle         
+0     003f4f51  _Graphics_isRectangleOverlap             
+0     003f5045  _Graphics_setBackgroundColor             
+0     003f5055  _Graphics_setBackgroundColorTranslated   
+0     003f4ff5  _Graphics_setClipRegion                  
+0     003f5061  _Graphics_setFont                        
+0     003f5074  _Graphics_setForegroundColor             
+0     003f5082  _Graphics_setForegroundColorTranslated   
+0     003f51d6  _Graphics_translateColorOnDisplay        
+0     003f5173  _HAL_LCD_delay30ms                       
+0     003f516e  _HAL_LCD_deselectLCD                     
+0     003f5134  _HAL_LCD_initLCD                         
+0     003f5169  _HAL_LCD_selectLCD                       
+0     003f514d  _HAL_LCD_writeCommand                    
+0     003f515d  _HAL_LCD_writeData                       
 0     003f41c2  _HRCAP1_INT_ISR                          
 0     003f41cc  _HRCAP2_INT_ISR                          
 0     003f41ea  _HRCAP3_INT_ISR                          
@@ -667,16 +744,18 @@ page  address   name
 0     003f403c  _ILLEGAL_ISR                             
 0     003f4000  _INT13_ISR                               
 0     003f400a  _INT14_ISR                               
-0     003f4add  _InitGpio                                
-0     003f4940  _InitLCDInterfaceSPI                     
-0     003f4750  _InitPeripheralClocks                    
-0     003f4a4b  _InitPieCtrl                             
-0     003f4a73  _InitPieVectTable                        
-0     003f46ce  _InitPll                                 
-0     003f4722  _InitPll2                                
-0     003f46a2  _InitSysCtrl                             
-0     003f47d7  _IntOsc1Sel                              
-0     003f47e7  _IntOsc2Sel                              
+0     003f5336  _InitGpio                                
+0     003f50ed  _InitLCDInterfaceSPI                     
+0     003f4dd9  _InitPeripheralClocks                    
+0     003f52a4  _InitPieCtrl                             
+0     003f52cc  _InitPieVectTable                        
+0     003f4d57  _InitPll                                 
+0     003f4dab  _InitPll2                                
+0     003f4d2b  _InitSysCtrl                             
+0     003f4c93  _Init_Joystick_ADC                       
+0     003f4ccc  _Init_Switch_GPIO                        
+0     003f4e60  _IntOsc1Sel                              
+0     003f4e70  _IntOsc2Sel                              
 0     003f439b  _Kitronix320x240x16_SSD2119Init          
 0     003f45a6  _Kitronix320x240x16_SSD2119LineDraw      
 0     003f447a  _Kitronix320x240x16_SSD2119_setCursorLtoR
@@ -692,12 +771,13 @@ page  address   name
 1     003d7e80  _PartIdRegs                              
 1     00000ce0  _PieCtrlRegs                             
 1     00000d00  _PieVectTable                            
-0     003f4b18  _PieVectTableInit                        
+0     003f5c02  _PieVectTableInit                        
 0     003f401e  _RTOSINT_ISR                             
 0     003e8004  _RamfuncsLoadEnd                         
 abs   00000004  _RamfuncsLoadSize                        
 0     003e8000  _RamfuncsLoadStart                       
 0     00008000  _RamfuncsRunStart                        
+0     003f4cda  _Read_Joystick                           
 0     003f4294  _SCIRXINTA_ISR                           
 0     003f42a8  _SCIRXINTB_ISR                           
 0     003f429e  _SCITXINTA_ISR                           
@@ -708,7 +788,7 @@ abs   00000004  _RamfuncsLoadSize
 0     003f4226  _SPITXINTB_ISR                           
 1     00007050  _SciaRegs                                
 1     00007750  _ScibRegs                                
-0     003f46bc  _ServiceDog                              
+0     003f4d45  _ServiceDog                              
 1     00007040  _SpiaRegs                                
 1     00007740  _SpibRegs                                
 1     00007010  _SysCtrlRegs                             
@@ -733,41 +813,46 @@ abs   00000004  _RamfuncsLoadSize
 0     003f40dc  _XINT2_ISR                               
 0     003f435c  _XINT3_ISR                               
 1     00007070  _XIntruptRegs                            
-0     003f4801  _XtalOscSel                              
+0     003f4e8a  _XtalOscSel                              
 1     00000350  __STACK_END                              
 abs   00000300  __STACK_SIZE                             
-1     0000c01a  ___TI_cleanup_ptr                        
-1     0000c01c  ___TI_dtors_ptr                          
-1     0000c018  ___TI_enable_exit_profile_output         
+1     0000c02a  ___TI_cleanup_ptr                        
+1     0000c02c  ___TI_dtors_ptr                          
+1     0000c028  ___TI_enable_exit_profile_output         
 abs   ffffffff  ___TI_pprof_out_hndl                     
 abs   ffffffff  ___TI_prof_data_size                     
 abs   ffffffff  ___TI_prof_data_start                    
 abs   ffffffff  ___binit__                               
 abs   ffffffff  ___c_args__                              
-0     003f4c18  ___cinit__                               
-0     003f4b18  ___etext__                               
+0     003f5d90  ___cinit__                               
+0     003f5371  ___etext__                               
 abs   ffffffff  ___pinit__                               
 0     003f4000  ___text__                                
-0     003f4af2  __args_main                              
-1     0000c01e  __lock                                   
-0     003f4b0c  __nop                                    
-0     003f4b08  __register_lock                          
-0     003f4b04  __register_unlock                        
+0     003f534b  __args_main                              
+1     0000c02e  __lock                                   
+0     003f5365  __nop                                    
+0     003f5361  __register_lock                          
+0     003f535d  __register_unlock                        
 1     00000050  __stack                                  
-0     003f4b17  __system_post_cinit                      
-0     003f4b15  __system_pre_init                        
-1     0000c020  __unlock                                 
-0     003f4a22  _abort                                   
-0     003f49cc  _c_int00                                 
-0     003f4a99  _copy_in                                 
-0     003f4a24  _exit                                    
-0     003f4876  _main                                    
-0     003f4abd  _memcpy                                  
+0     003f5370  __system_post_cinit                      
+0     003f536e  __system_pre_init                        
+1     0000c030  __unlock                                 
+0     003f527b  _abort                                   
+0     003f51fb  _c_int00                                 
+1     0000c018  _center_x                                
+1     0000c019  _center_y                                
+0     003f52f2  _copy_in                                 
+0     003f527d  _exit                                    
+1     0000c01a  _g_sContext                              
+0     003f5d02  _g_sFontCmss20b                          
+0     003f5d68  _g_sKitronix320x240x16_SSD2119           
+0     003f4b78  _main                                    
+0     003f5316  _memcpy                                  
 0     003f4391  _rsvd_ISR                                
 abs   ffffffff  binit                                    
-0     003f4c18  cinit                                    
+0     003f5d90  cinit                                    
 0     003f7ff6  code_start                               
-0     003f4b18  etext                                    
+0     003f5371  etext                                    
 abs   ffffffff  pinit                                    
 
 
@@ -877,47 +962,95 @@ page  address   name
 0     003f447a  _Kitronix320x240x16_SSD2119_setCursorLtoR
 0     003f4498  _Kitronix320x240x16_SSD2119_setCursorTtoB
 0     003f45a6  _Kitronix320x240x16_SSD2119LineDraw      
-0     003f46a2  _InitSysCtrl                             
-0     003f46bc  _ServiceDog                              
-0     003f46c6  _DisableDog                              
-0     003f46ce  _InitPll                                 
-0     003f4722  _InitPll2                                
-0     003f4750  _InitPeripheralClocks                    
-0     003f47a6  _CsmUnlock                               
-0     003f47d7  _IntOsc1Sel                              
-0     003f47e7  _IntOsc2Sel                              
-0     003f4801  _XtalOscSel                              
-0     003f481c  _ExtOscSel                               
-0     003f4832  _DrawFilledRectangle                     
-0     003f4876  _main                                    
-0     003f4940  _InitLCDInterfaceSPI                     
-0     003f4987  _HAL_LCD_initLCD                         
-0     003f49a0  _HAL_LCD_writeCommand                    
-0     003f49b0  _HAL_LCD_writeData                       
-0     003f49bc  _HAL_LCD_selectLCD                       
-0     003f49c1  _HAL_LCD_deselectLCD                     
-0     003f49c6  _HAL_LCD_delay30ms                       
-0     003f49cc  _c_int00                                 
-0     003f4a22  C$$EXIT                                  
-0     003f4a22  _abort                                   
-0     003f4a24  _exit                                    
-0     003f4a4b  _InitPieCtrl                             
-0     003f4a6a  _EnableInterrupts                        
-0     003f4a73  _InitPieVectTable                        
-0     003f4a99  _copy_in                                 
-0     003f4abd  _memcpy                                  
-0     003f4add  _InitGpio                                
-0     003f4af2  __args_main                              
-0     003f4b04  __register_unlock                        
-0     003f4b08  __register_lock                          
-0     003f4b0c  __nop                                    
-0     003f4b15  __system_pre_init                        
-0     003f4b17  __system_post_cinit                      
-0     003f4b18  _PieVectTableInit                        
-0     003f4b18  ___etext__                               
-0     003f4b18  etext                                    
-0     003f4c18  ___cinit__                               
-0     003f4c18  cinit                                    
+0     003f46c2  _Graphics_getStringWidth                 
+0     003f4729  _Graphics_drawString                     
+0     003f492e  _Graphics_getStringBaseline              
+0     003f4937  _Graphics_drawStringCentered             
+0     003f495c  _Graphics_getStringHeight                
+0     003f4965  _Graphics_getStringMaxWidth              
+0     003f496e  _Graphics_drawLineH                      
+0     003f49a9  _Graphics_drawLineV                      
+0     003f4ac5  _Graphics_drawLine                       
+0     003f4b78  _main                                    
+0     003f4c93  _Init_Joystick_ADC                       
+0     003f4ccc  _Init_Switch_GPIO                        
+0     003f4cda  _Read_Joystick                           
+0     003f4cf6  _Calibrate_Joystick                      
+0     003f4d2b  _InitSysCtrl                             
+0     003f4d45  _ServiceDog                              
+0     003f4d4f  _DisableDog                              
+0     003f4d57  _InitPll                                 
+0     003f4dab  _InitPll2                                
+0     003f4dd9  _InitPeripheralClocks                    
+0     003f4e2f  _CsmUnlock                               
+0     003f4e60  _IntOsc1Sel                              
+0     003f4e70  _IntOsc2Sel                              
+0     003f4e8a  _XtalOscSel                              
+0     003f4ea5  _ExtOscSel                               
+0     003f4ebb  _Graphics_drawRectangle                  
+0     003f4f04  _Graphics_fillRectangle                  
+0     003f4f51  _Graphics_isRectangleOverlap             
+0     003f4f6d  _Graphics_getRectangleIntersection       
+0     003f4fb7  _Graphics_isPointWithinRectangle         
+0     003f4fd0  _Graphics_initContext                    
+0     003f4ff5  _Graphics_setClipRegion                  
+0     003f5045  _Graphics_setBackgroundColor             
+0     003f5055  _Graphics_setBackgroundColorTranslated   
+0     003f5061  _Graphics_setFont                        
+0     003f506f  _Graphics_getFontBaseline                
+0     003f5074  _Graphics_setForegroundColor             
+0     003f5082  _Graphics_setForegroundColorTranslated   
+0     003f508c  _Graphics_getFontHeight                  
+0     003f5091  _Graphics_getFontMaxWidth                
+0     003f5096  _Graphics_getDisplayWidth                
+0     003f509c  _Graphics_getDisplayHeight               
+0     003f50a2  _Graphics_getHeightOfDisplay             
+0     003f50a7  _Graphics_flushBuffer                    
+0     003f50ae  _Graphics_clearDisplay                   
+0     003f50ba  _Graphics_drawPixel                      
+0     003f50d5  _Graphics_getWidthOfDisplay              
+0     003f50ed  _InitLCDInterfaceSPI                     
+0     003f5134  _HAL_LCD_initLCD                         
+0     003f514d  _HAL_LCD_writeCommand                    
+0     003f515d  _HAL_LCD_writeData                       
+0     003f5169  _HAL_LCD_selectLCD                       
+0     003f516e  _HAL_LCD_deselectLCD                     
+0     003f5173  _HAL_LCD_delay30ms                       
+0     003f5179  _Graphics_drawPixelOnDisplay             
+0     003f5187  _Graphics_drawMultiplePixelsOnDisplay    
+0     003f51a0  _Graphics_drawHorizontalLineOnDisplay    
+0     003f51b4  _Graphics_drawVerticalLineOnDisplay      
+0     003f51c7  _Graphics_fillRectangleOnDisplay         
+0     003f51d6  _Graphics_translateColorOnDisplay        
+0     003f51e3  _Graphics_flushOnDisplay                 
+0     003f51ee  _Graphics_clearDisplayOnDisplay          
+0     003f51fb  _c_int00                                 
+0     003f5251  L$$DIV                                   
+0     003f5260  L$$MOD                                   
+0     003f526e  UL$$DIV                                  
+0     003f5275  UL$$MOD                                  
+0     003f527b  C$$EXIT                                  
+0     003f527b  _abort                                   
+0     003f527d  _exit                                    
+0     003f52a4  _InitPieCtrl                             
+0     003f52c3  _EnableInterrupts                        
+0     003f52cc  _InitPieVectTable                        
+0     003f52f2  _copy_in                                 
+0     003f5316  _memcpy                                  
+0     003f5336  _InitGpio                                
+0     003f534b  __args_main                              
+0     003f535d  __register_unlock                        
+0     003f5361  __register_lock                          
+0     003f5365  __nop                                    
+0     003f536e  __system_pre_init                        
+0     003f5370  __system_post_cinit                      
+0     003f5371  ___etext__                               
+0     003f5371  etext                                    
+0     003f5c02  _PieVectTableInit                        
+0     003f5d02  _g_sFontCmss20b                          
+0     003f5d68  _g_sKitronix320x240x16_SSD2119           
+0     003f5d90  ___cinit__                               
+0     003f5d90  cinit                                    
 0     003f7ff6  code_start                               
 1     00000050  __stack                                  
 1     00000350  __STACK_END                              
@@ -979,11 +1112,14 @@ page  address   name
 1     0000c000  _CpuTimer0                               
 1     0000c008  _CpuTimer1                               
 1     0000c010  _CpuTimer2                               
-1     0000c018  ___TI_enable_exit_profile_output         
-1     0000c01a  ___TI_cleanup_ptr                        
-1     0000c01c  ___TI_dtors_ptr                          
-1     0000c01e  __lock                                   
-1     0000c020  __unlock                                 
+1     0000c018  _center_x                                
+1     0000c019  _center_y                                
+1     0000c01a  _g_sContext                              
+1     0000c028  ___TI_enable_exit_profile_output         
+1     0000c02a  ___TI_cleanup_ptr                        
+1     0000c02c  ___TI_dtors_ptr                          
+1     0000c02e  __lock                                   
+1     0000c030  __unlock                                 
 1     003d7e80  _PartIdRegs                              
 1     003f7ff8  _CsmPwl                                  
 abs   00000004  _RamfuncsLoadSize                        
@@ -997,4 +1133,4 @@ abs   ffffffff  ___pinit__
 abs   ffffffff  binit                                    
 abs   ffffffff  pinit                                    
 
-[221 symbols]
+[272 symbols]

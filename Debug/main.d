@@ -47,9 +47,10 @@ main.obj: C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include/mach
 main.obj: C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include/sys/_stdint.h
 main.obj: C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include/stdbool.h
 main.obj: C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include/assert.h
-main.obj: C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/game_guy/grlib/grlib.h
+main.obj: ../grlib/grlib.h
 main.obj: C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include/stdio.h
 main.obj: C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include/stdarg.h
+main.obj: ../drivers/drivers.h
 
 ../main.c:
 
@@ -145,9 +146,11 @@ C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include/stdbool.h:
 
 C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include/assert.h:
 
-C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/game_guy/grlib/grlib.h:
+../grlib/grlib.h:
 
 C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include/stdio.h:
 
 C:/ti/ccs2101/ccs/tools/compiler/ti-cgt-c2000_25.11.1.LTS/include/stdarg.h:
+
+../drivers/drivers.h:
 

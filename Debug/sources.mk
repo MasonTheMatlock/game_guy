@@ -107,7 +107,7 @@ S62_DEPS__QUOTED :=
 SUBDIRS := \
 . \
 board_support \
+drivers \
 grlib \
-grlib/fonts \
 hal \
 
