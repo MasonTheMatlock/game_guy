@@ -14,15 +14,15 @@ ASM_SRCS += \
 ../F2806x_usDelay.asm 
 
 C_SRCS += \
-../main.c.c 
+../main.c 
 
 C_DEPS += \
-./main.c.d 
+./main.d 
 
 OBJS += \
 ./F2806x_CodeStartBranch.obj \
 ./F2806x_usDelay.obj \
-./main.c.obj 
+./main.obj 
 
 ASM_DEPS += \
 ./F2806x_CodeStartBranch.d \
@@ -31,10 +31,10 @@ ASM_DEPS += \
 OBJS__QUOTED += \
 "F2806x_CodeStartBranch.obj" \
 "F2806x_usDelay.obj" \
-"main.c.obj" 
+"main.obj" 
 
 C_DEPS__QUOTED += \
-"main.c.d" 
+"main.d" 
 
 ASM_DEPS__QUOTED += \
 "F2806x_CodeStartBranch.d" \
@@ -45,6 +45,6 @@ ASM_SRCS__QUOTED += \
 "../F2806x_usDelay.asm" 
 
 C_SRCS__QUOTED += \
-"../main.c.c" 
+"../main.c" 
 
 
