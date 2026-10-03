@@ -1,6 +1,0 @@
-# FIXED
-
-F2806x_Gpio.obj: ../F2806x_Gpio.c
-
-../F2806x_Gpio.c:
-

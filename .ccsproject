@@ -14,7 +14,7 @@
 	<filesToOpen value=""/>
 	<isTargetManual value="false"/>
 	<connection value="common/targetdb/connections/TIXDS100v2_Connection.xml"/>
-	<activeTargetConfiguration value="targetConfigs/TMS320F28069.ccxml"/>
-	<isTargetConfigurationManual value="false"/>
+	<activeTargetConfiguration value="TMS320F28069.ccxml"/>
+	<isTargetConfigurationManual value="true"/>
 	<origin value="C:/Users/Mason/Downloads/Ex_4_1_260909/Rectangle_Test/Rectangle_Test/game_guy"/>
 </projectOptions>

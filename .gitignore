@@ -1,2 +1,8 @@
-./Debug
-./Release
+# CCS build output
+Debug/
+Release/
+*.obj
+*.out
+*.map
+*_linkInfo.xml
+*.json
