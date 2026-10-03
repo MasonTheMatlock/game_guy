@@ -259,7 +259,7 @@ typedef struct Graphics_Context
 #define GrLineDrawH							Graphics_drawLineH
 #define GrLineDrawV							Graphics_drawLineV
 #define GrRectDraw							Graphics_drawRectangle
-#define GrRectFill							Graphics_fillRectangle
+#define GrRectFill							Graphics_Graphics_FillRectangle
 #define GrStringDraw						Graphics_drawString
 #define GrStringWidthGet					Graphics_getStringWidth
 #define GrRectOverlapCheck					Graphics_isOverlappingRectangle
@@ -295,7 +295,7 @@ typedef struct Graphics_Context
 #define DpyLineDrawV						Graphics_drawVerticalLineOnDisplay
 #define DpyPixelDraw						Graphics_drawPixelOnDisplay
 #define DpyPixelDrawMultiple				Graphics_drawMultiplePixelsOnDisplay
-#define DpyRectFill							Graphics_fillRectangleOnDisplay
+#define DpyRectFill							Graphics_Graphics_FillRectangleOnDisplay
 #define DpyWidthGet							Graphics_getWidthOfDisplay
 #define GrRectContainsPoint					Graphics_isPointWithinRectangle
 
@@ -628,7 +628,7 @@ extern const Graphics_Font g_sFontCmss18;
 extern const Graphics_Font g_sFontCmss18b;
 extern const Graphics_Font g_sFontCmss18i;
 extern const Graphics_Font g_sFontCmss20;
-extern const Graphics_Font g_sFontCmss20b;
+extern const Graphics_Font g_sFontCm20b;
 extern const Graphics_Font g_sFontCmss20i;
 extern const Graphics_Font g_sFontCmss22;
 extern const Graphics_Font g_sFontCmss22b;
@@ -759,7 +759,7 @@ extern void Graphics_drawLineV(const Graphics_Context *context, int32_t  x,
 		int32_t  y1, int32_t  y2);
 extern void Graphics_drawRectangle(const Graphics_Context *context,
 		const Graphics_Rectangle *rect);
-extern void Graphics_fillRectangle(const Graphics_Context *context,
+extern void Graphics_Graphics_FillRectangle(const Graphics_Context *context,
 		const Graphics_Rectangle *rect);
 extern void Graphics_drawString(const Graphics_Context *context, int16_t *string,
        int32_t  lLength, int32_t  x, int32_t  y, bool  opaque);
@@ -803,7 +803,7 @@ extern void Graphics_drawHorizontalLineOnDisplay(
 		uint32_t value);
 extern void Graphics_drawVerticalLineOnDisplay(const Graphics_Display *display,
 		uint16_t x, uint16_t y1, uint16_t y2, uint16_t value);
-extern void Graphics_fillRectangleOnDisplay(const Graphics_Display *display,
+extern void Graphics_Graphics_FillRectangleOnDisplay(const Graphics_Display *display,
 		const Graphics_Rectangle *rect, uint16_t value);
 extern void Graphics_flushOnDisplay(const Graphics_Display *display);
 extern void Graphics_drawPixel(const Graphics_Context *context, uint16_t x,

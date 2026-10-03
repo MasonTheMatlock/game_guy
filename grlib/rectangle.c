@@ -124,7 +124,7 @@ void Graphics_drawRectangle(const Graphics_Context *context,
 //! \return None.
 //
 //*****************************************************************************
-void Graphics_fillRectangle(const Graphics_Context *context,
+void Graphics_Graphics_FillRectangle(const Graphics_Context *context,
 		const Graphics_Rectangle *rect)
 {
 	Graphics_Rectangle temp;
@@ -202,7 +202,7 @@ void Graphics_fillRectangle(const Graphics_Context *context,
     //
     // Call the low level rectangle fill routine.
     //
-    Graphics_fillRectangleOnDisplay(context->display, &temp,
+    Graphics_Graphics_FillRectangleOnDisplay(context->display, &temp,
     		context->foreground);
 }
 

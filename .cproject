@@ -106,7 +106,7 @@
                         </tool>
                     </fileInfo>
                     <sourceEntries>
-                        <entry excluding="F28069.cmd|grlib/fonts" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+                        <entry excluding="grlib/fontcm20b.c|F28069.cmd|grlib/fonts" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
                     </sourceEntries>
                 </configuration>
             </storageModule>

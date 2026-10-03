@@ -160,7 +160,7 @@ void Graphics_drawVerticalLineOnDisplay(const Graphics_Display *display,
 //! \return None.
 //
 //*****************************************************************************
-void Graphics_fillRectangleOnDisplay(const Graphics_Display *display,
+void Graphics_Graphics_FillRectangleOnDisplay(const Graphics_Display *display,
 		const Graphics_Rectangle *rect, uint16_t value)
 {
 	display->callRectFill(display->displayData, rect, value);

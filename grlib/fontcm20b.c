@@ -261,7 +261,7 @@ static const uint16_t g_pucCm20bData[2381] =
 // The font definition for the 20 point Cm bold font.
 //
 //*****************************************************************************
-const Graphics_Font g_sFontCm20b =
+const Graphics_Font g_sFontCmss20b =
 {
     //
     // The format of the font.
