@@ -18,7 +18,7 @@
 #define BTN_DEBOUNCE_MS   25
 #define LONG_PRESS_MS     1200
 
-// CPU timer 0 is used as a free-running clock (counts down at SYSCLK)
+
 #define TICKS_PER_MS      ((uint32_t)(1.0e6L / CPU_RATE))
 
 //*****************************************************************************

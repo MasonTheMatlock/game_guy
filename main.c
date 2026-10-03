@@ -31,20 +31,7 @@
 #include <math.h>
 #include "drivers/drivers.h"      // joystick + timer driver (joystick.c)
 
-//*****************************************************************************
-// Shared configuration
-//*****************************************************************************
-#define SCREEN_W          320
-#define SCREEN_H          240
 
-// Colors (0xRRGGBB)
-#define RGB_BLACK         0x000000
-#define RGB_WHITE         0xFFFFFF
-#define RGB_GRAY          0x606060
-
-//*****************************************************************************
-// Globals shared by everything
-//*****************************************************************************
 Graphics_Context g_sContext;
 
 static uint32_t g_seed = 987654321UL;
@@ -101,7 +88,7 @@ static const uint16_t g_shapes[7][4] =
 static const uint32_t g_colors[8] =
 {
     RGB_BLACK,
-    0x00FFFF,   // I  cyan
+    colo,   // I  cyan
     0x0000FF,   // J  blue
     0xFF8000,   // L  orange
     0xFFFF00,   // O  yellow
