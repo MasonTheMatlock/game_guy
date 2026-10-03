@@ -31,6 +31,15 @@
                 "name": "Ex_4_1",
                 "resourceId": "/Ex_4_1"
             }
+        },
+        {
+            "name": "game_guy (1)",
+            "type": "ccs-debug",
+            "request": "launch",
+            "projectInfo": {
+                "name": "game_guy",
+                "resourceId": "/game_guy"
+            }
         }
     ]
 }
