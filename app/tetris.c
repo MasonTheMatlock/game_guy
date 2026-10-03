@@ -103,8 +103,8 @@ static const uint32_t g_colors[8] =
 static const uint16_t g_lineScore[5] = { 0, 40, 100, 300, 1200 };
 
 // Gravity per level: the piece falls one row every N frames. Lower = faster.
-// You advance one level every 10 lines, capped at level 9.
-static const uint16_t g_gravityFrames[10] = { 30, 26, 22, 18, 15, 12, 10, 8, 6, 5 };
+// You advance one level every 10 lines, capped at level 20.
+static const uint16_t g_gravityFrames[20] = { 30, 26, 22, 18, 15, 12, 10, 8, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 1,};
 
 //*****************************************************************************
 // 2. GAME STATE
@@ -160,7 +160,7 @@ static int16_t NextFromBag(void)
 {
     int16_t i, j, t;
 
-    if(g_bagIdx >= 1)
+    if(g_bagIdx >= 7)
     {
         for(i = 0; i < 7; i++) g_bag[i] = i;
 
@@ -262,7 +262,7 @@ static int16_t ClearFullRows(void)
 }
 
 //*****************************************************************************
-// 4. DRAWING (no game rules in this section)
+// 4. DRAWING
 //*****************************************************************************
 
 // Draw one board cell with its top-left corner at pixel (px, py).
@@ -271,12 +271,26 @@ static int16_t ClearFullRows(void)
 // the full CELL size so that they also erase that gap.
 static void DrawCell(int16_t px, int16_t py, uint16_t colorIdx)
 {
+     if (colorIdx == 0)
+    {
+
+        Graphics_FillRect(px, py, px + CELL - 1, py + CELL - 1, COLOR_BLACK);
+        
+        Graphics_setForegroundColor(&g_sContext, COLOR_TETRIS_GRID);
+        
+        // Draw the top and left lines of the cell bounding grid box
+        Graphics_drawLine(&g_sContext, px, py, px + CELL - 1, py);
+        Graphics_drawLine(&g_sContext, px, py, px, py + CELL - 1);
+    }
+    else
+    {
     int16_t size = (colorIdx == 0) ? CELL : (CELL - 1);
     Graphics_FillRect(px, py, px + size - 1, py + size - 1, g_colors[colorIdx]);
+    }
 }
 
-// Forget what is on the LCD, forcing everything to be redrawn next frame.
-// Needed after the screen is cleared, because the cache would be stale.
+// Forget what is on the LCD, redraw next frame.
+// Needed after the screen is cleared.
 static void InvalidateScreenCache(void)
 {
     int16_t r, c;
