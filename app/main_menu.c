@@ -37,7 +37,7 @@
 #define MENU_FRAME_THICK   3
 
 #define MENU_DOTS_Y        42
-#define MENU_DOT_STEP      14
+#define MENU_DOT_STEP      28
 #define MENU_MAX_DOTS      16
 
 #define MENU_LABEL_AREA_Y  168

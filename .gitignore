@@ -6,3 +6,4 @@ Release/
 *.map
 *_linkInfo.xml
 *.json
+grlib/fonts
