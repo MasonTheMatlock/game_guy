@@ -23,3 +23,24 @@ Thumbs.db
 #--- Font bitmaps move required fonts to grlib dir ---
 
 grlib/fonts/
+
+
+.ccsproject
+
+.cproject
+
+.project
+
+28069_RAM_lnk.cmd
+
+F28069.cmd
+
+F2806xCodeStartBranch.asm
+
+F2806x_Headers_nonBIOS.cmd
+
+TMS320F28069.ccxml
+
+f28069.gel
+
+F2806x_usDelay.asm
