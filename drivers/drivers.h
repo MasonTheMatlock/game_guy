@@ -70,4 +70,32 @@ void Read_Joystick(uint16_t *x_val, uint16_t *y_val, uint16_t *sw_val);
 uint32_t TimerNow(void);
 uint32_t MsSince(uint32_t startTick);
 
+//*****************************************************************************
+// D-pad buttons A, B, C, D
+//   A = GPIO25   B = GPIO52   C = GPIO53   D = GPIO56
+// (the GPIO numbers live in dpad.c, next to the register setup)
+//*****************************************************************************
+
+// 1 = pressing a button pulls its pin LOW (internal pull-up is enabled).
+// Set to 0 if your buttons drive the pin HIGH when pressed.
+#define DPAD_ACTIVE_LOW   1
+
+typedef struct
+{
+    int16_t a, b, c, d;                  // 1 while the button is held (debounced)
+    int16_t aPressed, bPressed,          // 1 only on the poll where a new press
+            cPressed, dPressed;          //   was detected (one-shot)
+} Dpad;
+
+extern Dpad g_dpad;
+
+// Call after Joystick_Init() (it starts the timer the debounce relies on).
+void    Dpad_Init(void);
+
+// Call once per frame, right next to Joy_Update(). Fills g_dpad.
+void    Dpad_Update(void);
+
+// 1 if any of A/B/C/D was newly pressed on the last Dpad_Update()
+int16_t Dpad_AnyPressed(void);
+
 #endif

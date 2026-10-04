@@ -8,6 +8,8 @@
 //   stick up         : hard drop (instantly to the bottom)
 //   button tap       : rotate
 //   hold button      : quit to the menu
+//   D-pad            : A = left, B = right, C = soft drop, D = rotate
+//                      (change the mapping in the KEY_ defines below)
 //
 // HOW THIS FILE IS ORGANIZED
 //   1. Constants         board size, timing, piece shapes, colors, scoring
@@ -55,6 +57,14 @@
                                         //   left/right before it starts repeating
 #define ARR_FRAMES         3            // "Auto Repeat Rate": frames between repeats
 #define GAME_OVER_HOLD_MS  1500         // ignore input this long after game over
+
+// ---- D-pad mapping --------------------------------------------------------
+// The D-pad works alongside the joystick. To remap a button, point these at
+// a different one of g_dpad.a / .b / .c / .d (and aPressed / bPressed / ...).
+#define KEY_LEFT_HELD      (g_dpad.a)
+#define KEY_RIGHT_HELD     (g_dpad.b)
+#define KEY_DOWN_HELD      (g_dpad.c)
+#define KEY_ROTATE_TAP     (g_dpad.dPressed)
 
 // ---- Piece shapes ---------------------------------------------------------
 // Each piece is stored as a 4x4 grid packed into one 16-bit number.
@@ -518,8 +528,9 @@ static void TetrisGameOver(void)
     do
     {
         Joy_Update();
+        Dpad_Update();
         DELAY_US(10000);
-    } while(!g_joy.btnPressed);
+    } while(!g_joy.btnPressed && !Dpad_AnyPressed());
 }
 
 //*****************************************************************************
@@ -536,6 +547,14 @@ void Tetris_Run(void)
     bool     forceStep;                 // true = drop one row this frame no matter what
     bool     gameOver;
 
+    // Stick and D-pad are merged into these "virtual" controls each frame
+    int16_t  moveDir;                   // -1 left, 0 none, +1 right
+    int16_t  moveEdge;                  // moveDir, but only on the frame it starts
+    int16_t  prevMoveDir = 0;
+    bool     softDrop;
+    bool     hardDrop;
+    bool     rotate;
+
     // Seed from the free-running timer: the time between power-up and this
     // moment differs every run, so each game gets a different piece order.
     Rand_Seed(TimerNow());
@@ -549,33 +568,49 @@ void Tetris_Run(void)
 
         // ---- 1. INPUT -----------------------------------------------------
         Joy_Update();
+        Dpad_Update();
         if(g_joy.btnLong) return;                       // hold button = back to menu
 
-        // Left/right: move once immediately when the stick is first pushed
-        // (edgeX != 0), then wait DAS_FRAMES before repeating every ARR_FRAMES.
-        if(g_joy.dirX == 0)
+        // Merge the stick and the D-pad. If both D-pad sides are held they
+        // cancel out and the stick decides.
+        moveDir = g_joy.dirX;
+        if(KEY_LEFT_HELD  && !KEY_RIGHT_HELD) moveDir = -1;
+        if(KEY_RIGHT_HELD && !KEY_LEFT_HELD)  moveDir =  1;
+
+        // The D-pad has no edge flag for "direction changed", so work it out
+        // here: moveEdge is non-zero only on the frame a direction begins.
+        moveEdge    = (moveDir != 0 && moveDir != prevMoveDir) ? moveDir : 0;
+        prevMoveDir = moveDir;
+
+        softDrop = (g_joy.dirY > 0) || KEY_DOWN_HELD;
+        hardDrop = (g_joy.edgeY < 0);                   // stick up (D-pad has none)
+        rotate   = g_joy.btnPressed || KEY_ROTATE_TAP;
+
+        // Left/right: move once immediately when a direction is first pressed
+        // (moveEdge != 0), then wait DAS_FRAMES before repeating every ARR_FRAMES.
+        if(moveDir == 0)
         {
-            hTimer = 0;                                 // stick centered: reset
+            hTimer = 0;                                 // nothing pressed: reset
         }
-        else if(g_joy.edgeX != 0)
+        else if(moveEdge != 0)
         {
-            TetrisShift(g_joy.dirX);
+            TetrisShift(moveDir);
             hTimer = DAS_FRAMES;
         }
         else if(--hTimer <= 0)
         {
-            TetrisShift(g_joy.dirX);
+            TetrisShift(moveDir);
             hTimer = ARR_FRAMES;
         }
 
-        if(g_joy.btnPressed) TetrisRotate();            // one rotation per tap
+        if(rotate) TetrisRotate();                      // one rotation per tap
 
-        if(g_joy.edgeY < 0)                             // stick pushed up: hard drop
+        if(hardDrop)
         {
             while(Fits(g_cur.type, g_cur.rot, g_cur.x, g_cur.y + 1)) g_cur.y++;
             forceStep = true;                           // lock it this frame
         }
-        if(g_joy.dirY > 0 && (frameNo & 1)) forceStep = true;   // stick down: soft drop
+        if(softDrop && (frameNo & 1)) forceStep = true; // soft drop
                                                         // (every other frame, so it is
                                                         //  fast but still controllable)
 
@@ -590,7 +625,7 @@ void Tetris_Run(void)
             if(Fits(g_cur.type, g_cur.rot, g_cur.x, g_cur.y + 1))
             {
                 g_cur.y++;                              // room below: fall one row
-                if(g_joy.dirY > 0) g_score += 1;        // soft-drop bonus
+                if(softDrop) g_score += 1;              // soft-drop bonus
             }
             else
             {
