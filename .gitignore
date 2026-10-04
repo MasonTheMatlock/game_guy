@@ -14,8 +14,12 @@ Release/
 .settings/
 .codex/
 .launches/
-.clangd/
+.clangd
 
 # --- OS Artifacts ---
 .DS_Store
 Thumbs.db
+
+#--- Font bitmaps move required fonts to grlib dir ---
+
+grlib/fonts/
