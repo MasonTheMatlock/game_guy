@@ -55,7 +55,7 @@ static void Raycaster_Init(void)
 
     // Same title style as the other screens: centered text over a divider line.
     Graphics_setForegroundColor(&g_sContext, COLOR_WHITE);
-    Graphics_drawStringCentered(&g_sContext, (int16_t *)"RAYCASTER",
+    Graphics_drawStringCentered(&g_sContext, (int16_t *)"Place Holder",
                                 AUTO_STRING_LENGTH, 159, 15, OPAQUE_TEXT);
     Graphics_drawLine(&g_sContext, 10, 30, 309, 30);
 
