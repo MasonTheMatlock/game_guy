@@ -5,6 +5,7 @@
 //   Board : TMS320F28069 (C2000 Piccolo)
 //   Screen: BOOSTXL-K350QVG-S1, 320x240 Kitronix SSD2119 LCD over SPI
 //   Input : analog joystick (VRx = ADCINB7, VRy = ADCINB4, button = GPIO55)
+//           4-button D-pad  (A = GPIO25, B = GPIO52, C = GPIO53, D = GPIO56)
 //
 // WHAT main.c IS RESPONSIBLE FOR (and nothing more)
 //   1. Booting the hardware: clocks, interrupts, joystick, LCD.
@@ -17,7 +18,8 @@
 //     |-- Menu_Run()            app/main_menu.c   returns the chosen index
 //     `-- g_apps[i].run()       app/tetris.c      Tetris_Run()
 //                               app/raycaster.c   Raycaster_Run()
-//   Every app uses:  drivers/joystick.c (input),  grlib + hal/ (display)
+//   Every app uses:  drivers/joystick.c + drivers/dpad.c (input),
+//                    grlib + hal/ (display)
 //#############################################################################
 
 //#include <string.h>                         // memcpy (flash -> RAM copy in Release)
@@ -71,14 +73,15 @@ void Graphics_FillRect(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint32_t 
 //   app/apps.h, then add ONE line here. The menu and the main loop do not
 //   change.
 //
-//   NOTE: the menu layout currently fits 2 entries (see MENU_MAX_ITEMS in
-//   app/main_menu.c). Adding a third app also needs a layout change there.
+//   The menu is a scrolling tile carousel, so there is no limit on the number
+//   of entries. The tile icon is the first letter of .name.
 //*****************************************************************************
 const AppInfo g_apps[] =
 {
     //  name          control hint               button color   entry point
     { "TETRIS",     "Btn: rotate  Up: drop",     COLOR_TETRIS_T_PURPLE,      Tetris_Run    },
     { "RAYCASTER",  "Stick: walk  Btn: fire",    COLOR_GREEN,      Raycaster_Run },
+    { "SETTINGS",  "Stick: move Btn: select",    COLOR_GRAY,      Raycaster_Run },
 };
 
 // Computed from the table, so it can never get out of sync with it.
@@ -89,6 +92,19 @@ const uint16_t g_appCount = sizeof(g_apps) / sizeof(g_apps[0]);
 //*****************************************************************************
 #define WARNING_HOLD_MS   2000
 
+// Wait until the joystick button AND all four D-pad buttons are released.
+// Used between screens so the press that picked an app (or ended one) is not
+// also read as the next screen's first input.
+static void WaitInputsReleased(void)
+{
+    Joy_WaitRelease();
+
+    do
+    {
+        Dpad_Update();
+        DELAY_US(5000);
+    } while(g_dpad.a || g_dpad.b || g_dpad.c || g_dpad.d);
+}
 
 // Joystick_Init() returns 0 if calibration looked wrong (stick held off-center
 // at power-up, or VRx/VRy not wired). The program still works with default
@@ -141,6 +157,7 @@ void main(void)
     // Keep the stick untouched at power-up. This comes BEFORE the LCD init on
     // purpose: it is the order that was proven to work on this board.
     joystickOk = Joystick_Init();
+    Dpad_Init();                            // after Joystick_Init: uses its timer
 
     // Step 4. LCD, then bind the graphics context to it.
     Kitronix320x240x16_SSD2119Init();
@@ -149,19 +166,19 @@ void main(void)
     if(!joystickOk) ShowCalibrationWarning();
 
     // Step 5. Top-level loop: menu -> app -> menu -> ...
-    //   Joy_WaitRelease() lets go of the button between screens so the press
+    //   WaitInputsReleased() lets go of the buttons between screens so the press
     //   that selected an app is not also read as the app's first input, and
     //   the long-press that ended an app is not read by the menu.
     while(1)
     {
         choice = Menu_Run();                // blocks until the player picks one
-        Joy_WaitRelease();
+        WaitInputsReleased();
 
         if(choice >= 0 && choice < (int16_t)g_appCount)
         {
             g_apps[choice].run();           // blocks until the app returns
         }
 
-        Joy_WaitRelease();
+        WaitInputsReleased();
     }
 }
