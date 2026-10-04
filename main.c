@@ -83,7 +83,32 @@ const AppInfo g_apps[] =
     { "RAYCASTER",  "Stick: walk  Btn: fire",    COLOR_GREEN,      Raycaster_Run },
     { "SETTINGS",  "Stick: move Btn: select",    COLOR_GRAY,      Raycaster_Run },
 };
+/*
+    To DO: control hint struct instead of string.
+    *Pasted from Discord:
+    enum ControlAction {
+    DROP,
+    ROTATE,
+    WALK,
+    FIRE,
+    MOVE,
+    SELECT
+};
 
+typedef struct ControlHint {
+    ControlAction btn;
+    ControlAction stick;
+    ControlAction up;
+} ControlHint;
+
+const char* ControlHint_toString(ControlHint ctrlHint)
+{
+    // Convert to string here
+}
+
+    This concept will be beneficial for devolping new app modules, more efficent user inputs and configurations?!
+    Also good for design concepts.
+*/
 // Computed from the table, so it can never get out of sync with it.
 const uint16_t g_appCount = sizeof(g_apps) / sizeof(g_apps[0]);
 

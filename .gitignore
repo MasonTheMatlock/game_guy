@@ -1,9 +1,21 @@
-# CCS build output
+# --- Code Composer Studio / Eclipse Build Outputs ---
 Debug/
 Release/
 *.obj
 *.out
 *.map
-*_linkInfo.xml
+*.txt
+*.xml
 *.json
-grlib/fonts
+*.d
+*.pp
+
+# --- IDE Project Configuration & Cache (Keep .ccsproject, .cproject, .project) ---
+.settings/
+.codex/
+.launches/
+.clangd/
+
+# --- OS Artifacts ---
+.DS_Store
+Thumbs.db

@@ -53,13 +53,13 @@
 
 // 15 ms = approximately 66 frames/sec.
 // The actual frame rate is limited by LCD SPI drawing time.
-#define MENU_LOOP_US       15000UL
+#define MENU_LOOP_US       9000uL
 
 // Once the remaining distance is smaller than this, snap to target.
-#define MENU_MIN_STEP      3
+#define MENU_MIN_STEP      6
 
-#define MENU_DAS_FRAMES    12
-#define MENU_ARR_FRAMES    5
+#define MENU_DAS_FRAMES    6
+#define MENU_ARR_FRAMES    2
 
 #define MENU_WRAP          0
 #define MENU_PULSE         1
