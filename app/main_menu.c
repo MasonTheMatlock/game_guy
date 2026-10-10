@@ -53,23 +53,10 @@
 //*****************************************************************************
 // Feel / animation
 //*****************************************************************************
-<<<<<<< HEAD
-
-// 15 ms = approximately 66 frames/sec.
-// The actual frame rate is limited by LCD SPI drawing time.
-#define MENU_LOOP_US       9000uL
-
-// Once the remaining distance is smaller than this, snap to target.
-#define MENU_MIN_STEP      6
-
-#define MENU_DAS_FRAMES    6
-#define MENU_ARR_FRAMES    2
-=======
 #define MENU_FRAME_US      9000uL   // frame pause; real rate is limited by SPI
 #define MENU_MIN_STEP      6        // snap to target when this close
 #define MENU_DAS_FRAMES    6        // auto-repeat: delay before repeating
 #define MENU_ARR_FRAMES    2        // auto-repeat: frames between repeats
->>>>>>> header-house-keeping
 
 #define MENU_WRAP          0
 #define MENU_PULSE         1
