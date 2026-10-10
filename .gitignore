@@ -1,9 +1,21 @@
-# CCS build output
+# --- CCS / Eclipse build output ---
 Debug/
 Release/
 *.obj
 *.out
 *.map
+*.pp
+*.d
 *_linkInfo.xml
-*.json
-grlib/fonts
+
+fonts/
+
+# --- IDE local state (project files themselves ARE committed) ---
+.settings/
+.codex/
+.launches/
+.clangd
+
+# --- OS artifacts ---
+.DS_Store
+Thumbs.db
