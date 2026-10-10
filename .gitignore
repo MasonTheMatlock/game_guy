@@ -1,14 +1,9 @@
-<<<<<<< HEAD
-# --- Code Composer Studio / Eclipse Build Outputs ---
-=======
 # --- CCS / Eclipse build output ---
->>>>>>> header-house-keeping
 Debug/
 Release/
 *.obj
 *.out
 *.map
-<<<<<<< HEAD
 *.txt
 *.xml
 *.json
