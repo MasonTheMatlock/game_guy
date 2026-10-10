@@ -79,7 +79,7 @@ PAGE 0 :
 
    BEGIN       : origin = 0x000000, length = 0x000002
    RAMM0       : origin = 0x000050, length = 0x0003B0
-   RAML0_L4    : origin = 0x008000, length = 0x004000	 /* RAML0-4 combined for size of .text */
+   RAML0_L6    : origin = 0x008000, length = 0x008000	 /* RAML0-4 combined for size of .text */
    														 /* in Example_F2806xSWPrioritezedInterrupts */
    RESET       : origin = 0x3FFFC0, length = 0x000002
    FPUTABLES   : origin = 0x3FD860, length = 0x0006A0	 /* FPU Tables in Boot ROM */
@@ -94,8 +94,8 @@ PAGE 1 :
 
    BOOT_RSVD   : origin = 0x000002, length = 0x00004E     /* Part of M0, BOOT rom will use this for stack */
    RAMM1       : origin = 0x000400, length = 0x000400     /* on-chip RAM block M1 */
-   RAML5       : origin = 0x00C000, length = 0x002000     /* on-chip RAM block L5 */
-   RAML6       : origin = 0x00E000, length = 0x002000     /* on-chip RAM block L6 */
+  // RAML5       : origin = 0x00C000, length = 0x002000     /* on-chip RAM block L5 */
+  // RAML6       : origin = 0x00E000, length = 0x002000     /* on-chip RAM block L6 */
    RAML7       : origin = 0x010000, length = 0x002000     /* on-chip RAM block L7 */
    RAML8       : origin = 0x012000, length = 0x002000     /* on-chip RAM block L8 */
    USB_RAM     : origin = 0x040000, length = 0x000800     /* USB RAM		  */
@@ -111,33 +111,49 @@ SECTIONS
    
 #ifdef __TI_COMPILER_VERSION__
    #if __TI_COMPILER_VERSION__ >= 15009000
-    .TI.ramfunc : {} > RAMM0,      PAGE = 0
+    .TI.ramfunc     : > RAMM0,      PAGE = 0
    #else
    ramfuncs         : > RAMM0,      PAGE = 0   
    #endif
 #endif 
    
-   .text            : > RAML0_L4,   PAGE = 0
+   /* Code section takes up your unified 0x8000 block */
+   .text            : > RAML0_L6,   PAGE = 0
    .cinit           : > RAMM0,      PAGE = 0
    .pinit           : > RAMM0,      PAGE = 0
    .switch          : > RAMM0,      PAGE = 0
    .reset           : > RESET,      PAGE = 0, TYPE = DSECT /* not used, */
 
    .stack           : > RAMM1,      PAGE = 1
-   .ebss            : > RAML5,      PAGE = 1
-   .econst          : > RAML5,      PAGE = 1
-   .esysmem         : > RAML5,      PAGE = 1
+   
+   /* Unified EABI/COFF Uninitialized Data (Variables) shifted to RAML7 */
+   .ebss            : > RAML7,      PAGE = 1
+   .bss             : > RAML7,      PAGE = 1
 
-   IQmath           : > RAML0_L4,   PAGE = 0
+   /* Unified EABI/COFF Constant Data (Fonts, Strings, Tables) shifted to RAML8 */
+   .econst          : > RAML8,      PAGE = 1
+   .const           : > RAML8,      PAGE = 1
+
+   /* Dynamic Memory Allocation heap shifted to RAML7 */
+   .esysmem         : > RAML7,      PAGE = 1
+   .sysmem          : > RAML7,      PAGE = 1
+   
+   /* Initialized Variables Data section (EABI Specific) mapped safely */
+   .data            : > RAML7,      PAGE = 1
+
+   /* IQmath code mapping updated to the unified block */
+   IQmath           : > RAML0_L6,   PAGE = 0
    IQmathTables     : > IQTABLES,   PAGE = 0, TYPE = NOLOAD
    
    /* Allocate FPU math areas: */
    FPUmathTables    : > FPUTABLES,  PAGE = 0, TYPE = NOLOAD
    
-   DMARAML5	        : > RAML5,      PAGE = 1
-   DMARAML6	        : > RAML6,      PAGE = 1
+   /* DMA buffers updated to map only to existing physical memory blocks */
+   DMARAML5	        : > RAML7,      PAGE = 1
+   DMARAML6	        : > RAML7,      PAGE = 1
    DMARAML7	        : > RAML7,      PAGE = 1
-   DMARAML8	        : > RAML8,      PAGE = 1   
+   DMARAML8	        : > RAML8,      PAGE = 1
+ 
 
   /* Uncomment the section below if calling the IQNexp() or IQexp()
       functions from the IQMath.lib library in order to utilize the

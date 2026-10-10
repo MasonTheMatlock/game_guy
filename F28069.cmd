@@ -81,6 +81,7 @@ PAGE 0 :   /* Program Memory */
    FLASHE      : origin = 0x3E4000, length = 0x004000     /* on-chip FLASH */   
    FLASHD      : origin = 0x3E8000, length = 0x004000     /* on-chip FLASH */
    FLASHC      : origin = 0x3EC000, length = 0x004000     /* on-chip FLASH */
+   FLASHB      : origin = 0x3F0000, length = 0x004000
    FLASHA      : origin = 0x3F4000, length = 0x003F80     /* on-chip FLASH */
    CSM_RSVD    : origin = 0x3F7F80, length = 0x000076     /* Part of FLASHA.  Program with all 0x0000 when CSM is in use. */
    BEGIN       : origin = 0x3F7FF6, length = 0x000002     /* Part of FLASHA.  Used for "boot to Flash" bootloader mode. */
@@ -95,6 +96,8 @@ PAGE 0 :   /* Program Memory */
    RESET       : origin = 0x3FFFC0, length = 0x000002     /* part of boot ROM  */
    VECTORS     : origin = 0x3FFFC2, length = 0x00003E     /* part of boot ROM  */
 
+   
+
 PAGE 1 :   /* Data Memory */
            /* Memory (RAM/FLASH/OTP) blocks can be moved to PAGE0 for program allocation */
            /* Registers remain on PAGE1                                                  */
@@ -107,7 +110,7 @@ PAGE 1 :   /* Data Memory */
    RAML7       : origin = 0x010000, length = 0x002000     /* on-chip RAM block L7 */
    RAML8       : origin = 0x012000, length = 0x002000     /* on-chip RAM block L8 */
    USB_RAM     : origin = 0x040000, length = 0x000800     /* USB RAM		  */   
-   FLASHB      : origin = 0x3F0000, length = 0x004000     /* on-chip FLASH */     
+   //FLASHB      : origin = 0x3F0000, length = 0x004000     /* on-chip FLASH */     
 }
 
 /* Allocate sections to memory blocks.
@@ -124,7 +127,7 @@ SECTIONS
    /* Allocate program areas: */
    .cinit              : > FLASHA,     PAGE = 0
    .pinit              : > FLASHA,     PAGE = 0
-   .text               : > FLASHA,     PAGE = 0
+   .text               : { *(.text) } >> FLASHA | FLASHB | FLASHC, PAGE = 0
    codestart           : > BEGIN,      PAGE = 0
 
 #ifdef __TI_COMPILER_VERSION__

@@ -6,6 +6,7 @@
 #include "F2806x_Device.h"
 #include "F2806x_Examples.h"
 
+
 //*****************************************************************************
 // Joystick tuning (raw ADC counts are 0..4095, centered around ~2048)
 //*****************************************************************************
@@ -80,11 +81,18 @@ uint32_t MsSince(uint32_t startTick);
 // Set to 0 if your buttons drive the pin HIGH when pressed.
 #define DPAD_ACTIVE_LOW   1
 
+// How long a D-pad button must be held to count as a long press.
+// Defaults to the joystick's value; change it here to tune the D-pad alone.
+#define DPAD_LONG_PRESS_MS   LONG_PRESS_MS
+
 typedef struct
 {
     int16_t a, b, c, d;                  // 1 while the button is held (debounced)
     int16_t aPressed, bPressed,          // 1 only on the poll where a new press
             cPressed, dPressed;          //   was detected (one-shot)
+    int16_t aLong, bLong,                // 1 only on the poll where the button
+            cLong, dLong;                //   has been held DPAD_LONG_PRESS_MS
+                                         //   (one-shot, once per press)
 } Dpad;
 
 extern Dpad g_dpad;
@@ -97,5 +105,8 @@ void    Dpad_Update(void);
 
 // 1 if any of A/B/C/D was newly pressed on the last Dpad_Update()
 int16_t Dpad_AnyPressed(void);
+
+// 1 if any of A/B/C/D reached a long press on the last Dpad_Update()
+int16_t Dpad_AnyLong(void);
 
 #endif

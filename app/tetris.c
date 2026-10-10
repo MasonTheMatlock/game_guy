@@ -1,36 +1,36 @@
 //#############################################################################
 // FILE:   app/tetris.c
-// TITLE:  Tetris
+// TITLE:  Tetris (callback app contract)
 //
 // CONTROLS
 //   stick left/right : move piece (hold to auto-repeat)
 //   stick down       : soft drop (fall faster, +1 point per row)
-//   stick up         : hard drop (instantly to the bottom)
 //   button tap       : rotate
-//   hold button      : quit to the menu
+//   HOLD stick button: quit to the menu (free, handled by main.c)
 //   D-pad            : A = left, B = right, C = soft drop, D = rotate
 //                      (change the mapping in the KEY_ defines below)
+//   After GAME OVER  : press any button to return to the menu
 //
 // HOW THIS FILE IS ORGANIZED
 //   1. Constants         board size, timing, piece shapes, colors, scoring
 //   2. Game state        every variable that changes while playing
 //   3. Board rules       Fits / place / clear rows - NO drawing in here
 //   4. Drawing           LCD output; only repaints what changed
-//   5. Game flow         spawn, reset, shift, rotate, lock, game over
-//   6. Tetris_Run()      the one public function: the game loop
+//   5. Game flow         spawn, reset, shift, rotate, lock
+//   6. App callbacks     Tetris_Init / Tetris_Update / Tetris_Render
 //
-// DESIGN NOTES (the ideas worth understanding)
-//   * Rules and drawing are separate. Section 3 never touches the LCD and
-//     section 4 never changes the game state. That makes each easier to
-//     debug: if a piece moves wrong it is a rules bug, if it LOOKS wrong it
-//     is a drawing bug.
-//   * Pieces are 16-bit bitmasks, not arrays of coordinates (see g_shapes).
-//   * Drawing is "diff based": g_shown remembers what the LCD currently
-//     shows, and only cells that differ are repainted. The LCD is on a slow
-//     SPI link, so repainting the whole board every frame would crawl.
-//   * Pieces come from a "7-bag" shuffle so you never wait too long for an I.
-//   * Timing is frame based: gravity is "move down every N frames", and the
-//     loop runs at a roughly fixed rate (see FRAME_US).
+// DESIGN NOTES
+//   * update() = rules and input, render() = drawing. update() never touches
+//     the LCD; render() never changes game state.
+//   * Pieces are 16-bit bitmasks (see s_shapes).
+//   * Drawing is "diff based": s_shown remembers what the LCD currently
+//     shows, and only cells that differ are repainted.
+//   * Pieces come from a "7-bag" shuffle.
+//   * Timing is frame based: gravity is "move down every N frames".
+//   * No while(1), no Joy_Update(), no Dpad_Update(), no DELAY_US():
+//     main.c's RunApp() does all of that. Even the game-over wait is a
+//     state (s_gameOver + s_gameOverTimer), not a blocking loop.
+//   * One public symbol: g_tetrisApp.
 //#############################################################################
 
 #include "apps.h"
@@ -41,9 +41,6 @@
 //*****************************************************************************
 
 // ---- Board geometry -------------------------------------------------------
-// The playfield is BOARD_W x BOARD_H cells, each CELL x CELL pixels:
-//   10 x 10 cells * 10 px = 100 x 200 px, drawn at (BOARD_X, BOARD_Y).
-// That leaves ~100 px free on each side for the score panel and next piece.
 #define BOARD_W            10
 #define BOARD_H            20
 #define CELL               10           // pixels per cell
@@ -51,16 +48,13 @@
 #define BOARD_Y            36           // top edge (below the title bar)
 
 // ---- Timing ---------------------------------------------------------------
-#define FRAME_US           16000UL      // pause per loop pass (~60 frames/sec
-                                        //   before drawing time is added)
-#define DAS_FRAMES         9            // "Delayed Auto Shift": frames you must hold
-                                        //   left/right before it starts repeating
-#define ARR_FRAMES         3            // "Auto Repeat Rate": frames between repeats
-#define GAME_OVER_HOLD_MS  1500         // ignore input this long after game over
+#define TETRIS_FRAME_US    16000UL      // pause after each frame (~60 fps)
+#define DAS_FRAMES         9            // frames you must hold left/right before repeat
+#define ARR_FRAMES         3            // frames between repeats
+#define GAME_OVER_HOLD_FRAMES 90        // ignore input this long after game over
+                                        //   (~1.5 s at 16 ms/frame)
 
 // ---- D-pad mapping --------------------------------------------------------
-// The D-pad works alongside the joystick. To remap a button, point these at
-// a different one of g_dpad.a / .b / .c / .d (and aPressed / bPressed / ...).
 #define KEY_LEFT_HELD      (g_dpad.a)
 #define KEY_RIGHT_HELD     (g_dpad.b)
 #define KEY_DOWN_HELD      (g_dpad.c)
@@ -76,13 +70,10 @@
 //     row 0:  ....
 //     row 1:  ###.        <- a T piece pointing down
 //     row 2:  .#..
-//     row 3:  ....
-//
-// To test cell (row, col):   mask & (0x8000 >> (row * 4 + col))
-//
-// Each piece has 4 rotations (the O piece repeats itself 4 times so that every
-// piece can be indexed the same way). Order of pieces: I, J, L, O, S, T, Z.
-static const uint16_t g_shapes[7][4] =
+// Test cell (row, col):   mask & (0x8000 >> (row * 4 + col))
+// 4 rotations per piece. Order: I, J, L, O, S, T, Z.
+
+static const uint16_t s_shapes[7][4] =
 {
     { 0x0F00, 0x2222, 0x00F0, 0x4444 },   // I
     { 0x44C0, 0x8E00, 0x6440, 0x0E20 },   // J
@@ -93,122 +84,118 @@ static const uint16_t g_shapes[7][4] =
     { 0x0C60, 0x4C80, 0xC600, 0x2640 }    // Z
 };
 
-// Cell colors, indexed by "color index". Index 0 means an EMPTY cell (black).
-// Index 1..7 is piece type + 1, so a locked I piece is stored as 1, J as 2...
-static const uint32_t g_colors[8] =
+// Cell colors. Index 0 = EMPTY. Index 1..7 = piece type + 1.
+static const uint32_t s_colors[8] =
 {
     COLOR_BLACK,
-    COLOR_TETRIS_I_CYAN,   // I  cyan
-    COLOR_TETRIS_J_BLUE,   // J  blue
-    COLOR_TETRIS_L_ORANGE,   // L  orange
-    COLOR_TETRIS_O_YELLOW,   // O  yellow
-    COLOR_TETRIS_S_GREEN,   // S  green
-    COLOR_TETRIS_T_PURPLE,   // T  purple
-    COLOR_TETRIS_Z_RED    // Z  red
+    COLOR_TETRIS_I_CYAN,
+    COLOR_TETRIS_J_BLUE,
+    COLOR_TETRIS_L_ORANGE,
+    COLOR_TETRIS_O_YELLOW,
+    COLOR_TETRIS_S_GREEN,
+    COLOR_TETRIS_T_PURPLE,
+    COLOR_TETRIS_Z_RED
 };
 
 // ---- Scoring and speed ----------------------------------------------------
 // Points for clearing 0..4 rows at once, multiplied by (level + 1).
-// standard tetris scoring.
-static const uint16_t g_lineScore[5] = { 0, 40, 100, 300, 1200 };
+static const uint16_t s_lineScore[5] = { 0, 40, 100, 300, 1200 };
 
 // Gravity per level: the piece falls one row every N frames. Lower = faster.
-// You advance one level every 10 lines, capped at level 20.
-static const uint16_t g_gravityFrames[20] = { 30, 26, 22, 18, 15, 12, 10, 8, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 1,};
+static const uint16_t s_gravityFrames[20] =
+    { 30, 26, 22, 18, 15, 12, 10, 8, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 1 };
 
 //*****************************************************************************
 // 2. GAME STATE
 //*****************************************************************************
 
-// The falling piece. (x, y) is where its 4x4 box sits on the board; the box
-// can hang off the edge (x < 0) because the piece's own cells may still be
-// inside the board.
 typedef struct
 {
-    int16_t type;       // 0..6, index into g_shapes (I, J, L, O, S, T, Z)
-    int16_t rot;        // 0..3, index into g_shapes[type]
+    int16_t type;       // 0..6, index into s_shapes (I, J, L, O, S, T, Z)
+    int16_t rot;        // 0..3
     int16_t x;          // column of the 4x4 box's left edge
     int16_t y;          // row of the 4x4 box's top edge
 } Piece;
 
-// What is on the board. Only LOCKED blocks live here; the falling piece is
-// kept separately in g_cur and merged in only when it lands or is drawn.
-// 0 = empty, otherwise a color index (see g_colors).
-static uint16_t g_board[BOARD_H][BOARD_W];
+// Only LOCKED blocks live here. 0 = empty, otherwise a color index.
+static uint16_t s_board[BOARD_H][BOARD_W];
 
-// What the LCD is currently showing for each board cell (same encoding).
-// 0xFFFF means "unknown, must be redrawn". See RenderTetrisBoard().
-static uint16_t g_shown[BOARD_H][BOARD_W];
+// What the LCD is currently showing per cell. 0xFFFF = unknown, redraw.
+static uint16_t s_shown[BOARD_H][BOARD_W];
 
-static Piece    g_cur;                  // the falling piece
-static int16_t  g_nextType;             // the piece that spawns next
-static int16_t  g_shownNext;            // next-piece preview currently on the LCD
+static Piece    s_cur;                  // the falling piece
+static int16_t  s_nextType;             // the piece that spawns next
+static int16_t  s_shownNext;            // next-piece preview currently on the LCD
 
-static uint32_t g_score;
-static uint16_t g_lines;                // total lines cleared
-static uint16_t g_level;                // 0..9
+static uint32_t s_score;
+static uint16_t s_lines;
+static uint16_t s_level;                // 0..9
 
-// Values currently shown in the side panel, so text is only redrawn on change.
-static uint32_t g_shownScore;
-static uint16_t g_shownLines;
-static uint16_t g_shownLevel;
+// Values currently shown in the side panel
+static uint32_t s_shownScore;
+static uint16_t s_shownLines;
+static uint16_t s_shownLevel;
 
-static uint16_t g_gravityCount;         // frames since the piece last fell
+static uint16_t s_gravityCount;         // frames since the piece last fell
 
-// 7-bag randomizer state: a shuffled deck of the 7 piece types.
-static int16_t  g_bag[7];
-static int16_t  g_bagIdx;               // next card to deal; 7 means "deck empty"
+// 7-bag randomizer
+static int16_t  s_bag[7];
+static int16_t  s_bagIdx;               // next card to deal; 7 means "deck empty"
+
+// Input / frame state that used to be locals in the old Tetris_Run() loop.
+// It has to be file-static now because update() returns every frame.
+static uint16_t s_frameNo;              // paces the soft drop
+static int16_t  s_hTimer;               // countdown for left/right auto-repeat
+static int16_t  s_prevMoveDir;          // last frame's merged left/right input
+
+// Game over state
+static bool     s_gameOver;             // true once the stack reached the top
+static uint16_t s_gameOverTimer;        // frames left in the "ignore input" window
+static bool     s_gameOverDrawn;        // GAME OVER text already on the LCD
 
 //*****************************************************************************
 // 3. BOARD RULES (no drawing in this section)
 //*****************************************************************************
 
-// 7-bag randomizer: shuffle all 7 pieces, deal them one by one, reshuffle when
-// the deck runs out. Every piece appears exactly once per 7, which feels much
-// fairer than picking randomly each time (which allows long droughts).
 static int16_t NextFromBag(void)
 {
     int16_t i, j, t;
 
-    if(g_bagIdx >= 7)
+    if(s_bagIdx >= 7)
     {
-        for(i = 0; i < 7; i++) g_bag[i] = i;
+        for(i = 0; i < 7; i++) s_bag[i] = i;
 
-        // Fisher-Yates shuffle: walk from the end, swap each card with a
-        // random card at or before it.
+        // Fisher-Yates shuffle
         for(i = 6; i > 0; i--)
         {
             j = (int16_t)(Rand16() % (uint16_t)(i + 1));
-            t = g_bag[i];
-            g_bag[i] = g_bag[j];
-            g_bag[j] = t;
+            t = s_bag[i];
+            s_bag[i] = s_bag[j];
+            s_bag[j] = t;
         }
-        g_bagIdx = 0;
+        s_bagIdx = 0;
     }
-    return g_bag[g_bagIdx++];
+    return s_bag[s_bagIdx++];
 }
 
 // Can piece (type, rot) sit with its 4x4 box at (px, py)?
-// Returns false if any of its cells would be outside the left/right/bottom
-// wall or overlap a locked block. Cells ABOVE the board (row < 0) are allowed,
-// because pieces spawn partly above the top edge.
-// This one function powers movement, rotation, gravity AND game over.
+// Cells ABOVE the board (row < 0) are allowed (pieces spawn partly above).
 static bool Fits(int16_t type, int16_t rot, int16_t px, int16_t py)
 {
-    uint16_t mask = g_shapes[type][rot];
-    int16_t r, c, br, bc;                       // box row/col, board row/col
+    uint16_t mask = s_shapes[type][rot];
+    int16_t r, c, br, bc;
 
     for(r = 0; r < 4; r++)
     {
         for(c = 0; c < 4; c++)
         {
-            if(mask & (0x8000U >> (r * 4 + c)))     // is this cell part of the piece?
+            if(mask & (0x8000U >> (r * 4 + c)))
             {
                 br = py + r;
                 bc = px + c;
 
-                if(bc < 0 || bc >= BOARD_W || br >= BOARD_H) return false;  // out of bounds
-                if(br >= 0 && g_board[br][bc]) return false;                // hits a block
+                if(bc < 0 || bc >= BOARD_W || br >= BOARD_H) return false;
+                if(br >= 0 && s_board[br][bc]) return false;
             }
         }
     }
@@ -218,7 +205,7 @@ static bool Fits(int16_t type, int16_t rot, int16_t px, int16_t py)
 // Stamp a piece into the board permanently (called when it lands).
 static void PlaceOnBoard(int16_t type, int16_t rot, int16_t px, int16_t py)
 {
-    uint16_t mask = g_shapes[type][rot];
+    uint16_t mask = s_shapes[type][rot];
     int16_t r, c, br, bc;
 
     for(r = 0; r < 4; r++)
@@ -230,38 +217,33 @@ static void PlaceOnBoard(int16_t type, int16_t rot, int16_t px, int16_t py)
                 br = py + r;
                 bc = px + c;
                 if(br >= 0 && br < BOARD_H && bc >= 0 && bc < BOARD_W)
-                {
-                    g_board[br][bc] = (uint16_t)(type + 1);     // color index
-                }
+                    s_board[br][bc] = (uint16_t)(type + 1);
             }
         }
     }
 }
 
-// Remove every full row, sliding everything above it down. Returns how many
-// rows were removed (0..4).
+// Remove every full row, sliding everything above it down. Returns 0..4.
 static int16_t ClearFullRows(void)
 {
     int16_t r, c, k, full, cleared = 0;
 
-    r = BOARD_H - 1;                            // start at the bottom row
+    r = BOARD_H - 1;
     while(r >= 0)
     {
         full = 1;
         for(c = 0; c < BOARD_W; c++)
         {
-            if(!g_board[r][c]) { full = 0; break; }
+            if(!s_board[r][c]) { full = 0; break; }
         }
 
         if(full)
         {
-            // Copy each row above r down by one, then blank the top row.
             for(k = r; k > 0; k--)
-                for(c = 0; c < BOARD_W; c++) g_board[k][c] = g_board[k - 1][c];
-            for(c = 0; c < BOARD_W; c++) g_board[0][c] = 0;
+                for(c = 0; c < BOARD_W; c++) s_board[k][c] = s_board[k - 1][c];
+            for(c = 0; c < BOARD_W; c++) s_board[0][c] = 0;
             cleared++;
-            // Do NOT move r: the row that just slid into position r might
-            // also be full, so check the same row again.
+            // Do NOT move r: the row that slid into r might also be full.
         }
         else
         {
@@ -272,50 +254,42 @@ static int16_t ClearFullRows(void)
 }
 
 //*****************************************************************************
-// 4. DRAWING
+// 4. DRAWING (no game-state changes in this section, except the s_shown cache)
 //*****************************************************************************
 
-// Draw one board cell with its top-left corner at pixel (px, py).
-// Filled cells are 1 pixel smaller than CELL, which leaves a thin black gap
-// between neighbors and gives the blocks a grid look. Empty cells are painted
-// the full CELL size so that they also erase that gap.
 static void DrawCell(int16_t px, int16_t py, uint16_t colorIdx)
 {
-     if (colorIdx == 0)
+    if(colorIdx == 0)
     {
-
         Graphics_FillRect(px, py, px + CELL - 1, py + CELL - 1, COLOR_BLACK);
-        
+
         Graphics_setForegroundColor(&g_sContext, COLOR_TETRIS_GRID);
-        
-        // Draw the top and left lines of the cell bounding grid box
         Graphics_drawLine(&g_sContext, px, py, px + CELL - 1, py);
         Graphics_drawLine(&g_sContext, px, py, px, py + CELL - 1);
     }
     else
     {
-    int16_t size = (colorIdx == 0) ? CELL : (CELL - 1);
-    Graphics_FillRect(px, py, px + size - 1, py + size - 1, g_colors[colorIdx]);
+        // 1 px smaller than CELL: thin black gap between blocks.
+        Graphics_FillRect(px, py, px + CELL - 2, py + CELL - 2, s_colors[colorIdx]);
     }
 }
 
-// Forget what is on the LCD, redraw next frame.
-// Needed after the screen is cleared.
+// Forget what is on the LCD; everything is redrawn on the next render().
 static void InvalidateScreenCache(void)
 {
     int16_t r, c;
 
     for(r = 0; r < BOARD_H; r++)
-        for(c = 0; c < BOARD_W; c++) g_shown[r][c] = 0xFFFF;    // matches no real value
+        for(c = 0; c < BOARD_W; c++) s_shown[r][c] = 0xFFFF;
 
-    g_shownNext  = -1;
-    g_shownScore = 0xFFFFFFFFUL;
-    g_shownLines = 0xFFFF;
-    g_shownLevel = 0xFFFF;
+    s_shownNext  = -1;
+    s_shownScore = 0xFFFFFFFFUL;
+    s_shownLines = 0xFFFF;
+    s_shownLevel = 0xFFFF;
 }
 
-// Clear the screen and draw everything that never changes during a game:
-// title, divider, playfield border and the panel labels.
+// Clear the screen and draw everything that never changes during a game.
+// Called from init() only.
 static void DrawTetrisLayout(void)
 {
     Graphics_Rectangle border;
@@ -326,8 +300,8 @@ static void DrawTetrisLayout(void)
 
     Graphics_setForegroundColor(&g_sContext, COLOR_WHITE);
     Graphics_drawStringCentered(&g_sContext, (int16_t *)"TETRIS",
-                                AUTO_STRING_LENGTH, 159, 15, OPAQUE_TEXT);
-    Graphics_drawLine(&g_sContext, 10, 30, 309, 30);
+                                AUTO_STRING_LENGTH, SCREEN_W / 2, 15, OPAQUE_TEXT);
+    Graphics_drawLine(&g_sContext, 10, 30, SCREEN_W - 11, 30);
 
     // Border sits 2 px outside the playfield so it never overlaps a cell.
     border.xMin = BOARD_X - 2;
@@ -337,7 +311,6 @@ static void DrawTetrisLayout(void)
     Graphics_setForegroundColor(&g_sContext, COLOR_GRAY);
     Graphics_drawRectangle(&g_sContext, &border);
 
-    // Left panel: score / lines / level.  Right panel: next piece.
     Graphics_setForegroundColor(&g_sContext, COLOR_WHITE);
     Graphics_drawString(&g_sContext, (int16_t *)"SCORE", AUTO_STRING_LENGTH, 5, 42,  OPAQUE_TEXT);
     Graphics_drawString(&g_sContext, (int16_t *)"LINES", AUTO_STRING_LENGTH, 5, 97,  OPAQUE_TEXT);
@@ -347,82 +320,78 @@ static void DrawTetrisLayout(void)
     InvalidateScreenCache();            // the screen was just wiped
 }
 
-// Draw the "next piece" preview, but only when the next piece has changed.
+// Draw the "next piece" preview, but only when it changed.
 static void DrawNextPreview(void)
 {
     uint16_t mask;
     int16_t r, c;
 
-    if(g_nextType == g_shownNext) return;       // already showing it
-    g_shownNext = g_nextType;
+    if(s_nextType == s_shownNext) return;
+    s_shownNext = s_nextType;
 
-    Graphics_FillRect(225, 72, 225 + 4 * CELL + 4, 72 + 4 * CELL + 4, COLOR_BLACK);   // erase old one
+    Graphics_FillRect(225, 72, 225 + 4 * CELL + 4, 72 + 4 * CELL + 4, COLOR_BLACK);
 
-    mask = g_shapes[g_nextType][0];             // always shown in rotation 0
+    mask = s_shapes[s_nextType][0];
     for(r = 0; r < 4; r++)
         for(c = 0; c < 4; c++)
             if(mask & (0x8000U >> (r * 4 + c)))
-                DrawCell(230 + c * CELL, 77 + r * CELL, (uint16_t)(g_nextType + 1));
+                DrawCell(230 + c * CELL, 77 + r * CELL, (uint16_t)(s_nextType + 1));
 }
 
-// Redraw score / lines / level, but only the ones whose value changed.
-// The trailing spaces in each format string overwrite leftover digits when a
-// number gets shorter (text drawn with OPAQUE_TEXT only covers its own glyphs).
+// Redraw score / lines / level, only the ones whose value changed.
+// Trailing spaces overwrite leftover digits (OPAQUE_TEXT only covers glyphs).
 static void DrawTetrisStats(void)
 {
     char buf[20];
 
     Graphics_setForegroundColor(&g_sContext, COLOR_WHITE);
 
-    if(g_score != g_shownScore)
+    if(s_score != s_shownScore)
     {
-        sprintf(buf, "%lu      ", (unsigned long)g_score);
+        sprintf(buf, "%lu      ", (unsigned long)s_score);
         Graphics_drawString(&g_sContext, (int16_t *)buf, AUTO_STRING_LENGTH, 5, 62, OPAQUE_TEXT);
-        g_shownScore = g_score;
+        s_shownScore = s_score;
     }
-    if(g_lines != g_shownLines)
+    if(s_lines != s_shownLines)
     {
-        sprintf(buf, "%u      ", g_lines);
+        sprintf(buf, "%u      ", s_lines);
         Graphics_drawString(&g_sContext, (int16_t *)buf, AUTO_STRING_LENGTH, 5, 117, OPAQUE_TEXT);
-        g_shownLines = g_lines;
+        s_shownLines = s_lines;
     }
-    if(g_level != g_shownLevel)
+    if(s_level != s_shownLevel)
     {
-        sprintf(buf, "%u      ", g_level);
+        sprintf(buf, "%u      ", s_level);
         Graphics_drawString(&g_sContext, (int16_t *)buf, AUTO_STRING_LENGTH, 5, 172, OPAQUE_TEXT);
-        g_shownLevel = g_level;
+        s_shownLevel = s_level;
     }
 }
 
-// Paint the playfield. For every cell: work out what SHOULD be there (locked
-// block, or a cell of the falling piece on top), compare with what the LCD
-// shows (g_shown), and repaint only if they differ. A piece moving one step
-// changes a handful of cells, not 200.
-static void RenderTetrisBoard(void)
+// Paint the playfield: compare what SHOULD be in each cell with what the LCD
+// shows (s_shown) and repaint only the differences.
+static void DrawTetrisBoard(void)
 {
-    uint16_t mask = g_shapes[g_cur.type][g_cur.rot];
+    uint16_t mask = s_shapes[s_cur.type][s_cur.rot];
     uint16_t colorIdx;
-    int16_t r, c, pr, pc;                       // board row/col, piece-box row/col
+    int16_t r, c, pr, pc;
 
     for(r = 0; r < BOARD_H; r++)
     {
         for(c = 0; c < BOARD_W; c++)
         {
-            colorIdx = g_board[r][c];           // start with the locked block (or empty)
+            colorIdx = s_board[r][c];
 
-            // Is this board cell covered by the falling piece's 4x4 box?
-            pr = r - g_cur.y;
-            pc = c - g_cur.x;
+            pr = r - s_cur.y;
+            pc = c - s_cur.x;
             if(pr >= 0 && pr < 4 && pc >= 0 && pc < 4)
             {
                 if(mask & (0x8000U >> (pr * 4 + pc)))
-                    colorIdx = (uint16_t)(g_cur.type + 1);      // piece draws on top
+                    colorIdx = (uint16_t)(s_cur.type + 1);
             }
 
-            if(colorIdx != g_shown[r][c])       // changed since last frame?
+            if(colorIdx != s_shown[r][c])
             {
                 DrawCell(BOARD_X + c * CELL, BOARD_Y + r * CELL, colorIdx);
-                g_shown[r][c] = colorIdx;
+                s_shown[r][c] = colorIdx;
             }
         }
     }
@@ -431,89 +400,8 @@ static void RenderTetrisBoard(void)
     DrawTetrisStats();
 }
 
-//*****************************************************************************
-// 5. GAME FLOW
-//*****************************************************************************
-
-// Bring in the next piece at the top. Returns false if it does not fit, which
-// means the stack has reached the top: game over.
-static bool SpawnPiece(void)
+static void DrawGameOver(void)
 {
-    g_cur.type = g_nextType;
-    g_cur.rot  = 0;
-    g_cur.x    = 3;                     // roughly centered on the 10-wide board
-    g_cur.y    = 0;
-    g_nextType = NextFromBag();
-    g_gravityCount = 0;
-
-    return Fits(g_cur.type, g_cur.rot, g_cur.x, g_cur.y);
-}
-
-// Start a new game: empty board, zeroed score, fresh layout, first piece.
-static void ResetTetris(void)
-{
-    int16_t r, c;
-
-    for(r = 0; r < BOARD_H; r++)
-        for(c = 0; c < BOARD_W; c++) g_board[r][c] = 0;
-
-    g_score = 0;
-    g_lines = 0;
-    g_level = 0;
-    g_bagIdx = 7;                       // 7 = "deck empty", forces a shuffle
-    g_nextType = NextFromBag();
-
-    DrawTetrisLayout();
-    SpawnPiece();                       // an empty board always has room
-}
-
-// Try to move the falling piece sideways by dir (-1 = left, +1 = right).
-static void TetrisShift(int16_t dir)
-{
-    if(Fits(g_cur.type, g_cur.rot, g_cur.x + dir, g_cur.y)) g_cur.x += dir;
-}
-
-// Rotate the falling piece clockwise. If it will not fit in place, try nudging
-// it one column left, then right (a simple "wall kick") so that rotating next
-// to a wall still works. If nothing fits, the rotation is ignored.
-static void TetrisRotate(void)
-{
-    int16_t nr = (g_cur.rot + 1) & 3;   // 0,1,2,3,0,... ('& 3' wraps at 4)
-
-    if(Fits(g_cur.type, nr, g_cur.x, g_cur.y))              g_cur.rot = nr;
-    else if(Fits(g_cur.type, nr, g_cur.x - 1, g_cur.y))   { g_cur.rot = nr; g_cur.x--; }
-    else if(Fits(g_cur.type, nr, g_cur.x + 1, g_cur.y))   { g_cur.rot = nr; g_cur.x++; }
-}
-
-// The falling piece has landed: lock it into the board, clear any full rows,
-// update score and level, and bring in the next piece.
-// Returns false if the next piece cannot spawn (game over).
-static bool LockAndSpawn(void)
-{
-    int16_t cleared;
-
-    PlaceOnBoard(g_cur.type, g_cur.rot, g_cur.x, g_cur.y);
-
-    cleared = ClearFullRows();
-    if(cleared > 0)
-    {
-        // (uint32_t) first, so the multiplication is not done in 16 bits.
-        g_score += (uint32_t)g_lineScore[cleared] * (g_level + 1);
-        g_lines += cleared;
-        g_level  = g_lines / 10;                // new level every 10 lines
-        if(g_level > 9) g_level = 9;            // g_gravityFrames has 10 entries
-    }
-    g_score += 4;                               // small bonus for every piece locked
-
-    return SpawnPiece();
-}
-
-// Show "GAME OVER", ignore input briefly (so a frantic button press does not
-// skip it), then wait for a button press before returning.
-static void TetrisGameOver(void)
-{
-    uint16_t i;
-
     Graphics_setForegroundColor(&g_sContext, COLOR_WHITE);
     Graphics_setBackgroundColor(&g_sContext, COLOR_BLACK);
     Graphics_drawStringCentered(&g_sContext, (int16_t *)"GAME OVER", AUTO_STRING_LENGTH,
@@ -522,128 +410,201 @@ static void TetrisGameOver(void)
     Graphics_drawStringCentered(&g_sContext, (int16_t *)"Press btn", AUTO_STRING_LENGTH,
                                 BOARD_X + (BOARD_W * CELL) / 2,
                                 BOARD_Y + (BOARD_H * CELL) / 2 + 12, OPAQUE_TEXT);
-
-    for(i = 0; i < GAME_OVER_HOLD_MS / 10; i++) DELAY_US(10000);   // 10 ms steps
-
-    do
-    {
-        Joy_Update();
-        Dpad_Update();
-        DELAY_US(10000);
-    } while(!g_joy.btnPressed && !Dpad_AnyPressed());
 }
 
 //*****************************************************************************
-// 6. PUBLIC ENTRY POINT
+// 5. GAME FLOW
 //*****************************************************************************
 
-// Play Tetris. Returns when the player holds the button (quit) or after a
-// game over has been acknowledged. See the "app contract" in apps.h.
-void Tetris_Run(void)
+// Bring in the next piece at the top. Returns false if it does not fit.
+static bool SpawnPiece(void)
 {
-    uint16_t interval;                  // frames between gravity steps (from level)
-    uint16_t frameNo = 0;               // counts frames, paces the soft drop
-    int16_t  hTimer = 0;                // countdown for left/right auto-repeat
-    bool     forceStep;                 // true = drop one row this frame no matter what
-    bool     gameOver;
+    s_cur.type = s_nextType;
+    s_cur.rot  = 0;
+    s_cur.x    = 3;
+    s_cur.y    = 0;
+    s_nextType = NextFromBag();
+    s_gravityCount = 0;
 
-    // Stick and D-pad are merged into these "virtual" controls each frame
+    return Fits(s_cur.type, s_cur.rot, s_cur.x, s_cur.y);
+}
+
+static void TetrisShift(int16_t dir)
+{
+    if(Fits(s_cur.type, s_cur.rot, s_cur.x + dir, s_cur.y)) s_cur.x += dir;
+}
+
+// Rotate clockwise with a simple wall kick (try left, then right).
+static void TetrisRotate(void)
+{
+    int16_t nr = (s_cur.rot + 1) & 3;
+
+    if(Fits(s_cur.type, nr, s_cur.x, s_cur.y))              s_cur.rot = nr;
+    else if(Fits(s_cur.type, nr, s_cur.x - 1, s_cur.y))   { s_cur.rot = nr; s_cur.x--; }
+    else if(Fits(s_cur.type, nr, s_cur.x + 1, s_cur.y))   { s_cur.rot = nr; s_cur.x++; }
+}
+
+// Lock the piece, clear rows, update score/level, spawn the next piece.
+// Returns false if the next piece cannot spawn (game over).
+static bool LockAndSpawn(void)
+{
+    int16_t cleared;
+
+    PlaceOnBoard(s_cur.type, s_cur.rot, s_cur.x, s_cur.y);
+
+    cleared = ClearFullRows();
+    if(cleared > 0)
+    {
+        s_score += (uint32_t)s_lineScore[cleared] * (s_level + 1);
+        s_lines += cleared;
+        s_level  = s_lines / 10;
+        if(s_level > 9) s_level = 9;            // plenty fast by level 9
+    }
+    s_score += 4;                               // bonus for every piece locked
+
+    return SpawnPiece();
+}
+
+//*****************************************************************************
+// 6. APP CALLBACKS
+//*****************************************************************************
+
+// init: runs once at launch. Reset state AND draw the screen from scratch.
+static void Tetris_Init(void)
+{
+    int16_t r, c;
+
+    // Seed from the free-running timer so each game has a different order.
+    Rand_Seed(TimerNow());
+
+    for(r = 0; r < BOARD_H; r++)
+        for(c = 0; c < BOARD_W; c++) s_board[r][c] = 0;
+
+    s_score = 0;
+    s_lines = 0;
+    s_level = 0;
+    s_bagIdx = 7;                       // 7 = "deck empty", forces a shuffle
+    s_nextType = NextFromBag();
+
+    s_frameNo       = 0;
+    s_hTimer        = 0;
+    s_prevMoveDir   = 0;
+    s_gameOver      = false;
+    s_gameOverTimer = 0;
+    s_gameOverDrawn = false;
+
+    DrawTetrisLayout();                 // also invalidates the screen cache
+    SpawnPiece();                       // an empty board always has room
+    // The first render() paints the board, preview and stats because the
+    // cache was just invalidated.
+}
+
+// update: once per frame. LOGIC ONLY. No drawing here.
+static AppStatus Tetris_Update(void)
+{
+    uint16_t interval;
+    bool     forceStep = false;
     int16_t  moveDir;                   // -1 left, 0 none, +1 right
     int16_t  moveEdge;                  // moveDir, but only on the frame it starts
-    int16_t  prevMoveDir = 0;
     bool     softDrop;
-    bool     hardDrop;
     bool     rotate;
 
-    // Seed from the free-running timer: the time between power-up and this
-    // moment differs every run, so each game gets a different piece order.
-    Rand_Seed(TimerNow());
-    ResetTetris();
-
-    while(1)
+    // ---- Game over: wait out the hold time, then any button quits ----------
+    if(s_gameOver)
     {
-        gameOver  = false;
-        forceStep = false;
-        frameNo++;
+        if(s_gameOverTimer > 0)
+            s_gameOverTimer--;
+        else if(g_joy.btnPressed || Dpad_AnyPressed())
+            return APP_QUIT;            // back to the menu
 
-        // ---- 1. INPUT -----------------------------------------------------
-        Joy_Update();
-        Dpad_Update();
-        if(g_joy.btnLong) return;                       // hold button = back to menu
+        return APP_CONTINUE;
+    }
 
-        // Merge the stick and the D-pad. If both D-pad sides are held they
-        // cancel out and the stick decides.
-        moveDir = g_joy.dirX;
-        if(KEY_LEFT_HELD  && !KEY_RIGHT_HELD) moveDir = -1;
-        if(KEY_RIGHT_HELD && !KEY_LEFT_HELD)  moveDir =  1;
+    s_frameNo++;
 
-        // The D-pad has no edge flag for "direction changed", so work it out
-        // here: moveEdge is non-zero only on the frame a direction begins.
-        moveEdge    = (moveDir != 0 && moveDir != prevMoveDir) ? moveDir : 0;
-        prevMoveDir = moveDir;
+    // ---- 1. INPUT ----------------------------------------------------------
+    // Merge stick and D-pad. If both D-pad sides are held they cancel out
+    // and the stick decides.
+    moveDir = g_joy.dirX;
+    if(KEY_LEFT_HELD  && !KEY_RIGHT_HELD) moveDir = -1;
+    if(KEY_RIGHT_HELD && !KEY_LEFT_HELD)  moveDir =  1;
 
-        softDrop = (g_joy.dirY > 0) || KEY_DOWN_HELD;
-        hardDrop = (g_joy.edgeY < 0);                   // stick up (D-pad has none)
-        rotate   = g_joy.btnPressed || KEY_ROTATE_TAP;
+    moveEdge      = (moveDir != 0 && moveDir != s_prevMoveDir) ? moveDir : 0;
+    s_prevMoveDir = moveDir;
 
-        // Left/right: move once immediately when a direction is first pressed
-        // (moveEdge != 0), then wait DAS_FRAMES before repeating every ARR_FRAMES.
-        if(moveDir == 0)
+    softDrop = (g_joy.dirY > 0) || KEY_DOWN_HELD;
+    rotate   = g_joy.btnPressed || KEY_ROTATE_TAP;
+
+    // Left/right: move once immediately, then wait DAS_FRAMES before
+    // repeating every ARR_FRAMES.
+    if(moveDir == 0)
+    {
+        s_hTimer = 0;
+    }
+    else if(moveEdge != 0)
+    {
+        TetrisShift(moveDir);
+        s_hTimer = DAS_FRAMES;
+    }
+    else if(--s_hTimer <= 0)
+    {
+        TetrisShift(moveDir);
+        s_hTimer = ARR_FRAMES;
+    }
+
+    if(rotate) TetrisRotate();                      // one rotation per tap
+
+    if(softDrop && (s_frameNo & 1)) forceStep = true;   // every other frame
+
+    // ---- 2. GRAVITY --------------------------------------------------------
+    interval = s_gravityFrames[s_level];
+    s_gravityCount++;
+
+    if(forceStep || s_gravityCount >= interval)
+    {
+        s_gravityCount = 0;
+
+        if(Fits(s_cur.type, s_cur.rot, s_cur.x, s_cur.y + 1))
         {
-            hTimer = 0;                                 // nothing pressed: reset
+            s_cur.y++;                              // room below: fall one row
+            if(softDrop) s_score += 1;              // soft-drop bonus
         }
-        else if(moveEdge != 0)
+        else if(!LockAndSpawn())
         {
-            TetrisShift(moveDir);
-            hTimer = DAS_FRAMES;
+            // Stack reached the top. render() will draw the overlay.
+            s_gameOver      = true;
+            s_gameOverTimer = GAME_OVER_HOLD_FRAMES;
         }
-        else if(--hTimer <= 0)
-        {
-            TetrisShift(moveDir);
-            hTimer = ARR_FRAMES;
-        }
+    }
 
-        if(rotate) TetrisRotate();                      // one rotation per tap
+    return APP_CONTINUE;
+}
 
-        if(hardDrop)
-        {
-            while(Fits(g_cur.type, g_cur.rot, g_cur.x, g_cur.y + 1)) g_cur.y++;
-            forceStep = true;                           // lock it this frame
-        }
-        if(softDrop && (frameNo & 1)) forceStep = true; // soft drop
-                                                        // (every other frame, so it is
-                                                        //  fast but still controllable)
+// render: once per frame. DRAWING ONLY.
+static void Tetris_Render(void)
+{
+    if(s_gameOverDrawn)
+        return;                                     // nothing changes any more
 
-        // ---- 2. GRAVITY ---------------------------------------------------
-        interval = g_gravityFrames[g_level];
-        g_gravityCount++;
+    DrawTetrisBoard();                              // diff-based, cheap when idle
 
-        if(forceStep || g_gravityCount >= interval)
-        {
-            g_gravityCount = 0;
-
-            if(Fits(g_cur.type, g_cur.rot, g_cur.x, g_cur.y + 1))
-            {
-                g_cur.y++;                              // room below: fall one row
-                if(softDrop) g_score += 1;              // soft-drop bonus
-            }
-            else
-            {
-                // Resting on something: lock it. If the next piece cannot
-                // spawn, the stack has reached the top.
-                if(!LockAndSpawn()) gameOver = true;
-            }
-        }
-
-        // ---- 3. DRAW ------------------------------------------------------
-        RenderTetrisBoard();
-
-        if(gameOver)
-        {
-            TetrisGameOver();
-            return;                                     // back to the menu
-        }
-
-        DELAY_US(FRAME_US);                             // pace the loop
+    if(s_gameOver)
+    {
+        DrawGameOver();
+        s_gameOverDrawn = true;
     }
 }
+
+//*****************************************************************************
+// The app descriptor: the ONLY public symbol in this file.
+//*****************************************************************************
+const App g_tetrisApp =
+{
+    "TETRIS",                           // name (first letter = menu tile icon)
+    "Stick: move/drop  Btn: rotate",    // hint shown under the menu
+    COLOR_TETRIS_T_PURPLE,                // menu tile color
+    TETRIS_FRAME_US,                    // frame period
+    Tetris_Init, Tetris_Update, Tetris_Render,
+    NULL,                               // no exit() cleanup needed
+    NULL                                // not a legacy app
+};
