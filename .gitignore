@@ -8,14 +8,4 @@ Release/
 *.d
 *_linkInfo.xml
 
-fonts/
-
-# --- IDE local state (project files themselves ARE committed) ---
-.settings/
-.codex/
-.launches/
-.clangd
-
-# --- OS artifacts ---
-.DS_Store
-Thumbs.db
+grlib/fonts/
