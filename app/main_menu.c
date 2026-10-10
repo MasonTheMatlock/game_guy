@@ -23,7 +23,7 @@
 //   stick button, D-pad D       : start the highlighted app
 //#############################################################################
 
-#include "apps.h"
+#include "main_menu.h"   // g_menuApp (pulls in apps.h)
 
 //*****************************************************************************
 // Layout (pixels). Screen is 320 x 240.

@@ -1,9 +1,10 @@
 //#############################################################################
 // FILE:   app/apps.h
-// TITLE:  The "app contract" - what main.c and every app agree on
+// TITLE:  The app layer's one public header: the app contract, the shared
+//         services, and the per-app headers.
 //
 // THE APP CONTRACT (callback style)
-//   An app is a const App struct with three callbacks. main.c owns the loop:
+//   An app is a const App struct with three callbacks. apps.c owns the loop:
 //
 //       init()    called once on launch. Draw the whole screen from scratch
 //                 (never assume what was on the LCD) and reset your state.
@@ -12,7 +13,7 @@
 //       render()  called once per frame after update(). Drawing only.
 //       exit()    optional (may be NULL). Cleanup when the app ends.
 //
-//   Before every update(), main.c has ALREADY called Joy_Update() and
+//   Before every update(), the app loop has ALREADY called Joy_Update() and
 //   Dpad_Update(). DO NOT call them again in your app - a second call eats
 //   the "Pressed" edge flags.
 //
@@ -20,17 +21,19 @@
 //   Apps do not have to implement that.
 //
 // HOW TO ADD A NEW APP
-//   1. Create app/myapp.c with static Myapp_Init/Update/Render and ONE public
-//      descriptor:   const App g_myappApp = { ... };
-//   2. Add   extern const App g_myappApp;   below.
-//   3. Add   &g_myappApp,   to g_apps[] in main.c.
+//   1. Create app/myapp.h:  #include "apps.h"  and  extern const App g_myappApp;
+//      plus any constants / types you want to share (see tetris.h).
+//   2. Create app/myapp.c: #include "myapp.h", static Myapp_Init/Update/Render
+//      and ONE public descriptor:   const App g_myappApp = { ... };
+//   3. Add   #include "myapp.h"   at the bottom of this file.
+//   4. Add   &g_myappApp,   to g_apps[] in app/apps.c.
 //   The menu builds itself from g_apps[].
 //
 // LEGACY APPS (migration aid)
 //   An app that still has its own blocking  void Xxx_Run(void)  loop can be
 //   wrapped by putting that function in the .run field and leaving the
-//   callbacks NULL. main.c just calls it, like before. Convert them one at a
-//   time; delete .run when done.
+//   callbacks NULL. the runner just calls it. Once every app is converted, .run
+//   can be deleted.
 //#############################################################################
 
 #ifndef __APPS_H__
@@ -52,12 +55,10 @@
 #define SCREEN_H      LCD_HORIZONTAL_MAX
 
 //*****************************************************************************
-// Shared services (defined once in main.c, used by every app)
+// Shared services (defined in app/apps.c, used by every app)
 //*****************************************************************************
 extern Graphics_Context g_sContext;
 extern const Graphics_Font g_sFontCmss20b;
-
-
 
 // Fill (x0,y0)-(x1,y1), corners INCLUSIVE. Empty rectangles are ignored.
 void Graphics_FillRect(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint32_t color);
@@ -89,33 +90,28 @@ typedef struct
     void      (*run)(void);     // LEGACY blocking entry point, else NULL
 } App;
 
-// Ask main.c to run `app` next, then return APP_QUIT from your update().
-// If nothing is requested, main.c goes back to the menu.
+// Ask the app loop to run `app` next, then return APP_QUIT from your update().
+// If nothing is requested, it goes back to the menu.
 void App_Launch(const App *app);
+
+// The one frame loop (app/apps.c): menu -> app -> menu -> ...
+// Called once by main() after boot. Never returns.
+void App_Loop(void);
 
 //*****************************************************************************
 // App registry
 //*****************************************************************************
-extern const App *const g_apps[];   // apps shown in the menu (defined in main.c)
+extern const App *const g_apps[];   // apps shown in the menu (app/apps.c)
 extern const uint16_t   g_appCount;
 
-// The menu is an app too (app/main_menu.c). It is not listed in g_apps[].
-extern const App g_menuApp;
-
 //*****************************************************************************
-// App descriptors (new-style apps): one extern per app
+// Per-app headers. Keep these LAST: each one includes apps.h for the types
+// above, which is safe because the guard is already set by this point.
 //*****************************************************************************
-//extern const App g_testApp;     // app/test.c
-extern const App g_raycasterApp;
-extern const App g_settingsApp;
-extern const App g_testApp;
-extern const App g_tetrisApp;
-
-
-//*****************************************************************************
-// Legacy entry points (old blocking Xxx_Run loops, wrapped in main.c)
-//*****************************************************************************
-//void Tetris_Run(void);          // app/tetris.c
-//void Raycaster_Run(void);       // app/raycaster.c
+#include "main_menu.h"
+#include "tetris.h"
+#include "raycaster.h"
+#include "settings.h"
+#include "test.h"
 
 #endif // __APPS_H__
