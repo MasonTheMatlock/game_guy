@@ -1,9 +1,14 @@
+<<<<<<< HEAD
 # --- Code Composer Studio / Eclipse Build Outputs ---
+=======
+# --- CCS / Eclipse build output ---
+>>>>>>> header-house-keeping
 Debug/
 Release/
 *.obj
 *.out
 *.map
+<<<<<<< HEAD
 *.txt
 *.xml
 *.json
@@ -11,11 +16,21 @@ Release/
 *.pp
 
 # --- IDE Project Configuration & Cache (Keep .ccsproject, .cproject, .project) ---
+=======
+*.pp
+*.d
+*_linkInfo.xml
+
+fonts/
+
+# --- IDE local state (project files themselves ARE committed) ---
+>>>>>>> header-house-keeping
 .settings/
 .codex/
 .launches/
 .clangd
 
+<<<<<<< HEAD
 # --- OS Artifacts ---
 .DS_Store
 Thumbs.db
@@ -44,3 +59,8 @@ TMS320F28069.ccxml
 f28069.gel
 
 F2806x_usDelay.asm
+=======
+# --- OS artifacts ---
+.DS_Store
+Thumbs.db
+>>>>>>> header-house-keeping

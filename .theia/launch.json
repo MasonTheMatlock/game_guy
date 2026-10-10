@@ -1,0 +1,38 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "game_guy",
+            "type": "ccs-debug",
+            "request": "launch",
+            "projectInfo": {
+                "name": "game_guy",
+                "resourceId": "/game_guy"
+            },
+            "connections": [
+                {
+                    "name": "Texas Instruments XDS100v1 USB Debug Probe",
+                    "cores": [
+                        {
+                            "name": "C28xx",
+                            "debuggerSettings": {
+                                "data": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<PropertyValues/>\n"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Texas Instruments XDS100v2 USB Debug Probe_0",
+                    "cores": [
+                        {
+                            "name": "C28xx",
+                            "debuggerSettings": {
+                                "data": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<PropertyValues/>\n"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
