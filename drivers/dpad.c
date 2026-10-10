@@ -1,11 +1,14 @@
 //#############################################################################
 // FILE:   dpad.c
 // TITLE:  4-button D-pad driver (buttons A, B, C, D)
+//                                  A
+//                                B   C
+//                                  D
 //
 //   A = GPIO25     B = GPIO52     C = GPIO53     D = GPIO56
 //
-// Same idea as joystick.c: raw pin -> time-based debounce -> "held" and
-// "pressed this poll" flags in g_dpad.
+// Same idea as joystick.c: raw pin -> time-based debounce -> "held",
+// "pressed this poll" and "long press reached this poll" flags in g_dpad.
 //#############################################################################
 
 #include "drivers.h"
@@ -16,7 +19,10 @@ Dpad g_dpad;
 
 static int16_t  g_dpadState[DPAD_COUNT];   // debounced state (1 = pressed)
 static uint32_t g_dpadTick[DPAD_COUNT];    // time of the last accepted change
+static int16_t  g_dpadLongFired[DPAD_COUNT]; // 1 = long press already reported
+                                           //     for the current hold
 static int16_t  g_dpadAny;                 // any new press on the last update
+static int16_t  g_dpadAnyLong;             // any long press on the last update
 
 // ---- REGISTER LEVEL HARDWARE CONFIGURATION ----------------------------------
 
@@ -87,8 +93,13 @@ void Dpad_Init(void)
     {
         g_dpadState[i] = Dpad_ReadRaw(i);
         g_dpadTick[i]  = TimerNow();
+
+        // Pretend the long press was already reported, so a button held at
+        // boot can never produce a phantom long press.
+        g_dpadLongFired[i] = 1;
     }
-    g_dpadAny = 0;
+    g_dpadAny     = 0;
+    g_dpadAnyLong = 0;
 
     Dpad_Update();
 }
@@ -96,12 +107,19 @@ void Dpad_Init(void)
 // Debounce rule (same as the joystick button): a change is accepted only if
 // the previous accepted change was at least BTN_DEBOUNCE_MS ago. The first
 // press after a quiet period therefore goes through with zero added delay.
+//
+// Long press: g_dpadTick[i] is the time the press was accepted, so a button
+// that is still held DPAD_LONG_PRESS_MS later reports a long press ONCE
+// (g_dpadLongFired stops it repeating until the button is released and
+// pressed again).
 void Dpad_Update(void)
 {
     int16_t i, raw;
-    int16_t pressed[DPAD_COUNT] = {0, 0, 0, 0};
+    int16_t pressed[DPAD_COUNT]  = {0, 0, 0, 0};
+    int16_t longHold[DPAD_COUNT] = {0, 0, 0, 0};
 
-    g_dpadAny = 0;
+    g_dpadAny     = 0;
+    g_dpadAnyLong = 0;
 
     for(i = 0; i < DPAD_COUNT; i++)
     {
@@ -115,7 +133,16 @@ void Dpad_Update(void)
             {
                 pressed[i] = 1;
                 g_dpadAny  = 1;
+                g_dpadLongFired[i] = 0;     // new press: arm the long press
             }
+        }
+
+        if(g_dpadState[i] && !g_dpadLongFired[i] &&
+           MsSince(g_dpadTick[i]) >= DPAD_LONG_PRESS_MS)
+        {
+            longHold[i]        = 1;
+            g_dpadLongFired[i] = 1;
+            g_dpadAnyLong      = 1;
         }
     }
 
@@ -123,9 +150,19 @@ void Dpad_Update(void)
     g_dpad.b = g_dpadState[1];   g_dpad.bPressed = pressed[1];
     g_dpad.c = g_dpadState[2];   g_dpad.cPressed = pressed[2];
     g_dpad.d = g_dpadState[3];   g_dpad.dPressed = pressed[3];
+
+    g_dpad.aLong = longHold[0];
+    g_dpad.bLong = longHold[1];
+    g_dpad.cLong = longHold[2];
+    g_dpad.dLong = longHold[3];
 }
 
 int16_t Dpad_AnyPressed(void)
 {
     return g_dpadAny;
+}
+
+int16_t Dpad_AnyLong(void)
+{
+    return g_dpadAnyLong;
 }

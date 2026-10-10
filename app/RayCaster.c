@@ -1,17 +1,17 @@
 //#############################################################################
 // FILE:   app/raycaster.c
-// TITLE:  Raycaster - PLACEHOLDER
+// TITLE:  Raycaster - PLACEHOLDER (callback app contract)
 //
 // STATUS
 //   This file only proves the app plumbing works: the menu can launch it, it
-//   draws a screen, it reads the joystick, and a long press returns to the
-//   menu. The real game gets built up inside the TODO functions below.
+//   draws a screen, and a long press returns to the menu. The real game gets
+//   built up inside the TODO functions below.
 //
 // PLANNED CONTROLS
 //   stick left/right : turn (analog: pushing farther turns faster)
 //   stick up/down    : walk forward / backward
 //   button tap       : fire
-//   hold button      : quit to the menu   (already works - see Raycaster_Run)
+//   HOLD stick button: quit to the menu (free, handled by main.c)
 //
 // WHAT A RAYCASTER IS (the idea to build toward)
 //   A "3D" view drawn from a flat 2D grid map, the way Wolfenstein 3D did it.
@@ -23,15 +23,17 @@
 //     4. draw that column as ceiling color, wall color, then floor color.
 //   Use the PERPENDICULAR distance (not the straight-line distance) or walls
 //   look curved, like a fisheye lens.
+//
+// APP CONTRACT
+//   init()   once on launch: reset state, draw the screen from scratch.
+//   update() once per frame: logic only, no drawing. Return APP_QUIT to leave.
+//   render() once per frame after update(): drawing only.
+//   main.c already calls Joy_Update() / Dpad_Update() before update() and
+//   paces the frames, so there is no while(1), Joy_Update() or DELAY_US() here.
+//   One public symbol: g_raycasterApp.
 //#############################################################################
 
-#include "apps.h"
-
-//*****************************************************************************
-// Constants
-//*****************************************************************************
-#define RC_FRAME_US    16000UL          // pause per loop pass (~60 frames/sec
-                                        //   before drawing time is added)
+#include "raycaster.h"   // g_raycasterApp, RC_FRAME_US
 
 //*****************************************************************************
 // Game state
@@ -40,13 +42,9 @@
 //*****************************************************************************
 
 //*****************************************************************************
-// Init / Update / Render
-//   Almost every game loop splits into these three jobs. Keeping them separate
-//   means you can change how the game LOOKS without risking how it BEHAVES.
-//*****************************************************************************
-
-// Called once each time the app starts. Reset game state and draw anything
+// init: runs once when the app starts. Reset game state and draw anything
 // that never changes. Today that is just the placeholder screen.
+//*****************************************************************************
 static void Raycaster_Init(void)
 {
     Graphics_setBackgroundColor(&g_sContext, COLOR_BLACK);
@@ -56,47 +54,52 @@ static void Raycaster_Init(void)
     // Same title style as the other screens: centered text over a divider line.
     Graphics_setForegroundColor(&g_sContext, COLOR_WHITE);
     Graphics_drawStringCentered(&g_sContext, (int16_t *)"Place Holder",
-                                AUTO_STRING_LENGTH, 159, 15, OPAQUE_TEXT);
-    Graphics_drawLine(&g_sContext, 10, 30, 309, 30);
+                                AUTO_STRING_LENGTH, SCREEN_W / 2, 15, OPAQUE_TEXT);
+    Graphics_drawLine(&g_sContext, 10, 30, SCREEN_W - 11, 30);
 
     Graphics_drawStringCentered(&g_sContext, (int16_t *)"COMING SOON",
-                                AUTO_STRING_LENGTH, 159, 110, OPAQUE_TEXT);
+                                AUTO_STRING_LENGTH, SCREEN_W / 2, 110, OPAQUE_TEXT);
 
     Graphics_setForegroundColor(&g_sContext, COLOR_GRAY);
     Graphics_drawStringCentered(&g_sContext, (int16_t *)"Hold btn = menu",
-                                AUTO_STRING_LENGTH, 159, 214, OPAQUE_TEXT);
+                                AUTO_STRING_LENGTH, SCREEN_W / 2, 214, OPAQUE_TEXT);
 
     // TODO: reset the player to the start of the map, generate the maze, etc.
 }
 
-// Called once per frame BEFORE drawing. Change the game state: read g_joy,
+//*****************************************************************************
+// update: once per frame, BEFORE render. Change the game state: read g_joy,
 // move the player, run enemies. Do not draw anything here.
-static void Raycaster_Update(void)
+//*****************************************************************************
+static AppStatus Raycaster_Update(void)
 {
     // TODO: turn with g_joy.dx, walk with g_joy.dy, fire on g_joy.btnPressed.
     //       (dx and dy are -100..100; see the Joy struct in drivers/drivers.h)
+    //       Return APP_QUIT here for an app-initiated exit (e.g. D-pad C).
+
+    return APP_CONTINUE;
 }
 
-// Called once per frame AFTER Update. Draw the current state of the game.
-
+//*****************************************************************************
+// render: once per frame, AFTER update. Draw the current state of the game.
+//*****************************************************************************
 static void Raycaster_Render(void)
 {
     // TODO: cast the rays and draw the 3D view.
 }
 
-
-void Raycaster_Run(void)
+//*****************************************************************************
+// The app descriptor: the ONLY public symbol in this file.
+//   Already declared in apps.h (extern const App g_raycasterApp) and listed in
+//   g_apps[] in main.c.
+//*****************************************************************************
+const App g_raycasterApp =
 {
-    Raycaster_Init();
-
-    while(1)
-    {
-        Joy_Update();                               // refresh g_joy once per frame
-        if(g_joy.btnLong) return;                   // hold button = back to menu
-
-        Raycaster_Update();
-        Raycaster_Render();
-
-        DELAY_US(RC_FRAME_US);
-    }
-}
+    "RAYCASTER",                        // name (first letter = menu tile icon)
+    "Stick: move  Btn: fire",           // hint shown under the menu
+    COLOR_RED,                          // menu tile color
+    RC_FRAME_US,                        // frame period
+    Raycaster_Init, Raycaster_Update, Raycaster_Render,
+    NULL,                               // no exit() cleanup needed
+    NULL                                // not a legacy app
+};
