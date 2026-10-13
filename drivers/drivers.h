@@ -10,5 +10,5 @@
 
 #include "joystick.h"
 #include "dpad.h"
-
+#include "buzzer.h"
 #endif // __DRIVERS_H__

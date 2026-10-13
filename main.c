@@ -6,6 +6,7 @@
 //   Screen: BOOSTXL-K350QVG-S1, 320x240 Kitronix SSD2119 LCD over SPI
 //   Input : analog joystick (VRx = ADCINB7, VRy = ADCINB4, button = GPIO55)
 //           4-button D-pad  (A = GPIO25, B = GPIO52, C = GPIO53, D = GPIO56)
+//   Audio : passive buzzer + NPN on GPIO6 / ePWM4A (J8:80), driven by CPU Timer 1
 //
 // main.c only boots the hardware. Everything above that lives in app/:
 //   app/apps.h / apps.c   the app contract, shared services (g_sContext,
@@ -84,6 +85,14 @@ void main(void)
 
     if(!joystickOk) ShowCalibrationWarning();
 
-    // Step 5. Menu -> app -> menu -> ... (never returns)
+    // Step 5. Buzzer: GPIO6 -> ePWM4A, plus a 1 ms sequencer on CPU Timer 1.
+    //         (CPU Timer 0 is the joystick's free-running clock; leave it alone.)
+    //         Nothing earlier needed interrupts, so global interrupts are
+    //         enabled here, last, once every vector is in place.
+    Buzzer_Init();
+    EINT;
+    ERTM;
+
+    // Step 6. Menu -> app -> menu -> ... (never returns)
     App_Loop();
 }
