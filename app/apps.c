@@ -87,6 +87,8 @@ static void WaitInputsReleased(void)
 // Runs one app until it quits.
 static void RunApp(const App *app)
 {
+    Buzzer_Stop();                          // start silent; init() starts its own music
+
     // Legacy app: it owns its own loop, so just call it.
     if(app->run)
     {

@@ -113,5 +113,6 @@ extern const uint16_t   g_appCount;
 #include "raycaster.h"
 #include "settings.h"
 #include "test.h"
+#include "songs.h"              // Buzzer_PlaySong(&song_tetris, 1), sfx_coin, ...
 
 #endif // __APPS_H__
