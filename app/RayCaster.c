@@ -65,6 +65,8 @@ static void Raycaster_Init(void)
                                 AUTO_STRING_LENGTH, SCREEN_W / 2, 214, OPAQUE_TEXT);
 
     // TODO: reset the player to the start of the map, generate the maze, etc.
+
+    Buzzer_PlaySong(&song_corridor_run, 1);     // background music (stopped by the app loop on exit)
 }
 
 //*****************************************************************************
@@ -76,6 +78,7 @@ static AppStatus Raycaster_Update(void)
     // TODO: turn with g_joy.dx, walk with g_joy.dy, fire on g_joy.btnPressed.
     //       (dx and dy are -100..100; see the Joy struct in drivers/drivers.h)
     //       Return APP_QUIT here for an app-initiated exit (e.g. D-pad C).
+    //       Sound: Buzzer_PlaySfx(&sfx_coin); when the player picks something up.
 
     return APP_CONTINUE;
 }

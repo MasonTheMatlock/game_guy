@@ -424,6 +424,7 @@ static bool LockAndSpawn(void)
         s_lines += cleared;
         s_level  = s_lines / 10;
         if(s_level > 9) s_level = 9;            // plenty fast by level 9
+        Buzzer_PlaySfx(&sfx_coin);              // line-clear chime over the music
     }
     s_score += 4;                               // bonus for every piece locked
 
@@ -460,6 +461,7 @@ static void Tetris_Init(void)
 
     DrawTetrisLayout();                 // also invalidates the screen cache
     SpawnPiece();                       // an empty board always has room
+    Buzzer_PlaySong(&song_tetris, 1);   // background music (stopped by the app loop on exit)
     // The first render() paints the board, preview and stats because the
     // cache was just invalidated.
 }
@@ -539,6 +541,7 @@ static AppStatus Tetris_Update(void)
             // Stack reached the top. render() will draw the overlay.
             s_gameOver      = true;
             s_gameOverTimer = TETRIS_GAME_OVER_HOLD_FRAMES;
+            Buzzer_Stop();                          // silence on game over
         }
     }
 
