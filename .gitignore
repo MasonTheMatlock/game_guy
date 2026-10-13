@@ -15,5 +15,6 @@ Release/
 *.pp
 *.d
 *_linkInfo.xml
+.clangd
 
 grlib/fonts/
