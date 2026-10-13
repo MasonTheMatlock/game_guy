@@ -54,7 +54,7 @@ const Song song_corridor_run =
 };
 
 //*****************************************************************************
-// Korobeiniki (traditional folk melody)
+// Korobeiniki (traditional Russian folk melody)
 //*****************************************************************************
 #define TETRIS_A \
     /* Bar 1 */ {N_E5,D_Q},{N_B4,D_E},{N_C5,D_E},{N_D5,D_Q},{N_C5,D_E},{N_B4,D_E}, \

@@ -5,7 +5,7 @@
 // Umbrella header: one include for every input driver.
 //   Apps and main.c keep using  #include "drivers/drivers.h".
 //   Driver .c files should include only the header they implement
-//   (joystick.c -> "joystick.h", dpad.c -> "dpad.h").
+//   (joystick.c -> "joystick.h", dpad.c -> "dpad.h"...etc.).
 //*****************************************************************************
 
 #include "joystick.h"
