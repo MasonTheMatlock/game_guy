@@ -46,6 +46,17 @@ void Graphics_FillRect(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint32_t 
     Graphics_Graphics_FillRectangle(&g_sContext, &r);
 }
 
+// Play a SHORT effect and wait for it, so the next screen's Buzzer_Stop()
+// doesn't cut it off. Capped at ~1 s so a driver hiccup can't hang the app.
+void Sfx_PlayWait(const Song *sfx)
+{
+    uint16_t guard = 1000;
+
+    Buzzer_PlaySfx(sfx);
+    while(Buzzer_IsPlaying() && guard--)
+        DELAY_US(1000);
+}
+
 //*****************************************************************************
 // 2. App table
 //    Order here = order in the menu. One pointer per app.
@@ -81,7 +92,30 @@ static void WaitInputsReleased(void)
     {
         Dpad_Update();
         DELAY_US(5000);
-    } while(g_dpad.a || g_dpad.b || g_dpad.c || g_dpad.d);
+    } while(g_dpad.u || g_dpad.l || g_dpad.r || g_dpad.d);
+}
+
+static void RunApp(const App *app);
+
+// Runs Settings on top of `app`. Returns true to resume the app, false to
+// leave it for the main menu.
+static bool PauseMenu(const App *app)
+{
+    WaitInputsReleased();               // the long press that got us here
+    Sfx_PlayWait(&sfx_pause);               // <-- new
+    g_settingsOverlay = true;
+    g_settingsToMenu  = false;
+    RunApp(&g_settingsApp);
+    g_settingsOverlay = false;
+
+    WaitInputsReleased();
+    if(g_settingsToMenu) return false;
+
+    Sfx_PlayWait(&sfx_resume);              // <-- new
+    Buzzer_Stop();
+    if(app->redraw) app->redraw();      // keep state, repaint screen
+    else            app->init();        // fallback: restarts the app
+    return true;
 }
 
 // Runs one app until it quits.
@@ -103,8 +137,14 @@ static void RunApp(const App *app)
         Joy_Update();                       // input is read ONCE per frame,
         Dpad_Update();                      // here, never inside apps
 
-        // Universal "hold button to quit". The menu has nothing to quit to.
-        if(app != &g_menuApp && g_joy.btnLong) break;
+        // Hold the button: Settings overlay (any app except the menu).
+        // Inside Settings itself, a hold just closes it.
+        if(app != &g_menuApp && g_joy.btnLong)
+        {
+            if(app == &g_settingsApp) break;
+            if(PauseMenu(app)) continue;    // resumed
+            break;                          // "Main Menu": end this app
+        }
 
         if(app->update() == APP_QUIT) break;
 

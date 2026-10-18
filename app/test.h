@@ -11,26 +11,55 @@
 extern const App g_testApp;                 // app/test.c
 
 //*****************************************************************************
-// Layout (pixels). Screen is 320 x 240.
+// Timing / feel
 //*****************************************************************************
-#define TEST_PLAY_X0     10             // play area (inclusive)
-#define TEST_PLAY_Y0     38
-#define TEST_PLAY_X1     (SCREEN_W - 11)
-#define TEST_PLAY_Y1     190
-
-#define TEST_SQUARE      20             // square side length
-
-#define TEST_COUNTER_Y   204            // "frames: N" text, centered
-#define TEST_HINT_Y      228            // bottom hint, centered
-
-//*****************************************************************************
-// Feel
-//*****************************************************************************
-#define TEST_FRAME_US    16000UL        // pause after each frame (~60 fps)
-#define TEST_STICK_DIV   20             // stick (-100..100) / 20 = -5..5 px/frame
-#define TEST_INVERT_Y    0              // g_joy.dy is +DOWN (see joystick.h), same as
-                                        // the screen's +y, so no inversion needed.
+#define TEST_FRAME_US       16000UL     // pause after each frame (~60 fps)
+#define TEST_INVERT_Y       0           // g_joy.dy is +DOWN, same as the screen's +y.
                                         // Set to 1 if your stick is wired backwards.
-#define TEST_COUNTER_EVERY 10           // redraw the counter every N frames
+#define TEST_EDGE_ON        60          // |stick| >= 60  -> counts as a "flick"
+#define TEST_EDGE_OFF       30          // |stick| <  30  -> stick has returned to center
+#define TEST_PAD_LIT_FRAMES 6           // a pad button stays lit this many frames after
+                                        // an edge (~100 ms), so a tap is visible
+#define TEST_CHORD_SLACK    2           // R+D within this many frames = "back to menu"
+#define TEST_PRED_GAIN      2           // prediction = pos + GAIN * (pos - lastPos)
+
+//*****************************************************************************
+// D-pad buttons (U L R D). The app only sees one-frame press EDGES (xPressed), so each
+// button is lit for TEST_PAD_LIT_FRAMES after its edge. If your dpad driver
+// has a "held" flag, point these at it and set TEST_PAD_LIT_FRAMES to 1.
+//*****************************************************************************
+#define TEST_PAD_U          (g_dpad.uPressed)
+#define TEST_PAD_L          (g_dpad.lPressed)
+#define TEST_PAD_R          (g_dpad.rPressed)
+#define TEST_PAD_D          (g_dpad.dPressed)
+
+//*****************************************************************************
+// Input-test layout (pixels). Screen is 320 x 240.
+//*****************************************************************************
+#define TEST_BOX_CX         80          // stick box center
+#define TEST_BOX_CY         125
+#define TEST_BOX_HALF       55          // box is 110 x 110
+#define TEST_DOT_R          5           // current position (filled square, half-size)
+#define TEST_RING_R         7           // predicted position (hollow square, half-size)
+#define TEST_ERASE_R        9           // erase square half-size around either marker
+
+#define TEST_PAD_CX         240         // button diamond center
+#define TEST_PAD_CY         125
+#define TEST_PAD_OFS        42          // center-to-button distance
+#define TEST_PAD_HALF       17          // button is 34 x 34
+
+#define TEST_STK_Y          203         // stick-button indicator, centered on PAD_CX
+#define TEST_READOUT_Y      197         // "X:.. Y:.." text under the stick box
+
+//*****************************************************************************
+// Sound-test layout
+//*****************************************************************************
+#define TEST_ROW_Y0         80          // first row's text center
+#define TEST_ROW_DY         34          // spacing between rows
+#define TEST_BAR_X0         61          // volume bars: 5 bars, 30 wide, 12 gap
+#define TEST_BAR_W          30
+#define TEST_BAR_GAP        12
+#define TEST_BAR_BOTTOM     198
+#define TEST_BAR_H0         8           // shortest bar; each next one is +4 taller
 
 #endif // __TEST_H__

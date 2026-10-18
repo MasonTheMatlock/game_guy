@@ -424,7 +424,13 @@ static bool LockAndSpawn(void)
         s_lines += cleared;
         s_level  = s_lines / 10;
         if(s_level > 9) s_level = 9;            // plenty fast by level 9
-        Buzzer_PlaySfx(&sfx_coin);              // line-clear chime over the music
+
+        if(cleared == 4) Buzzer_PlaySfx(&sfx_tetris_say);   // four rows = "TETRIS!"
+        else             Buzzer_PlaySfx(&sfx_coin);         // 1-3 rows: chime
+    }
+    else
+    {
+        Buzzer_PlaySfx(&sfx_thud);              // optional: piece landed, no clear
     }
     s_score += 4;                               // bonus for every piece locked
 
@@ -563,6 +569,17 @@ static void Tetris_Render(void)
     }
 }
 
+
+// redraw: called after the Settings overlay. Repaint only; keep game state.
+static void Tetris_Redraw(void)
+{
+    DrawTetrisLayout();                 // wipes LCD + invalidates s_shown / stats cache
+    s_gameOverDrawn = false;            // if the game was over, render() redraws the overlay
+    if(!s_gameOver)
+        Buzzer_PlaySong(&song_tetris, 1);   // the runner stopped the music; restart it
+}
+
+
 //*****************************************************************************
 // The app descriptor: the ONLY public symbol in this file.
 //*****************************************************************************
@@ -572,7 +589,8 @@ const App g_tetrisApp =
     "Stick: move/drop  Btn: rotate",    // hint shown under the menu
     COLOR_TETRIS_T_PURPLE,                // menu tile color
     TETRIS_FRAME_US,                    // frame period
-    Tetris_Init, Tetris_Update, Tetris_Render,
+        Tetris_Init, Tetris_Update, Tetris_Render,
     NULL,                               // no exit() cleanup needed
-    NULL                                // not a legacy app
+    NULL,                               // not a legacy app
+    Tetris_Redraw                       // repaint after Settings overlay
 };
