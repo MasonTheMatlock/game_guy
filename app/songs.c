@@ -88,7 +88,7 @@ const Song song_tetris =
 {
     s_tetrisNotes,
     sizeof(s_tetrisNotes) / sizeof(s_tetrisNotes[0]),
-    100,                // eighthMs: 200 ms per eighth (150 BPM)
+    200,                // eighthMs: 200 ms per eighth (150 BPM)
     40,                 // gapMs: keeps repeated notes distinct
     "Tetris"
 };
