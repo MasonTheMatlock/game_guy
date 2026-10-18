@@ -30,25 +30,25 @@ void Init_Dpad_GPIO(void)
 {
     EALLOW;
 
-    // GPIO25: button L (left)
+    // GPIO25: button R (right)
     GpioCtrlRegs.GPAMUX2.bit.GPIO25  = 0;   // 0 = plain GPIO
     GpioCtrlRegs.GPAQSEL2.bit.GPIO25 = 0;   // synchronous sampling
     GpioCtrlRegs.GPADIR.bit.GPIO25   = 0;   // 0 = input
     GpioCtrlRegs.GPAPUD.bit.GPIO25   = 0;   // 0 = pull-up enabled
 
-    // GPIO52: button R (right)
+    // GPIO52: button D (down)
     GpioCtrlRegs.GPBMUX2.bit.GPIO52  = 0;
     GpioCtrlRegs.GPBQSEL2.bit.GPIO52 = 0;
     GpioCtrlRegs.GPBDIR.bit.GPIO52   = 0;
     GpioCtrlRegs.GPBPUD.bit.GPIO52   = 0;
 
-    // GPIO53: button D (down)
+    // GPIO53: button U (up)
     GpioCtrlRegs.GPBMUX2.bit.GPIO53  = 0;
     GpioCtrlRegs.GPBQSEL2.bit.GPIO53 = 0;
     GpioCtrlRegs.GPBDIR.bit.GPIO53   = 0;
     GpioCtrlRegs.GPBPUD.bit.GPIO53   = 0;
 
-    // GPIO56: button U (up)
+    // GPIO56: button L (left)
     GpioCtrlRegs.GPBMUX2.bit.GPIO56  = 0;
     GpioCtrlRegs.GPBQSEL2.bit.GPIO56 = 0;
     GpioCtrlRegs.GPBDIR.bit.GPIO56   = 0;
@@ -66,10 +66,10 @@ static int16_t Dpad_ReadRaw(int16_t i)
 
     switch(i)
     {
-        case 0:  pin = GpioDataRegs.GPBDAT.bit.GPIO56; break;   // U
-        case 1:  pin = GpioDataRegs.GPADAT.bit.GPIO25; break;   // L
-        case 2:  pin = GpioDataRegs.GPBDAT.bit.GPIO52; break;   // R
-        default: pin = GpioDataRegs.GPBDAT.bit.GPIO53; break;   // D
+        case 0:  pin = GpioDataRegs.GPBDAT.bit.GPIO53; break;   // U
+        case 1:  pin = GpioDataRegs.GPBDAT.bit.GPIO56; break;   // L
+        case 2:  pin = GpioDataRegs.GPADAT.bit.GPIO25; break;   // R
+        default: pin = GpioDataRegs.GPBDAT.bit.GPIO52; break;   // D
     }
 
 #if DPAD_ACTIVE_LOW
