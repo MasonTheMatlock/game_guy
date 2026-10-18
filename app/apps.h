@@ -88,6 +88,9 @@ typedef struct
     void      (*exit)(void);    // optional, may be NULL
 
     void      (*run)(void);     // LEGACY blocking entry point, else NULL
+    void      (*redraw)(void);  // optional: repaint the screen from current state
+                                // after the Settings overlay (keeps game state);
+                                // NULL = fall back to init() (restarts the app)
 } App;
 
 // Ask the app loop to run `app` next, then return APP_QUIT from your update().
@@ -104,6 +107,11 @@ void App_Loop(void);
 extern const App *const g_apps[];   // apps shown in the menu (app/apps.c)
 extern const uint16_t   g_appCount;
 
+
+
+// soung bug fix???
+void Sfx_PlayWait(const Song *sfx);     // short effect that survives the next Buzzer_Stop()
+
 //*****************************************************************************
 // Per-app headers. Keep these LAST: each one includes apps.h for the types
 // above, which is safe because the guard is already set by this point.
@@ -114,5 +122,7 @@ extern const uint16_t   g_appCount;
 #include "settings.h"
 #include "test.h"
 #include "songs.h"              // Buzzer_PlaySong(&song_tetris, 1), sfx_coin, ...
+
+
 
 #endif // __APPS_H__

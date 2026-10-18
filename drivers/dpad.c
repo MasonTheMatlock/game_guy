@@ -1,11 +1,11 @@
 //#############################################################################
 // FILE:   dpad.c
-// TITLE:  4-button D-pad driver (buttons A, B, C, D)
-//                                  A
-//                                B   C
+// TITLE:  4-button D-pad driver (buttons U, L, R, D)
+//                                  U
+//                                L   R
 //                                  D
 //
-//   A = GPIO25     B = GPIO52     C = GPIO53     D = GPIO56
+//   U = GPIO56     L = GPIO25     R = GPIO52     D = GPIO53
 //
 // Same idea as joystick.c: raw pin -> time-based debounce -> "held",
 // "pressed this poll" and "long press reached this poll" flags in g_dpad.
@@ -30,25 +30,25 @@ void Init_Dpad_GPIO(void)
 {
     EALLOW;
 
-    // Button A
+    // GPIO25: button L (left)
     GpioCtrlRegs.GPAMUX2.bit.GPIO25  = 0;   // 0 = plain GPIO
     GpioCtrlRegs.GPAQSEL2.bit.GPIO25 = 0;   // synchronous sampling
     GpioCtrlRegs.GPADIR.bit.GPIO25   = 0;   // 0 = input
     GpioCtrlRegs.GPAPUD.bit.GPIO25   = 0;   // 0 = pull-up enabled
 
-    // Button B
+    // GPIO52: button R (right)
     GpioCtrlRegs.GPBMUX2.bit.GPIO52  = 0;
     GpioCtrlRegs.GPBQSEL2.bit.GPIO52 = 0;
     GpioCtrlRegs.GPBDIR.bit.GPIO52   = 0;
     GpioCtrlRegs.GPBPUD.bit.GPIO52   = 0;
 
-    // Button C
+    // GPIO53: button D (down)
     GpioCtrlRegs.GPBMUX2.bit.GPIO53  = 0;
     GpioCtrlRegs.GPBQSEL2.bit.GPIO53 = 0;
     GpioCtrlRegs.GPBDIR.bit.GPIO53   = 0;
     GpioCtrlRegs.GPBPUD.bit.GPIO53   = 0;
 
-    // Button D
+    // GPIO56: button U (up)
     GpioCtrlRegs.GPBMUX2.bit.GPIO56  = 0;
     GpioCtrlRegs.GPBQSEL2.bit.GPIO56 = 0;
     GpioCtrlRegs.GPBDIR.bit.GPIO56   = 0;
@@ -59,17 +59,17 @@ void Init_Dpad_GPIO(void)
 
 // ---- RAW READ ---------------------------------------------------------------
 
-// Returns 1 if button i (0=A, 1=B, 2=C, 3=D) is pressed right now, undebounced
+// Returns 1 if button i (0=U, 1=L, 2=R, 3=D) is pressed right now, undebounced
 static int16_t Dpad_ReadRaw(int16_t i)
 {
     uint16_t pin;
 
     switch(i)
     {
-        case 0:  pin = GpioDataRegs.GPADAT.bit.GPIO25; break;
-        case 1:  pin = GpioDataRegs.GPBDAT.bit.GPIO52; break;
-        case 2:  pin = GpioDataRegs.GPBDAT.bit.GPIO53; break;
-        default: pin = GpioDataRegs.GPBDAT.bit.GPIO56; break;
+        case 0:  pin = GpioDataRegs.GPBDAT.bit.GPIO56; break;   // U
+        case 1:  pin = GpioDataRegs.GPADAT.bit.GPIO25; break;   // L
+        case 2:  pin = GpioDataRegs.GPBDAT.bit.GPIO52; break;   // R
+        default: pin = GpioDataRegs.GPBDAT.bit.GPIO53; break;   // D
     }
 
 #if DPAD_ACTIVE_LOW
@@ -146,14 +146,14 @@ void Dpad_Update(void)
         }
     }
 
-    g_dpad.a = g_dpadState[0];   g_dpad.aPressed = pressed[0];
-    g_dpad.b = g_dpadState[1];   g_dpad.bPressed = pressed[1];
-    g_dpad.c = g_dpadState[2];   g_dpad.cPressed = pressed[2];
+    g_dpad.u = g_dpadState[0];   g_dpad.uPressed = pressed[0];
+    g_dpad.l = g_dpadState[1];   g_dpad.lPressed = pressed[1];
+    g_dpad.r = g_dpadState[2];   g_dpad.rPressed = pressed[2];
     g_dpad.d = g_dpadState[3];   g_dpad.dPressed = pressed[3];
 
-    g_dpad.aLong = longHold[0];
-    g_dpad.bLong = longHold[1];
-    g_dpad.cLong = longHold[2];
+    g_dpad.uLong = longHold[0];
+    g_dpad.lLong = longHold[1];
+    g_dpad.rLong = longHold[2];
     g_dpad.dLong = longHold[3];
 }
 

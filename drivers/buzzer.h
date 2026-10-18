@@ -5,12 +5,13 @@
 //   Hardware: passive buzzer + NPN transistor. The transistor base (through
 //             a ~1k resistor) connects to GPIO6 (J8:80), which is also ePWM4A.
 //
-//   The ePWM peripheral makes the square wave, so the CPU does no work while a
-//   note plays. A 1 ms interrupt on CPU Timer 1 only steps through the song
-//   and loads the next frequency when a note changes.
+//   ePWM4 runs as a fast (40 kHz) carrier; a small interrupt at that rate
+//   gates it with a 50% square wave at the note frequency. Volume is the carrier
+//   duty inside the "on" half, so the note's harmonics (and pitch) are the same
+//   at every volume. A 1 ms interrupt on CPU Timer 1 steps through the song.
 //
 //   RESOURCES THIS DRIVER OWNS
-//     GPIO6, ePWM4, CPU Timer 1 (INT13).
+//     GPIO6, ePWM4 (+ its PIE 3.4 interrupt), CPU Timer 1 (INT13).
 //     CPU Timer 0 is NOT touched: the joystick driver uses it as its clock.
 //
 //   Usage (apps normally just include apps.h):
@@ -58,6 +59,12 @@
 #define D_W     8       // whole
 
 //*****************************************************************************
+// Volume: 5 levels (0 = quietest, 4 = loudest), ~6 dB apart. Done with the
+// PWM duty cycle, so it works on a passive buzzer with no extra hardware.
+//*****************************************************************************
+#define BUZZER_NUM_VOLUMES  5
+
+//*****************************************************************************
 // Data types
 //*****************************************************************************
 typedef struct
@@ -85,6 +92,8 @@ void     Buzzer_Init(void);
 void     Buzzer_PlaySong(const Song *song, uint16_t loop);  // start background music
 void     Buzzer_PlaySfx(const Song *sfx);                   // effect (restarts if playing)
 void     Buzzer_Stop(void);                                 // music + effect off
+void     Buzzer_SetVolume(uint16_t level);                  // 0..BUZZER_NUM_VOLUMES-1 (duty cycle)
+uint16_t Buzzer_GetVolume(void);
 void     Buzzer_PauseMusic(uint16_t pause);                 // 1 = freeze music, 0 = resume
 uint16_t Buzzer_IsPlaying(void);                            // 1 if music or an effect is active
 

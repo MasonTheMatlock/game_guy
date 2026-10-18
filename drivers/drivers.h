@@ -11,4 +11,5 @@
 #include "joystick.h"
 #include "dpad.h"
 #include "buzzer.h"
+#include "backlight.h"
 #endif // __DRIVERS_H__

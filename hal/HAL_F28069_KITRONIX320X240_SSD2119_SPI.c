@@ -40,8 +40,8 @@ void InitLCDInterfaceSPI(void)
     //
     // GPIO3 (backlight enable) - GPAMUX1
     //
-    GpioCtrlRegs.GPAMUX1.bit.GPIO3 = 0;
-    GpioCtrlRegs.GPADIR.bit.GPIO3 = 1;
+    //GpioCtrlRegs.GPAMUX1.bit.GPIO3 = 0;
+    //GpioCtrlRegs.GPADIR.bit.GPIO3 = 1;
 
     //
     // GPIO44 (LCD reset) is on GPIO32-63, i.e. the GPB registers.
@@ -112,7 +112,7 @@ void HAL_LCD_initLCD(void)
     //
     // Turn the backlight on.
     //
-    GpioDataRegs.GPASET.bit.GPIO3 = 1;
+    //GpioDataRegs.GPASET.bit.GPIO3 = 1;
 
     //
     // Hold reset low for 1ms.
