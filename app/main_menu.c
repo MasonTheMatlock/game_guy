@@ -19,7 +19,7 @@
 //   * Labels are updated after the animation finishes.
 //
 // CONTROLS
-//   stick left/right, D-pad A/B : scroll (hold to auto-repeat)
+//   stick left/right, D-pad L/R : scroll (hold to auto-repeat)
 //   stick button, D-pad D       : start the highlighted app
 //#############################################################################
 
@@ -64,10 +64,10 @@
 //*****************************************************************************
 // Controls
 //*****************************************************************************
-#define MENU_LEFT_HELD     (g_dpad.a)
-#define MENU_RIGHT_HELD    (g_dpad.b)
-#define MENU_LEFT_TAP      (g_dpad.aPressed)
-#define MENU_RIGHT_TAP     (g_dpad.bPressed)
+#define MENU_LEFT_HELD     (g_dpad.l)
+#define MENU_RIGHT_HELD    (g_dpad.r)
+#define MENU_LEFT_TAP      (g_dpad.lPressed)
+#define MENU_RIGHT_TAP     (g_dpad.rPressed)
 #define MENU_SELECT_TAP    (g_dpad.dPressed)
 
 //*****************************************************************************
@@ -490,6 +490,7 @@ static AppStatus Menu_Update(void)
     // ---- Select: hand the chosen app to main.c and leave the menu ----------
     if(g_joy.btnPressed || MENU_SELECT_TAP)
     {
+        Sfx_PlayWait(&sfx_menu_select);     // <-- new
         App_Launch(g_apps[s_sel]);
         return APP_QUIT;
     }
@@ -544,8 +545,12 @@ static AppStatus Menu_Update(void)
         {
             s_sel    = ns;
             s_target = (int32_t)s_sel * MENU_PITCH;
+            Buzzer_PlaySfx(&sfx_menu_move);         // <-- new
         }
+        else if(s_hTimer == MENU_DAS_FRAMES)        // <-- new: bump only on a fresh
+            Buzzer_PlaySfx(&sfx_menu_bump);         //     press, not while auto-repeating
     }
+
 
     // ---- Animate ------------------------------------------------------------
     if(s_pos != s_target)

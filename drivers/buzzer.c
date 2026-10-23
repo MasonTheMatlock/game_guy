@@ -2,22 +2,32 @@
 // FILE:   drivers/buzzer.c
 // TITLE:  Buzzer driver - implementation (see buzzer.h)
 //
-//   TONE GENERATION (ePWM4A on GPIO6)
-//     ePWM4 free-runs in up-count mode. The output is SET at TBCTR = 0 and
-//     CLEARED at CMPA = TBPRD / 2, giving a 50% square wave:
+//   TONE + VOLUME (ePWM4A on GPIO6)
+//     ePWM4 does NOT run at the note frequency. It free-runs as a fast CARRIER
+//     (CARRIER_HZ, above hearing). Each carrier period an interrupt decides
+//     whether the pin should be in the "on" or "off" half of the tone:
 //
-//         frequency = TBCLK / (TBPRD + 1)
-//         TBCLK     = SYSCLKOUT / (HSPCLKDIV * CLKDIV) = SYSCLKOUT / 8
+//         tone phase += step                (32-bit phase accumulator)
+//         phase MSB = 1 -> "on" half   -> carrier pulse width = volume
+//         phase MSB = 0 -> "off" half  -> output held low
 //
-//     /8 keeps TBPRD inside 16 bits for notes down to ~170 Hz and still gives
-//     fine pitch resolution at the top end. SYSCLKOUT comes from CPU_RATE (the
-//     same constant the joystick timer uses), so no clock is hard-coded here.
-//     Silence = output forced low (AQCSFRC), so the transistor is fully off.
+//     So the audible waveform is always a 50% square wave at the note
+//     frequency (same harmonics at every volume, so the pitch does not change),
+//     and volume is the duty of the inaudible carrier inside the "on" half.
+//     The buzzer's own mechanics low-pass the carrier, exactly like a class-D
+//     amplifier. Same trick as putting a resistor in series, done digitally.
+//
+//     Carrier action qualifier: LOW at TBCTR = 0, HIGH at CMPA. High time is
+//     (period - CMPA); CMPA > TBPRD never matches, so the pin just stays low.
+//
+//     The note edges land on carrier boundaries, so they have +-1/CARRIER_HZ of
+//     jitter (25 us at 40 kHz). The pitch averages exactly right.
 //
 //   SONG ENGINE (CPU Timer 1, 1 ms tick)
 //     Music and effects each have a "voice" that counts down the current note.
 //     The effect voice owns the pin while it plays, but the music voice keeps
 //     advancing underneath, so the song continues where it would have been.
+//     The 1 ms tick only sets the note's phase step; the carrier ISR does the rest.
 //#############################################################################
 
 #include "drivers.h"            // device headers, CPU_RATE -> TICKS_PER_MS
@@ -25,11 +35,44 @@
 //*****************************************************************************
 // Clocks
 //*****************************************************************************
-#define TBCLK_DIV     8UL                               // CLKDIV = /8, HSPCLKDIV = /1
-#define SYSCLK_HZ     (TICKS_PER_MS * 1000UL)           // TICKS_PER_MS: see joystick.h
-#define TBCLK_HZ      (SYSCLK_HZ / TBCLK_DIV)
+#define TBCLK_DIV       1UL                             // CLKDIV = /1, HSPCLKDIV = /1
+#define SYSCLK_HZ       (TICKS_PER_MS * 1000UL)         // TICKS_PER_MS: see joystick.h
+#define TBCLK_HZ        (SYSCLK_HZ / TBCLK_DIV)
 
-interrupt void Buzzer_ISR(void);
+#define CARRIER_HZ      40000UL                         // above hearing; raise it if you
+                                                        // can still hear a whine
+#define CARRIER_PERIOD  (TBCLK_HZ / CARRIER_HZ)         // TBCLK counts per carrier period
+#define CARRIER_ACTUAL  (TBCLK_HZ / CARRIER_PERIOD)     // real carrier rate after rounding
+
+// Phase accumulator step per Hz: phase is 32 bits, one wrap = one tone period.
+//   step = freq * 2^32 / CARRIER_ACTUAL
+#define STEP_PER_HZ     (0xFFFFFFFFUL / CARRIER_ACTUAL)
+
+interrupt void Buzzer_ISR(void);                        // 1 ms sequencer (Timer 1)
+interrupt void Buzzer_PwmISR(void);                     // carrier tick (ePWM4, PIE 3.4)
+
+//*****************************************************************************
+// Volume: 5 levels, ~6 dB apart. The loudest level is a carrier duty of ~100%
+// (a plain 50% square wave); each step down halves the carrier duty, which
+// halves the amplitude the buzzer sees. Q16 fraction of the carrier period.
+// Level 0 is quiet, not silent.
+//*****************************************************************************
+static const uint16_t s_ampQ16[BUZZER_NUM_VOLUMES] =
+{
+     0,      // level 0: -24 dB (6.25%)
+     8192,      // level 1: -18 dB (12.5%)
+    16384,      // level 2: -12 dB (25%)
+    32768,      // level 3:  -6 dB (50%)
+    65535       // level 4:   0 dB (~100%)
+};
+
+static uint16_t          s_cmpTab[BUZZER_NUM_VOLUMES];  // CMPA for the "on" half, per level
+static volatile uint16_t s_volume = BUZZER_NUM_VOLUMES - 1;     // loudest by default
+static volatile uint16_t s_cmpOn;                       // CMPA now used for the "on" half
+static const    uint16_t s_cmpOff = (uint16_t)CARRIER_PERIOD;   // > TBPRD: never matches, pin low
+
+static volatile uint32_t s_step  = 0;                   // tone phase step; 0 = silent
+static uint32_t          s_phase = 0;
 
 //*****************************************************************************
 // Voice: one stream of notes (the music, or a sound effect)
@@ -49,29 +92,16 @@ static uint16_t s_musicPaused = 0;
 static uint16_t s_lastFreq    = 0xFFFF;                 // forces the first update
 
 //*****************************************************************************
-// Output: point the ePWM at a frequency (0 = silent). Skips the register
-// writes when nothing changed.
+// Output: set the note frequency (0 = silent). Only the phase step changes;
+// the carrier ISR turns it into pin activity. The 1 ms ISR and the carrier ISR
+// never nest (INTM is set inside both), so the 32-bit write can't be torn.
 //*****************************************************************************
 static void SetOutput(uint16_t freq)
 {
-    uint32_t period;
-
     if(freq == s_lastFreq) return;
     s_lastFreq = freq;
 
-    if(freq == 0)
-    {
-        EPwm4Regs.AQCSFRC.bit.CSFA = 1;                 // force output low
-    }
-    else
-    {
-        period = (TBCLK_HZ / freq) - 1;
-        if(period > 65535UL) period = 65535UL;          // clamp very low notes
-
-        EPwm4Regs.TBPRD          = (uint16_t)period;    // shadowed: loads at next TBCTR = 0
-        EPwm4Regs.CMPA.half.CMPA = (uint16_t)(period >> 1);     // 50% duty
-        EPwm4Regs.AQCSFRC.bit.CSFA = 0;                 // release: PWM drives the pin
-    }
+    s_step = (freq == 0) ? 0UL : (STEP_PER_HZ * (uint32_t)freq);
 }
 
 //*****************************************************************************
@@ -121,6 +151,20 @@ static uint16_t VoiceTick(Voice *v)
 //*****************************************************************************
 void Buzzer_Init(void)
 {
+    uint16_t i;
+    uint32_t width;
+
+    // Per-level CMPA: high time = period - CMPA, kept to 1 .. period-1 counts so
+    // the compare never lands on the TBCTR = 0 clear.
+    for(i = 0; i < BUZZER_NUM_VOLUMES; i++)
+    {
+        width = (CARRIER_PERIOD * (uint32_t)s_ampQ16[i]) >> 16;
+        if(width < 1UL)                    width = 1UL;
+        if(width > CARRIER_PERIOD - 1UL)   width = CARRIER_PERIOD - 1UL;
+        s_cmpTab[i] = (uint16_t)(CARRIER_PERIOD - width);
+    }
+    s_cmpOn = s_cmpTab[s_volume];
+
     EALLOW;
 
     // GPIO6 -> ePWM4A. Call after InitGpio() so this setting wins.
@@ -134,23 +178,30 @@ void Buzzer_Init(void)
 
     EPwm4Regs.TBCTL.bit.CTRMODE   = 0;                  // up-count
     EPwm4Regs.TBCTL.bit.HSPCLKDIV = 0;                  // /1
-    EPwm4Regs.TBCTL.bit.CLKDIV    = 3;                  // /8
+    EPwm4Regs.TBCTL.bit.CLKDIV    = 0;                  // /1
     EPwm4Regs.TBCTL.bit.PHSEN     = 0;                  // no phase loading
     EPwm4Regs.TBCTL.bit.PRDLD     = 0;                  // TBPRD shadowed
     EPwm4Regs.TBCTL.bit.SYNCOSEL  = 3;                  // no sync output
     EPwm4Regs.TBCTL.bit.FREE_SOFT = 3;                  // free-run in emulation
     EPwm4Regs.TBPHS.half.TBPHS    = 0;
     EPwm4Regs.TBCTR               = 0;
-    EPwm4Regs.TBPRD               = 10000;              // placeholder until the first note
+    EPwm4Regs.TBPRD               = (uint16_t)(CARRIER_PERIOD - 1UL);   // fixed carrier
 
     EPwm4Regs.CMPCTL.bit.SHDWAMODE = 0;                 // CMPA shadowed
     EPwm4Regs.CMPCTL.bit.LOADAMODE = 0;                 // load at TBCTR = 0
-    EPwm4Regs.CMPA.half.CMPA       = 5000;
+    EPwm4Regs.CMPA.half.CMPA       = s_cmpOff;          // start silent
 
-    EPwm4Regs.AQCTLA.bit.ZRO = 2;                       // set high at counter = 0
-    EPwm4Regs.AQCTLA.bit.CAU = 1;                       // clear low at CMPA (up-count)
-    EPwm4Regs.AQSFRC.bit.RLDCSF = 3;                    // software force acts immediately
-    EPwm4Regs.AQCSFRC.bit.CSFA  = 1;                    // start silent (forced low)
+    EPwm4Regs.AQCTLA.bit.ZRO = 1;                       // clear low at counter = 0
+    EPwm4Regs.AQCTLA.bit.CAU = 2;                       // set high at CMPA (up-count)
+    EPwm4Regs.AQSFRC.bit.RLDCSF = 3;
+    EPwm4Regs.AQCSFRC.bit.CSFA  = 0;                    // no software force; AQ drives the pin
+
+    // Interrupt every carrier period (at TBCTR = 0) -> PIE group 3, INT4.
+    EPwm4Regs.ETSEL.bit.INTSEL = 1;                     // event: TBCTR = 0
+    EPwm4Regs.ETPS.bit.INTPRD  = 1;                     // every event
+    EPwm4Regs.ETSEL.bit.INTEN  = 1;
+    PieVectTable.EPWM4_INT = &Buzzer_PwmISR;
+    PieCtrlRegs.PIEIER3.bit.INTx4 = 1;
 
     SysCtrlRegs.PCLKCR0.bit.TBCLKSYNC = 1;              // start the time base
 
@@ -166,7 +217,7 @@ void Buzzer_Init(void)
     CpuTimer1Regs.TCR.bit.TIE  = 1;                     // interrupt on timeout
 
     PieVectTable.TINT1 = &Buzzer_ISR;                   // Timer 1 vector (not PIE-routed)
-    IER |= M_INT13;
+    IER |= (M_INT13 | M_INT3);                          // INT3 = ePWM group
 
     EDIS;
 
@@ -199,6 +250,19 @@ void Buzzer_Stop(void)
     EINT;
 }
 
+void Buzzer_SetVolume(uint16_t level)
+{
+    if(level >= BUZZER_NUM_VOLUMES) level = BUZZER_NUM_VOLUMES - 1;
+    s_volume = level;
+    s_cmpOn  = s_cmpTab[level];                         // 16-bit write: atomic; the carrier
+                                                        // ISR uses it from its next period
+}
+
+uint16_t Buzzer_GetVolume(void)
+{
+    return s_volume;
+}
+
 void Buzzer_PauseMusic(uint16_t pause)
 {
     s_musicPaused = pause;
@@ -210,7 +274,7 @@ uint16_t Buzzer_IsPlaying(void)
 }
 
 //*****************************************************************************
-// 1 ms sequencer tick: a few counters and, at most, one frequency change.
+// 1 ms sequencer tick: a few counters and, at most, one phase-step change.
 // Timer 1 goes straight to the CPU (INT13), so there is no PIE acknowledge.
 //*****************************************************************************
 interrupt void Buzzer_ISR(void)
@@ -225,4 +289,24 @@ interrupt void Buzzer_ISR(void)
     else             out = musicFreq;
 
     SetOutput(out);
+}
+
+//*****************************************************************************
+// Carrier tick (every CARRIER_PERIOD): advance the tone phase and pick the
+// compare value for the NEXT carrier period (CMPA is shadowed, loads at 0).
+//   on half  -> CMPA = s_cmpOn  (carrier pulse, width = volume)
+//   off half -> CMPA = s_cmpOff (never matches, pin stays low)
+// Keep this short: it runs CARRIER_HZ times a second.
+//*****************************************************************************
+interrupt void Buzzer_PwmISR(void)
+{
+    s_phase += s_step;
+
+    if(s_step != 0UL && (s_phase & 0x80000000UL))
+        EPwm4Regs.CMPA.half.CMPA = s_cmpOn;
+    else
+        EPwm4Regs.CMPA.half.CMPA = s_cmpOff;
+
+    EPwm4Regs.ETCLR.bit.INT = 1;                        // clear the ePWM flag
+    PieCtrlRegs.PIEACK.all  = PIEACK_GROUP3;            // let group 3 fire again
 }

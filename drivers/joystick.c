@@ -60,10 +60,11 @@ void Init_Joystick_ADC(void)
 void Init_Switch_GPIO(void)
 {
     EALLOW;
-    GpioCtrlRegs.GPBMUX2.bit.GPIO55  = 0;   // standard digital GPIO
-    GpioCtrlRegs.GPBDIR.bit.GPIO55   = 0;   // input
-    GpioCtrlRegs.GPBPUD.bit.GPIO55   = 0;   // internal pull-up enabled (button = active low)
-    GpioCtrlRegs.GPBQSEL2.bit.GPIO55 = 0;   // synchronous sampling
+GpioCtrlRegs.GPBMUX2.bit.GPIO58  = 0;   // plain GPIO
+GpioCtrlRegs.GPBDIR.bit.GPIO58   = 0;   // input
+GpioCtrlRegs.GPBPUD.bit.GPIO58   = 0;   // pull-up on
+GpioCtrlRegs.GPBQSEL2.bit.GPIO58 = 0;   // synchronous sampling
+
     EDIS;
 }
 
@@ -124,7 +125,7 @@ void Read_Joystick(uint16_t *x_val, uint16_t *y_val, uint16_t *sw_val)
 
     *x_val  = g_lastX;
     *y_val  = g_lastY;
-    *sw_val = GpioDataRegs.GPBDAT.bit.GPIO55;
+    *sw_val = GpioDataRegs.GPBDAT.bit.GPIO58;
 }
 
 // Averages the resting position. Returns 1 if plausible, 0 if it fell back to
@@ -172,7 +173,7 @@ int16_t Joystick_Init(void)
 
     // Start from the real button state so a button held at boot causes no
     // phantom press or long-press
-    g_btnState      = (GpioDataRegs.GPBDAT.bit.GPIO55 == 0) ? 1 : 0;
+    g_btnState = (GpioDataRegs.GPBDAT.bit.GPIO58 == 0) ? 1 : 0;
     g_btnLongFired  = 1;
     g_btnChangeTick = TimerNow();
 

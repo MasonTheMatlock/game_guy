@@ -35,12 +35,11 @@ extern const App g_tetrisApp;               // app/tetris.c
 
 // ---- D-pad mapping --------------------------------------------------------
 // The D-pad works alongside the joystick. To remap a button, point these at
-// a different one of g_dpad.a / .b / .c / .d (and aPressed / bPressed / ...).
-// TODO: fix dpad button names!!!
-#define TETRIS_KEY_LEFT_HELD      (g_dpad.a)
-#define TETRIS_KEY_RIGHT_HELD     (g_dpad.b)
-#define TETRIS_KEY_DOWN_HELD      (g_dpad.c)
-#define TETRIS_KEY_ROTATE_TAP     (g_dpad.dPressed)
+// a different one of g_dpad.u / .l / .r / .d (and uPressed / lPressed / ...).
+#define TETRIS_KEY_LEFT_HELD      (g_dpad.l)
+#define TETRIS_KEY_RIGHT_HELD     (g_dpad.r)
+#define TETRIS_KEY_DOWN_HELD      (g_dpad.d)
+#define TETRIS_KEY_ROTATE_TAP     (g_dpad.uPressed)
 
 // ---- Types ----------------------------------------------------------------
 // The falling piece. (x, y) is where its 4x4 box sits on the board; the box

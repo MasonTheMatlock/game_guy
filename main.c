@@ -90,8 +90,18 @@ void main(void)
     //         Nothing earlier needed interrupts, so global interrupts are
     //         enabled here, last, once every vector is in place.
     Buzzer_Init();
+
+    EALLOW;
+    GpioCtrlRegs.GPAMUX1.bit.GPIO0 = 0;  // Force back to standard GPIO first
+    GpioDataRegs.GPACLEAR.bit.GPIO0 = 1; // Clear any residual high latch state
+    EDIS;
+
+    Backlight_Init();
+    
     EINT;
     ERTM;
+
+    Sfx_PlayWait(&sfx_boot_gbc);    // pick sfx_boot_dmg for the plain "ba-ding"
 
     // Step 6. Menu -> app -> menu -> ... (never returns)
     App_Loop();
