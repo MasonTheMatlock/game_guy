@@ -12,4 +12,5 @@
 #include "dpad.h"
 #include "buzzer.h"
 #include "backlight.h"
+#include "save.h"
 #endif // __DRIVERS_H__
