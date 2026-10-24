@@ -62,6 +62,11 @@ extern const Song song_corridor_run;
 #define RC_PROJ         ((uint16_t)(RC_VIEW_H * 256UL)) // wall is full height at 1 tile
 #define RC_MIN_DIST     40                              // Q8, stops divide blow-up
 #define RC_MAX_STEPS    28
+
+/* Footsteps: one step per RC_STEP_DIST Q10 units walked (1024 = one tile).
+ * Set RC_FOOTSTEPS to 0 to turn them off. */
+#define RC_FOOTSTEPS    1
+#define RC_STEP_DIST    560
 #define RC_PX_PER_UNIT  ((RC_COLS * RC_COL_W) / RC_FOV_UNITS)
 
 #define COL_CEIL        0x17121EUL
@@ -166,6 +171,13 @@ static const Staff kStaff[NUM_STAFF] =
     { "Sunfire",     4, 34, 5, 14,  1, 0xFF9030UL },
 };
 static const uint16_t kStaffCost[NUM_STAFF] = { 0, 70, 130, 110, 260 };
+
+/* Shot sound for each staff (same order as kStaff). Defined in songs.c. */
+static const Song *const kStaffSfx[NUM_STAFF] =
+{
+    &sfx_staff_ray, &sfx_staff_prism, &sfx_staff_lance,
+    &sfx_staff_storm, &sfx_staff_sun
+};
 
 enum { TR_VAMP, TR_PIERCE, TR_THICK, TR_KNOCK, TR_LUCKY, TR_FROST, TR_COUNT };
 static const char *const kTraitName[TR_COUNT] =
@@ -392,6 +404,127 @@ static const PalEnt kPalBoss[]   =
 
 static const uint32_t kWallBase[4] = { 0, 0x8088A0UL, 0xB09060UL, 0xA05040UL };
 static const uint16_t kShadeMul[4] = { 256, 190, 130, 84 };
+//*****************************************************************************
+// First-person staff art (what Ray Caster is holding). 20 x 18 cells, drawn
+// WPN_SCALE pixels per cell. '.' = transparent, a..z index the palette below.
+// One static frame per staff (11 unique rows + the shared hand below).
+// The staff shaft is always columns 9-10 so the tip lines up with the crosshair.
+//   k outline  s glove  q glove shade  c sleeve  d sleeve shade
+//   w shaft    x shaft shade  g gem  h highlight  f flash  y gold  r red
+//*****************************************************************************
+#define WPN_W        20
+#define WPN_H        18
+#define WPN_SCALE    4                  // 80 x 72 pixels on screen
+#define WPN_TIP_ROW  1                  // art row the beam leaves from
+#define WPN_RECT_MAX 80                 // rectangles after merging
+#define WPN_Y0       (RC_VIEW_H - WPN_H * WPN_SCALE)   // top row of the staff in the view
+
+// Hand + sleeve (rows 11..17), shared by every staff; each palette recolours it.
+#define WPN_ART_ROWS 11                 // rows unique to each staff
+static const char kWpnArm[] =
+    "......kssssssk......"
+    "......ksqssqsk......"
+    "......kssssssk......"
+    "......kqqqqqqk......"
+    ".....kcccccccck....."
+    "....kccdccccdcck...."
+    "...kccdccccccdcck...";
+
+// ---- 0: RAY WAND (cyan crystal on a slim silver wand) ----------------------
+static const char kArtRay[] =
+    "...................."
+    ".........kk........."
+    "........kghk........"
+    "........kggk........"
+    "........kggk........"
+    ".........kk........."
+    ".......kkwxkk......."
+    "........kwxk........"
+    "........kwxk........"
+    "........kwxk........"
+    "........kwxk........";
+// ---- 1: PRISM STAFF (gold shaft, glass prism that splits the beam) ---------
+static const char kArtPrism[] =
+    ".........kk........."
+    "........kghk........"
+    ".......kgghgk......."
+    "......kgggghgk......"
+    "......kkkkkkkk......"
+    ".......kkwxkk......."
+    "......kkkwxkkk......"
+    "........kwxk........"
+    "........kwxk........"
+    "........kwxk........"
+    "........kwxk........";
+// ---- 2: LANCE (long wooden haft, steel blade, red tassel) ------------------
+static const char kArtLance[] =
+    ".........kk........."
+    "........kyhk........"
+    "........kyhk........"
+    "........kyhk........"
+    ".......kkyhkk......."
+    "......kkkkkkkk......"
+    ".......rkwxkr......."
+    ".......rkwxkr......."
+    "........kwxk........"
+    "........kwxk........"
+    "........kwxk........";
+// ---- 3: STORM ROD (steel fork, a little spark held between the prongs) -----
+static const char kArtStorm[] =
+    "......k......k......"
+    "......kw....wk......"
+    ".......kw..wk......."
+    ".......kwggwk......."
+    "........kwwk........"
+    "........kxwk........"
+    ".......kkwxkk......."
+    "........kwxk........"
+    "........kwxk........"
+    "........kwxk........"
+    "........kwxk........";
+// ---- 4: SUNFIRE (golden staff, burning sun on top) -------------------------
+static const char kArtSun[] =
+    ".........ff........."
+    ".......kkkkkk......."
+    "......kgghhggk......"
+    "......kghhhhgk......"
+    "......kgghhggk......"
+    ".......kkkkkk......."
+    "......kkkwxkkk......"
+    "........kwxk........"
+    "........kwxk........"
+    "........kwxk........"
+    "........kwxk........";
+static const char *const kWpnArt[NUM_STAFF] =
+{
+    kArtRay, kArtPrism, kArtLance, kArtStorm, kArtSun
+};
+
+//                       k          s          q          c          d
+//                       w          x          g          h          f      y     r
+static const PalEnt kWpnPalRay[] =
+    { {'k',0x0C1420UL},{'s',0xE0B890UL},{'q',0x9C7450UL},{'c',0x305078UL},{'d',0x203858UL},
+      {'w',0xC8D8E8UL},{'x',0x7088A0UL},{'g',0x40E0FFUL},{'h',0xFFFFFFUL},{'f',0x80F0FFUL},
+      {'y',0xFFD040UL},{'r',0xE04040UL},{0,0} };
+static const PalEnt kWpnPalPrism[] =
+    { {'k',0x180C20UL},{'s',0xE0B890UL},{'q',0x9C7450UL},{'c',0x602870UL},{'d',0x401850UL},
+      {'w',0xF0C048UL},{'x',0x946820UL},{'g',0xFF60FFUL},{'h',0xFFFFFFUL},{'f',0x60FFFFUL},
+      {'y',0xFFFF60UL},{'r',0xFF5050UL},{0,0} };
+static const PalEnt kWpnPalLance[] =
+    { {'k',0x201008UL},{'s',0xE0B890UL},{'q',0x9C7450UL},{'c',0x6C4C28UL},{'d',0x483018UL},
+      {'w',0xB07C3CUL},{'x',0x6C4420UL},{'g',0xE0E040UL},{'h',0xFFFFFFUL},{'f',0xFFFF90UL},
+      {'y',0xD8E0F0UL},{'r',0xE02828UL},{0,0} };
+static const PalEnt kWpnPalStorm[] =
+    { {'k',0x101020UL},{'s',0xE0B890UL},{'q',0x9C7450UL},{'c',0x383868UL},{'d',0x282848UL},
+      {'w',0xA8A8C8UL},{'x',0x606084UL},{'g',0xA0A0FFUL},{'h',0xFFFFFFUL},{'f',0x7088FFUL},
+      {'y',0xFFFF80UL},{'r',0xFF6060UL},{0,0} };
+static const PalEnt kWpnPalSun[] =
+    { {'k',0x200808UL},{'s',0xE0B890UL},{'q',0x9C7450UL},{'c',0x882414UL},{'d',0x581008UL},
+      {'w',0xE0A030UL},{'x',0x946010UL},{'g',0xFF9030UL},{'h',0xFFE880UL},{'f',0xFF5010UL},
+      {'y',0xFFF0A0UL},{'r',0xFF4020UL},{0,0} };
+
+static const PalEnt *const kWpnPal[NUM_STAFF] =
+    { kWpnPalRay, kWpnPalPrism, kWpnPalLance, kWpnPalStorm, kWpnPalSun };
 
 //*****************************************************************************
 // Tables (built once, in RAM)
@@ -442,6 +575,20 @@ static int16_t  s_stX, s_stY;                   // stick flick state
 static uint16_t s_fxTimer, s_fxN, s_hurtFx;
 static int16_t  s_fxX[5];
 static uint32_t s_fxColor;
+
+// Held staff (static art; only columns something changed under are redrawn)
+typedef struct { int16_t x, y, w, h; uint16_t ci; } WpnRect;
+static WpnRect  s_wRect[WPN_RECT_MAX];
+static uint16_t s_wCnt;
+static uint32_t s_wPal[26];
+static uint32_t s_wCov[WPN_H];                  // build scratch
+static uint16_t s_wpnColDirty[RC_COLS];         // columns whose staff pixels need redrawing
+static uint16_t s_wLoaded = 0xFFFFu;            // staff the rects were built for
+static uint16_t s_stepAcc, s_stepBlock, s_stepAlt;   // footsteps: distance walked, sfx guard, foot
+static uint16_t s_sfxHold;                      // frames an important sfx is protected
+#define WPN_X0   (RC_VIEW_X0 + (RC_VIEW_W - WPN_W * WPN_SCALE) / 2)
+#define WPN_C0   (((WPN_X0) - RC_VIEW_X0) / RC_COL_W)
+#define WPN_C1   (((WPN_X0 + WPN_W * WPN_SCALE - 1) - RC_VIEW_X0) / RC_COL_W)
 
 // Draw state
 static bool     s_dirtyFull, s_invalidate, s_bannerDraw;
@@ -569,6 +716,8 @@ static void DrawText(const char *s, int16_t x, int16_t y, uint32_t color)
 
 static void Sfx(const Song *s)
 {
+    s_sfxHold = 10;                             // staff shots wait for this to finish
+    s_stepBlock = 10;                           // so do footsteps
     Buzzer_PlaySfx(s);
 }
 
@@ -936,7 +1085,8 @@ static void Fire(void)
 
     s_fxTimer   = 3;
     s_viewDirty = 2;
-    SfxSoft(&sfx_laser);
+    if(s_sfxHold == 0) Buzzer_PlaySfx(kStaffSfx[s_staff]);
+    s_stepBlock = 5;                            // footsteps never cut a shot off
 }
 
 static void SpawnEnemy(uint16_t type, int16_t x, int16_t y)
@@ -1356,6 +1506,93 @@ static void MarkOverlay(int16_t xa, int16_t xb)
     for(c = a; c <= b; c++) AddRange(c, 0, RC_VIEW_H - 1);
 }
 
+
+//*****************************************************************************
+// Held staff: build once per equip, draw per screen column
+//*****************************************************************************
+static char WpnCell(const char *art, uint16_t x, uint16_t y)
+{
+    if(y < WPN_ART_ROWS) return art[y * WPN_W + x];
+    return kWpnArm[(y - WPN_ART_ROWS) * WPN_W + x];
+}
+
+static void WpnBuild(uint16_t staff)
+{
+    uint16_t x, y, w, h, xx, yy, n, i;
+    char     ch;
+    bool     ok;
+    const char *art = kWpnArt[staff];
+
+    for(i = 0; i < 26; i++) s_wPal[i] = 0xFF00FFUL;
+    for(i = 0; kWpnPal[staff][i].ch; i++)
+        s_wPal[kWpnPal[staff][i].ch - 'a'] = kWpnPal[staff][i].rgb;
+
+    for(y = 0; y < WPN_H; y++) s_wCov[y] = 0;
+    n = 0;
+
+    for(y = 0; y < WPN_H; y++)
+    {
+        for(x = 0; x < WPN_W; x++)
+        {
+            ch = WpnCell(art, x, y);
+            if(ch == '.' || (s_wCov[y] & (1UL << x))) continue;
+
+            w = 1;
+            while(x + w < WPN_W && WpnCell(art, x + w, y) == ch &&
+                  !(s_wCov[y] & (1UL << (x + w)))) w++;
+
+            h = 1;
+            while(y + h < WPN_H)
+            {
+                ok = true;
+                for(xx = x; xx < x + w; xx++)
+                    if(WpnCell(art, xx, y + h) != ch ||
+                       (s_wCov[y + h] & (1UL << xx))) { ok = false; break; }
+                if(!ok) break;
+                h++;
+            }
+
+            for(yy = y; yy < y + h; yy++)
+                for(xx = x; xx < x + w; xx++)
+                    s_wCov[yy] |= (1UL << xx);
+
+            if(n < WPN_RECT_MAX)
+            {
+                s_wRect[n].x = (int16_t)x;  s_wRect[n].y = (int16_t)y;
+                s_wRect[n].w = (int16_t)w;  s_wRect[n].h = (int16_t)h;
+                s_wRect[n].ci = (uint16_t)(ch - 'a');
+                n++;
+            }
+        }
+    }
+    s_wCnt   = n;
+    s_wLoaded = staff;
+}
+
+// Draw the part of the staff that lies inside screen column c.
+static void DrawStaffCol(uint16_t c)
+{
+    int16_t  cx0 = (int16_t)(RC_VIEW_X0 + (int16_t)c * RC_COL_W);
+    int16_t  cx1 = cx0 + RC_COL_W - 1;
+    int16_t  sx, ex, sy, ey;
+    uint16_t i;
+    const WpnRect *r;
+
+    for(i = 0; i < s_wCnt; i++)
+    {
+        r  = &s_wRect[i];
+        sx = (int16_t)(WPN_X0 + r->x * WPN_SCALE);
+        ex = (int16_t)(sx + r->w * WPN_SCALE - 1);
+        if(ex < cx0 || sx > cx1) continue;
+        if(sx < cx0) sx = cx0;
+        if(ex > cx1) ex = cx1;
+
+        sy = (int16_t)(WPN_Y0 + r->y * WPN_SCALE);
+        ey = (int16_t)(sy + r->h * WPN_SCALE - 1);
+        Graphics_FillRect(sx, RC_VIEW_Y0 + sy, ex, RC_VIEW_Y0 + ey, s_wPal[r->ci]);
+    }
+}
+
 static void RenderView(void)
 {
     uint16_t c, k, tile, side, dist, perp, lineH, shade;
@@ -1367,6 +1604,12 @@ static void RenderView(void)
     {
         InvalidateView();
         s_invalidate = false;
+    }
+
+    if(s_wLoaded != s_staff)
+    {
+        WpnBuild(s_staff);
+        InvalidateView();                               // repaint so the new staff shows
     }
 
     // Overlay bookkeeping: last frame's overlay columns must be repainted whole.
@@ -1394,17 +1637,44 @@ static void RenderView(void)
 
         shade = (perp < 512) ? 0 : (perp < 1024) ? 1 : (perp < 1792) ? 2 : 3;
 
-        DrawColumn(c, top, bot, s_wallCol[tile][shade][side],
-                   s_prvT[c], s_prvB[c]);
+        {
+            // Did this column repaint anything down in the staff's rows?
+            bool wd = false;
+
+            if((int16_t)c >= WPN_C0 && (int16_t)c <= WPN_C1)
+            {
+                int16_t lo = (s_cBot[c] > bot) ? s_cBot[c] : bot;
+
+                if(s_cTop[c] < 0) wd = true;
+                else if(s_prvT[c] <= s_prvB[c] && s_prvB[c] >= WPN_Y0) wd = true;
+                else if(lo >= WPN_Y0 &&
+                        (top != s_cTop[c] || bot != s_cBot[c] ||
+                         s_wallCol[tile][shade][side] != s_cCol[c])) wd = true;
+            }
+
+            DrawColumn(c, top, bot, s_wallCol[tile][shade][side],
+                       s_prvT[c], s_prvB[c]);
+
+            if(wd) s_wpnColDirty[c] = 1;
+        }
 
         for(k = 0; k < s_nSpr; k++)
         {
             if(c >= s_spr[k].c0 && c <= s_spr[k].c1 && s_spr[k].dist < perp)
             {
                 DrawSlice(&s_spr[k], c);
+                if((int16_t)c >= WPN_C0 && (int16_t)c <= WPN_C1 &&
+                   s_spr[k].top + (int16_t)s_spr[k].size > WPN_Y0)
+                    s_wpnColDirty[c] = 1;
                 AddRange((int16_t)c, s_spr[k].top,
                          (int16_t)(s_spr[k].top + (int16_t)s_spr[k].size - 1));
             }
+        }
+
+        if(s_wpnColDirty[c])
+        {
+            DrawStaffCol(c);
+            s_wpnColDirty[c] = 0;
         }
     }
 
@@ -1418,8 +1688,8 @@ static void RenderView(void)
             int16_t ex = s_fxX[b];
 
             Graphics_setForegroundColor(&g_sContext, s_fxColor);
-            Graphics_drawLine(&g_sContext, cxp,     RC_VIEW_Y1, ex,     cyp);
-            Graphics_drawLine(&g_sContext, cxp + 1, RC_VIEW_Y1, ex + 1, cyp);
+            Graphics_drawLine(&g_sContext, cxp,     RC_VIEW_Y0 + WPN_Y0 + WPN_TIP_ROW * WPN_SCALE, ex,     cyp);
+            Graphics_drawLine(&g_sContext, cxp + 1, RC_VIEW_Y0 + WPN_Y0 + WPN_TIP_ROW * WPN_SCALE, ex + 1, cyp);
             Graphics_FillRect(ex - 3, cyp - 3, ex + 3, cyp + 3, s_fxColor);
             MarkOverlay(cxp, ex + 4);
             MarkOverlay(ex - 4, cxp);
@@ -1845,6 +2115,8 @@ static void UpdatePlay(void)
     if(s_invuln)  s_invuln--;
     if(s_fxTimer) s_fxTimer--;
     if(s_hurtFx)  s_hurtFx--;
+    if(s_sfxHold) s_sfxHold--;
+    if(s_stepBlock) s_stepBlock--;
 
     // Shop
     if(g_dpad.dPressed)
@@ -1876,10 +2148,22 @@ static void UpdatePlay(void)
         my  = (int16_t)((((int32_t)fwd * s) + ((int32_t)str * c)) >> 14);
 
         nx = s_px + mx;
-        if(!Blocked(nx, s_py, RC_PLAYER_R)) { s_px = nx; moved = true; }
+        if(!Blocked(nx, s_py, RC_PLAYER_R)) { s_px = nx; moved = true; s_stepAcc += (uint16_t)Abs16(mx); }
         ny = s_py + my;
-        if(!Blocked(s_px, ny, RC_PLAYER_R)) { s_py = ny; moved = true; }
+        if(!Blocked(s_px, ny, RC_PLAYER_R)) { s_py = ny; moved = true; s_stepAcc += (uint16_t)Abs16(my); }
     }
+
+#if RC_FOOTSTEPS
+    // Footsteps: one rustle per RC_STEP_DIST walked, left/right alternate.
+    if(s_stepAcc >= RC_STEP_DIST)
+    {
+        s_stepAcc -= RC_STEP_DIST;
+        if(s_stepAcc >= RC_STEP_DIST) s_stepAcc = 0;        // e.g. after a long pause
+        if(s_mode == MODE_PLAY && s_stepBlock == 0)
+            Buzzer_PlaySfx(s_stepAlt ? &sfx_step_b : &sfx_step_a);
+        s_stepAlt ^= 1u;
+    }
+#endif
 
     // Fire (hold = auto-fire)
     if(g_dpad.u && s_cool == 0) Fire();

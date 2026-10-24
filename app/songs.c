@@ -168,6 +168,25 @@ SFX(sfx_tetris_say, n_tetrisSay, 40, 8, "Tetris Say");
 SFX(sfx_boot_gbc, n_bootGbc, 35, 0, "Boot GBC");
 SFX(sfx_boot_dmg, n_bootDmg, 45, 0, "Boot DMG");
 
+// ---- Staff shots (one per staff, played by raycaster Fire) -------------
+static const Note n_staffRay[]   = { {N_G5,1},{N_C6,1},{N_E6,2} };                       // bright rising zip
+static const Note n_staffPrism[] = { {N_C5,1},{N_E5,1},{N_G5,1},{N_C6,1},{N_G5,1},{N_E6,1} }; // shimmering split
+static const Note n_staffLance[] = { {N_E5,1},{N_C5,1},{N_A4,1},{N_F4,2},{N_E4,3} };     // heavy falling thrust
+static const Note n_staffStorm[] = { {N_E6,1},{N_B5,1},{N_E6,1},{N_G5,1},{N_E6,1} };     // short crackle (fires fast)
+static const Note n_staffSun[]   = { {N_E4,3},{N_G4,2},{N_C5,1},{N_E5,1},{N_G5,1},{N_C6,2} }; // boom + flare
+
+SFX(sfx_staff_ray,   n_staffRay,   10, 0, "Ray Wand");
+SFX(sfx_staff_prism, n_staffPrism, 10, 0, "Prism Staff");
+SFX(sfx_staff_lance, n_staffLance, 16, 0, "Lance");
+SFX(sfx_staff_storm, n_staffStorm,  5, 0, "Storm Rod");
+SFX(sfx_staff_sun,   n_staffSun,   14, 0, "Sunfire");
+
+// ---- Footsteps (grass): very short low rustle, two variants for left/right foot
+static const Note n_stepA[] = { {N_E4,1},{N_F4,1},{N_E4,1} };
+static const Note n_stepB[] = { {N_F4,1},{N_E4,1},{N_G4,1} };
+SFX(sfx_step_a, n_stepA, 8, 0, "Step A");
+SFX(sfx_step_b, n_stepB, 8, 0, "Step B");
+
 
 
 

@@ -28,6 +28,13 @@ extern const Song sfx_blip;             // rotate / small move
 extern const Song sfx_thud;             // piece lands / block hits
 extern const Song sfx_jump;
 extern const Song sfx_laser;
+extern const Song sfx_staff_ray;        // raycaster staff shots
+extern const Song sfx_staff_prism;
+extern const Song sfx_staff_lance;
+extern const Song sfx_staff_storm;
+extern const Song sfx_staff_sun;
+extern const Song sfx_step_a;           // footsteps (alternate A/B)
+extern const Song sfx_step_b;
 extern const Song sfx_powerup;
 extern const Song sfx_hit;              // player hurt
 extern const Song sfx_explosion;

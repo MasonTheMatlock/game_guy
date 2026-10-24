@@ -99,6 +99,12 @@ PAGE 1 :
    RAML7       : origin = 0x010000, length = 0x002000     /* on-chip RAM block L7 */
    RAML8       : origin = 0x012000, length = 0x002000     /* on-chip RAM block L8 */
    USB_RAM     : origin = 0x040000, length = 0x000800     /* USB RAM		  */
+
+   /* Flash sector F holds the constant data (.econst: fonts, songs, art).
+      Sectors G (0x3DC000) and H (0x3D8000) are intentionally NOT listed so
+      the linker never uses them: keep high scores / settings in one of those.
+      Flash erases a whole sector at once, so never share a sector. */
+   FLASHF      : origin = 0x3E0000, length = 0x004000     /* on-chip FLASH sector F */
 }
 
 
@@ -130,9 +136,10 @@ SECTIONS
    .ebss            : > RAML7,      PAGE = 1
    .bss             : > RAML7,      PAGE = 1
 
-   /* Unified EABI/COFF Constant Data (Fonts, Strings, Tables) shifted to RAML8 */
-   .econst          : > RAML8,      PAGE = 1
-   .const           : > RAML8,      PAGE = 1
+   /* Unified EABI/COFF Constant Data (Fonts, Strings, Tables) now lives in flash
+      sector F (was RAML8, which overflowed). RAML8 is still used by DMARAML8. */
+   .econst          : > FLASHF,     PAGE = 1
+   .const           : > FLASHF,     PAGE = 1
 
    /* Dynamic Memory Allocation heap shifted to RAML7 */
    .esysmem         : > RAML7,      PAGE = 1
