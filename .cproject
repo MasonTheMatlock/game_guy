@@ -161,6 +161,8 @@
                                     <listOptionValue value="${CG_TOOL_ROOT}/include"/>
                                     <listOptionValue value="${COM_TI_C2000WARE_INSTALL_DIR}/device_support/f2806x/common/include"/>
                                     <listOptionValue value="${COM_TI_C2000WARE_INSTALL_DIR}/device_support/f2806x/headers/include"/>
+                                    <listOptionValue value="C:\ti\c2000\C2000Ware_26_01_00_00\libraries\flash_api\f2806x\lib"/>
+                                    <listOptionValue value="C:\ti\c2000\C2000Ware_26_01_00_00\libraries\flash_api\f2806x\include"/>
                                 </option>
                                 <option id="com.ti.ccstudio.buildDefinitions.C2000_22.6.compilerID.DEFINE.732263503" superClass="com.ti.ccstudio.buildDefinitions.C2000_22.6.compilerID.DEFINE" valueType="definedSymbols">
                                     <listOptionValue value="${COM_TI_C2000WARE_SYMBOLS}"/>
@@ -191,11 +193,14 @@
                                 <option id="com.ti.ccstudio.buildDefinitions.C2000_22.6.linkerID.LIBRARY.1465304416" superClass="com.ti.ccstudio.buildDefinitions.C2000_22.6.linkerID.LIBRARY" valueType="libs">
                                     <listOptionValue value="${COM_TI_C2000WARE_LIBRARIES}"/>
                                     <listOptionValue value="libc.a"/>
+                                    <listOptionValue value="C:\ti\c2000\C2000Ware_26_01_00_00\libraries\flash_api\f2806x\lib\2806x_BootROM_API_TABLE_Symbols_fpu32.lib"/>
+                                    <listOptionValue value="C:\ti\c2000\C2000Ware_26_01_00_00\libraries\flash_api\f2806x\lib\Flash2806x_API_wFPU_Library.lib"/>
                                 </option>
                                 <option id="com.ti.ccstudio.buildDefinitions.C2000_22.6.linkerID.SEARCH_PATH.851543347" superClass="com.ti.ccstudio.buildDefinitions.C2000_22.6.linkerID.SEARCH_PATH" valueType="libPaths">
                                     <listOptionValue value="${COM_TI_C2000WARE_LIBRARY_PATH}"/>
                                     <listOptionValue value="${CG_TOOL_ROOT}/lib"/>
                                     <listOptionValue value="${CG_TOOL_ROOT}/include"/>
+                                    <listOptionValue value="C:\ti\c2000\C2000Ware_26_01_00_00\libraries\flash_api\f2806x\lib"/>
                                 </option>
                                 <option id="com.ti.ccstudio.buildDefinitions.C2000_22.6.linkerID.DIAG_WRAP.990136978" superClass="com.ti.ccstudio.buildDefinitions.C2000_22.6.linkerID.DIAG_WRAP" value="com.ti.ccstudio.buildDefinitions.C2000_22.6.linkerID.DIAG_WRAP.off" valueType="enumerated"/>
                                 <option id="com.ti.ccstudio.buildDefinitions.C2000_22.6.linkerID.DISPLAY_ERROR_NUMBER.236257874" superClass="com.ti.ccstudio.buildDefinitions.C2000_22.6.linkerID.DISPLAY_ERROR_NUMBER" value="true" valueType="boolean"/>

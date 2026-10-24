@@ -33,6 +33,23 @@ extern const App g_tetrisApp;               // app/tetris.c
 #define TETRIS_GAME_OVER_HOLD_FRAMES 90     // ignore input after game over
                                             //   (~1.5 s at 16 ms/frame)
 
+// ---- Title screen / high scores ------------------------------------------
+// Start / High Scores screen (drawn by tetris.c). The top-5 list itself is
+// saved in flash through drivers/save.h (SAVE_SLOT_TETRIS_SCORES).
+#define TETRIS_TITLE_ROW_X0       70        // menu rectangles, left/right edge
+#define TETRIS_TITLE_ROW_X1       249
+#define TETRIS_TITLE_ROW_Y0       90        // top of the first rectangle
+#define TETRIS_TITLE_ROW_H        34
+#define TETRIS_TITLE_ROW_GAP      6
+#define TETRIS_SCORE_Y0           58        // first line of the high score list
+#define TETRIS_SCORE_PITCH        32
+#define TETRIS_STICK_ON           60        // stick flick thresholds
+#define TETRIS_STICK_OFF          30
+#define TETRIS_COL_GREEN          0x3C9A2EUL    // selected rectangle
+#define TETRIS_COL_EDGE           0x8CE070UL    // its bright border
+#define TETRIS_COL_ROW_OFF        0x282828UL    // unselected rectangle
+#define TETRIS_COL_NEW            0xFFD700UL    // score just earned
+
 // ---- D-pad mapping --------------------------------------------------------
 // The D-pad works alongside the joystick. To remap a button, point these at
 // a different one of g_dpad.u / .l / .r / .d (and uPressed / lPressed / ...).

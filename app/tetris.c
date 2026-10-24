@@ -9,7 +9,9 @@
 //   HOLD stick button: quit to the menu (free, handled by main.c)
 //   D-pad            : A = left, B = right, C = soft drop, D = rotate
 //                      (change the mapping in the KEY_ defines below)
-//   After GAME OVER  : press any button to return to the menu
+//   Title screen     : Start / High Scores (section 5b below)
+//   After GAME OVER  : the score is saved if it makes the top 5, then any
+//                      button returns to the title screen
 //
 // HOW THIS FILE IS ORGANIZED
 //   1. Constants         board size, timing, piece shapes, colors, scoring
@@ -17,6 +19,7 @@
 //   3. Board rules       Fits / place / clear rows - NO drawing in here
 //   4. Drawing           LCD output; only repaints what changed
 //   5. Game flow         spawn, reset, shift, rotate, lock
+//   5b. Title + scores   Start / High Scores screen, top-5 list saved in flash
 //   6. App callbacks     Tetris_Init / Tetris_Update / Tetris_Render
 //
 // DESIGN NOTES
@@ -117,6 +120,19 @@ static int16_t  s_prevMoveDir;          // last frame's merged left/right input
 static bool     s_gameOver;             // true once the stack reached the top
 static uint16_t s_gameOverTimer;        // frames left in the "ignore input" window
 static bool     s_gameOverDrawn;        // GAME OVER text already on the LCD
+static int16_t  s_gameOverRank;         // high-score rank earned this game, -1 = none
+
+// Title screen (Start / High Scores) is shown before each game.
+static bool     s_inTitle;
+static uint16_t s_titleView;            // TITLE_VIEW_MENU or TITLE_VIEW_SCORES
+static uint16_t s_titleSel;             // highlighted row: 0 Start, 1 High Scores
+static int16_t  s_titleStickY;          // stick flick detection
+static bool     s_titleDirtyFull;       // whole title screen must be redrawn
+static uint16_t s_titleDirtyRows;       // bit i = menu rectangle i needs redrawing
+
+// High scores: RAM copy of the saved top-5 list (best first, 0 = empty).
+static SaveTetrisScores s_hs;
+static bool     s_hsLoaded;
 
 //*****************************************************************************
 // 3. BOARD RULES (no drawing in this section)
@@ -372,9 +388,25 @@ static void DrawGameOver(void)
     Graphics_drawStringCentered(&g_sContext, (int16_t *)"GAME OVER", AUTO_STRING_LENGTH,
                                 TETRIS_BOARD_X + (TETRIS_BOARD_W * TETRIS_CELL) / 2,
                                 TETRIS_BOARD_Y + (TETRIS_BOARD_H * TETRIS_CELL) / 2 - 12, OPAQUE_TEXT);
-    Graphics_drawStringCentered(&g_sContext, (int16_t *)"Press btn", AUTO_STRING_LENGTH,
-                                TETRIS_BOARD_X + (TETRIS_BOARD_W * TETRIS_CELL) / 2,
-                                TETRIS_BOARD_Y + (TETRIS_BOARD_H * TETRIS_CELL) / 2 + 12, OPAQUE_TEXT);
+
+    if(s_gameOverRank >= 0)
+    {
+        // Made the top 5: say so, and push "Press btn" down a line.
+        Graphics_setForegroundColor(&g_sContext, 0xFFD700UL);
+        Graphics_drawStringCentered(&g_sContext, (int16_t *)"TOP 5!", AUTO_STRING_LENGTH,
+                                    TETRIS_BOARD_X + (TETRIS_BOARD_W * TETRIS_CELL) / 2,
+                                    TETRIS_BOARD_Y + (TETRIS_BOARD_H * TETRIS_CELL) / 2 + 12, OPAQUE_TEXT);
+        Graphics_setForegroundColor(&g_sContext, COLOR_WHITE);
+        Graphics_drawStringCentered(&g_sContext, (int16_t *)"Press btn", AUTO_STRING_LENGTH,
+                                    TETRIS_BOARD_X + (TETRIS_BOARD_W * TETRIS_CELL) / 2,
+                                    TETRIS_BOARD_Y + (TETRIS_BOARD_H * TETRIS_CELL) / 2 + 36, OPAQUE_TEXT);
+    }
+    else
+    {
+        Graphics_drawStringCentered(&g_sContext, (int16_t *)"Press btn", AUTO_STRING_LENGTH,
+                                    TETRIS_BOARD_X + (TETRIS_BOARD_W * TETRIS_CELL) / 2,
+                                    TETRIS_BOARD_Y + (TETRIS_BOARD_H * TETRIS_CELL) / 2 + 12, OPAQUE_TEXT);
+    }
 }
 
 //*****************************************************************************
@@ -438,11 +470,252 @@ static bool LockAndSpawn(void)
 }
 
 //*****************************************************************************
+// 5b. TITLE SCREEN + HIGH SCORES
+//     Title: D-pad U/D or stick up/down = move, R or stick tap = select,
+//            L = leave Tetris.   Scores view: any button = back.
+//*****************************************************************************
+
+#define TITLE_VIEW_MENU     0
+#define TITLE_VIEW_SCORES   1
+#define TITLE_NUM_ROWS      2
+
+typedef enum
+{
+    TITLE_CONTINUE = 0,
+    TITLE_START,                        // player chose Start
+    TITLE_QUIT                          // player pressed L: leave Tetris
+} TitleResult;
+
+static const char *const s_titleRowName[TITLE_NUM_ROWS] = { "Start", "High Scores" };
+
+// ---- High scores ----------------------------------------------------------
+
+// Load the list from the save driver the first time it is needed.
+static void HsEnsureLoaded(void)
+{
+    uint16_t i;
+
+    if(s_hsLoaded) return;
+    s_hsLoaded = true;
+
+    if(!Save_Read(SAVE_SLOT_TETRIS_SCORES, &s_hs, sizeof s_hs))
+        for(i = 0; i < TETRIS_NUM_SCORES; i++)
+            s_hs.score[i] = 0;                  // nothing saved yet
+}
+
+// Insert `score` into the top-5 list and save it if it placed.
+// Returns the rank 0..4, or -1 if it did not place. Blocks briefly (flash).
+static int16_t HsSubmit(uint32_t score)
+{
+    int16_t i;
+    int16_t rank = -1;
+
+    HsEnsureLoaded();
+
+    if(score == 0) return -1;
+
+    for(i = 0; i < TETRIS_NUM_SCORES; i++)
+    {
+        if(score > s_hs.score[i])
+        {
+            rank = i;
+            break;
+        }
+    }
+    if(rank < 0) return -1;
+
+    for(i = TETRIS_NUM_SCORES - 1; i > rank; i--)
+        s_hs.score[i] = s_hs.score[i - 1];
+    s_hs.score[rank] = score;
+
+    Save_Write(SAVE_SLOT_TETRIS_SCORES, &s_hs, sizeof s_hs);
+    Save_Flush();
+    return rank;
+}
+
+// ---- Title screen helpers -------------------------------------------------
+
+// One event per stick push: +1 / -1 when the axis crosses TETRIS_STICK_ON,
+// then 0 until it has gone back inside TETRIS_STICK_OFF.
+static int16_t TitleStickEdge(int16_t v, int16_t *state)
+{
+    int16_t target = *state;
+
+    if(v >= TETRIS_STICK_ON)                                target = 1;
+    else if(v <= -TETRIS_STICK_ON)                          target = -1;
+    else if(v < TETRIS_STICK_OFF && v > -TETRIS_STICK_OFF)  target = 0;
+
+    if(target != *state)
+    {
+        *state = target;
+        return target;                  // 0 on release = "no event"
+    }
+    return 0;
+}
+
+static void TitleText(const char *s, int16_t x, int16_t y, uint32_t color)
+{
+    Graphics_setForegroundColor(&g_sContext, color);
+    Graphics_drawStringCentered(&g_sContext, (int16_t *)s, AUTO_STRING_LENGTH,
+                                x, y, TRANSPARENT_TEXT);
+}
+
+static void TitleHeader(const char *title)
+{
+    Graphics_setBackgroundColor(&g_sContext, COLOR_BLACK);
+    Graphics_setFont(&g_sContext, &g_sFontCmss20b);
+    Graphics_clearDisplay(&g_sContext);
+
+    TitleText(title, SCREEN_W / 2, 15, COLOR_WHITE);
+    Graphics_drawLine(&g_sContext, 10, 30, SCREEN_W - 11, 30);
+}
+
+static void TitleDrawRow(uint16_t i)
+{
+    int16_t top = TETRIS_TITLE_ROW_Y0 + (int16_t)i * (TETRIS_TITLE_ROW_H + TETRIS_TITLE_ROW_GAP);
+    bool    sel = (i == s_titleSel);
+
+    // Clear the whole band first: the selected rectangle is wider.
+    Graphics_FillRect(TETRIS_TITLE_ROW_X0 - 12, top - 1,
+                      TETRIS_TITLE_ROW_X1 + 12, top + TETRIS_TITLE_ROW_H, COLOR_BLACK);
+
+    if(sel)
+    {
+        Graphics_FillRect(TETRIS_TITLE_ROW_X0 - 10, top,
+                          TETRIS_TITLE_ROW_X1 + 10, top + TETRIS_TITLE_ROW_H - 1, TETRIS_COL_EDGE);
+        Graphics_FillRect(TETRIS_TITLE_ROW_X0 - 8,  top + 2,
+                          TETRIS_TITLE_ROW_X1 + 8,  top + TETRIS_TITLE_ROW_H - 3, TETRIS_COL_GREEN);
+    }
+    else
+    {
+        Graphics_FillRect(TETRIS_TITLE_ROW_X0, top,
+                          TETRIS_TITLE_ROW_X1, top + TETRIS_TITLE_ROW_H - 1, TETRIS_COL_ROW_OFF);
+    }
+
+    TitleText(s_titleRowName[i], SCREEN_W / 2, top + TETRIS_TITLE_ROW_H / 2,
+              sel ? COLOR_WHITE : COLOR_GRAY);
+}
+
+static void TitleDrawScores(void)
+{
+    char    buf[24];
+    int16_t i;
+
+    for(i = 0; i < TETRIS_NUM_SCORES; i++)
+    {
+        if(s_hs.score[i] == 0)
+            sprintf(buf, "%u. -", (unsigned)(i + 1));
+        else
+            sprintf(buf, "%u. %lu", (unsigned)(i + 1), (unsigned long)s_hs.score[i]);
+
+        TitleText(buf, SCREEN_W / 2, TETRIS_SCORE_Y0 + i * TETRIS_SCORE_PITCH,
+                  (i == s_gameOverRank) ? TETRIS_COL_NEW : COLOR_WHITE);
+    }
+}
+
+// ---- Title screen: init / redraw / update / render ------------------------
+
+static void TitleInit(void)
+{
+    HsEnsureLoaded();
+    s_titleView      = TITLE_VIEW_MENU;
+    s_titleSel       = 0;
+    s_titleStickY    = 0;
+    s_titleDirtyFull = true;
+    s_titleDirtyRows = 0;
+}
+
+static void TitleRedraw(void)
+{
+    s_titleDirtyFull = true;
+}
+
+// Logic only. Tells Tetris_Update what the player chose.
+static TitleResult TitleUpdate(void)
+{
+    int16_t  sy    = TitleStickEdge(g_joy.dy, &s_titleStickY);    // dy is +DOWN
+    bool     up    = g_dpad.uPressed || (sy < 0);
+    bool     down  = g_dpad.dPressed || (sy > 0);
+    bool     left  = g_dpad.lPressed;
+    bool     right = g_dpad.rPressed;
+    bool     tap   = g_joy.btnPressed;
+    uint16_t old;
+
+    if(s_titleView == TITLE_VIEW_SCORES)
+    {
+        if(up || down || left || right || tap)
+        {
+            s_titleView      = TITLE_VIEW_MENU;
+            s_titleDirtyFull = true;
+        }
+        return TITLE_CONTINUE;
+    }
+
+    if(left)
+        return TITLE_QUIT;
+
+    if(up || down)
+    {
+        old        = s_titleSel;
+        s_titleSel = (s_titleSel + 1) % TITLE_NUM_ROWS;           // only two rows
+        s_titleDirtyRows |= (1 << old) | (1 << s_titleSel);
+        Buzzer_PlaySfx(&sfx_menu_move);
+    }
+
+    if(right || tap)
+    {
+        Buzzer_PlaySfx(&sfx_menu_select);
+        if(s_titleSel == 0)
+            return TITLE_START;
+
+        s_titleView      = TITLE_VIEW_SCORES;
+        s_titleDirtyFull = true;
+    }
+
+    return TITLE_CONTINUE;
+}
+
+// Drawing only.
+static void TitleRender(void)
+{
+    char     buf[24];
+    uint16_t i;
+
+    if(s_titleDirtyFull)
+    {
+        s_titleDirtyFull = false;
+
+        if(s_titleView == TITLE_VIEW_MENU)
+        {
+            TitleHeader("TETRIS");
+            sprintf(buf, "Best: %lu", (unsigned long)s_hs.score[0]);
+            TitleText(buf, SCREEN_W / 2, 55, COLOR_GRAY);
+            TitleText("U/D:pick  R:select  L:exit", SCREEN_W / 2, 228, COLOR_GRAY);
+            s_titleDirtyRows = (1 << TITLE_NUM_ROWS) - 1;
+        }
+        else
+        {
+            TitleHeader("High Scores");
+            TitleDrawScores();
+            TitleText("any button: back", SCREEN_W / 2, 228, COLOR_GRAY);
+        }
+    }
+
+    if(s_titleView == TITLE_VIEW_MENU)
+    {
+        for(i = 0; i < TITLE_NUM_ROWS; i++)
+            if(s_titleDirtyRows & (1 << i)) TitleDrawRow(i);
+        s_titleDirtyRows = 0;
+    }
+}
+
+//*****************************************************************************
 // 6. APP CALLBACKS
 //*****************************************************************************
 
-// init: runs once at launch. Reset state AND draw the screen from scratch.
-static void Tetris_Init(void)
+// Begin a new game: reset state AND draw the playfield from scratch.
+// (Called when the player picks Start on the title screen.)
+static void StartGame(void)
 {
     int16_t r, c;
 
@@ -464,12 +737,23 @@ static void Tetris_Init(void)
     s_gameOver      = false;
     s_gameOverTimer = 0;
     s_gameOverDrawn = false;
+    s_gameOverRank  = -1;
 
     DrawTetrisLayout();                 // also invalidates the screen cache
     SpawnPiece();                       // an empty board always has room
     Buzzer_PlaySong(&song_tetris, 1);   // background music (stopped by the app loop on exit)
     // The first render() paints the board, preview and stats because the
     // cache was just invalidated.
+}
+
+// init: runs once at launch. Show the title screen; the game starts when the
+// player picks Start.
+static void Tetris_Init(void)
+{
+    s_gameOverRank = -1;                // no gold highlight until a score is earned
+    s_hsLoaded     = false;             // never trust power-up RAM: reload the list from the save driver
+    s_inTitle = true;
+    TitleInit();
 }
 
 // update: once per frame. LOGIC ONLY. No drawing here.
@@ -482,13 +766,28 @@ static AppStatus Tetris_Update(void)
     bool     softDrop;
     bool     rotate;
 
-    // ---- Game over: wait out the hold time, then any button quits ----------
+    // ---- Title screen: Start / High Scores ---------------------------------
+    if(s_inTitle)
+    {
+        TitleResult r = TitleUpdate();
+
+        if(r == TITLE_QUIT)  return APP_QUIT;       // back to the main menu
+        if(r == TITLE_START) { s_inTitle = false; StartGame(); }
+        return APP_CONTINUE;
+    }
+
+    // ---- Game over: wait out the hold time, then any button -> title -------
     if(s_gameOver)
     {
         if(s_gameOverTimer > 0)
+        {
             s_gameOverTimer--;
+        }
         else if(g_joy.btnPressed || Dpad_AnyPressed())
-            return APP_QUIT;            // back to the menu
+        {
+            s_inTitle = true;
+            TitleInit();
+        }
 
         return APP_CONTINUE;
     }
@@ -548,6 +847,9 @@ static AppStatus Tetris_Update(void)
             s_gameOver      = true;
             s_gameOverTimer = TETRIS_GAME_OVER_HOLD_FRAMES;
             Buzzer_Stop();                          // silence on game over
+
+            // Save the score if it made the top 5. Blocks briefly (flash).
+            s_gameOverRank = HsSubmit(s_score);
         }
     }
 
@@ -557,6 +859,12 @@ static AppStatus Tetris_Update(void)
 // render: once per frame. DRAWING ONLY.
 static void Tetris_Render(void)
 {
+    if(s_inTitle)
+    {
+        TitleRender();
+        return;
+    }
+
     if(s_gameOverDrawn)
         return;                                     // nothing changes any more
 
@@ -573,6 +881,12 @@ static void Tetris_Render(void)
 // redraw: called after the Settings overlay. Repaint only; keep game state.
 static void Tetris_Redraw(void)
 {
+    if(s_inTitle)
+    {
+        TitleRedraw();           // title screen: just repaint it
+        return;
+    }
+
     DrawTetrisLayout();                 // wipes LCD + invalidates s_shown / stats cache
     s_gameOverDrawn = false;            // if the game was over, render() redraws the overlay
     if(!s_gameOver)

@@ -49,7 +49,8 @@
     X(SETTINGS,   2)            \
     X(TETRIS,     4)            \
     X(RAYCASTER,  4)            \
-    X(SPARE,     16)
+    X(SPARE,     16)            \
+    X(TETRIS_SCORES, 10)
 
 typedef enum
 {
@@ -76,6 +77,12 @@ typedef struct
     uint16_t bestLines;
     uint16_t reserved;
 } SaveTetris;                           // 4 words
+
+#define TETRIS_NUM_SCORES   5
+typedef struct
+{
+    uint32_t score[TETRIS_NUM_SCORES];  // best first, 0 = empty
+} SaveTetrisScores;                     // 10 words (uint32_t = 2 words)
 
 typedef struct
 {

@@ -431,7 +431,7 @@ const App g_settingsApp =
     COLOR_DARK_GRAY,                    // menu tile color
     RC_FRAME_US,                        // frame period
     Settings_Init, Settings_Update, Settings_Render,
-    NULL,                               // no exit() cleanup needed
+    Save_SyncSettings,                  // exit(): save volume + brightness to flash
     NULL,                               // not a legacy app
     NULL                                // no redraw() (Settings is never paused)
 };

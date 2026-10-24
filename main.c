@@ -97,7 +97,10 @@ void main(void)
     EDIS;
 
     Backlight_Init();
-    
+
+    Save_Init();                    // load saved scores + apply volume/brightness
+    //Save_EraseAll();                // TEMPORARY: wipe old/garbage saves ONCE, then delete this line
+
     EINT;
     ERTM;
 
