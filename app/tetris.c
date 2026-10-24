@@ -582,18 +582,18 @@ static void TitleDrawRow(uint16_t i)
     if(sel)
     {
         Graphics_FillRect(TETRIS_TITLE_ROW_X0 - 10, top,
-                          TETRIS_TITLE_ROW_X1 + 10, top + TETRIS_TITLE_ROW_H - 1, TETRIS_COL_EDGE);
+                          TETRIS_TITLE_ROW_X1 + 10, top + TETRIS_TITLE_ROW_H - 1, COLOR_TETRIS_GRID);
         Graphics_FillRect(TETRIS_TITLE_ROW_X0 - 8,  top + 2,
-                          TETRIS_TITLE_ROW_X1 + 8,  top + TETRIS_TITLE_ROW_H - 3, TETRIS_COL_GREEN);
+                          TETRIS_TITLE_ROW_X1 + 8,  top + TETRIS_TITLE_ROW_H - 3, COLOR_TETRIS_T_PURPLE);
     }
     else
     {
         Graphics_FillRect(TETRIS_TITLE_ROW_X0, top,
-                          TETRIS_TITLE_ROW_X1, top + TETRIS_TITLE_ROW_H - 1, TETRIS_COL_ROW_OFF);
+                          TETRIS_TITLE_ROW_X1, top + TETRIS_TITLE_ROW_H - 1, COLOR_TETRIS_GHOST);
     }
 
     TitleText(s_titleRowName[i], SCREEN_W / 2, top + TETRIS_TITLE_ROW_H / 2,
-              sel ? COLOR_WHITE : COLOR_GRAY);
+              sel ? COLOR_WHITE : COLOR_TETRIS_GRID);
 }
 
 static void TitleDrawScores(void)
@@ -609,7 +609,7 @@ static void TitleDrawScores(void)
             sprintf(buf, "%u. %lu", (unsigned)(i + 1), (unsigned long)s_hs.score[i]);
 
         TitleText(buf, SCREEN_W / 2, TETRIS_SCORE_Y0 + i * TETRIS_SCORE_PITCH,
-                  (i == s_gameOverRank) ? TETRIS_COL_NEW : COLOR_WHITE);
+                  (i == s_gameOverRank) ? COLOR_GOLD : COLOR_WHITE);
     }
 }
 
@@ -689,15 +689,15 @@ static void TitleRender(void)
         {
             TitleHeader("TETRIS");
             sprintf(buf, "Best: %lu", (unsigned long)s_hs.score[0]);
-            TitleText(buf, SCREEN_W / 2, 55, COLOR_GRAY);
-            TitleText("U/D:pick  R:select  L:exit", SCREEN_W / 2, 228, COLOR_GRAY);
+            TitleText(buf, SCREEN_W / 2, 55, COLOR_GOLD);
+            TitleText("L:exit    U/D:pick    R:select", SCREEN_W / 2, 228, COLOR_WHITE);
             s_titleDirtyRows = (1 << TITLE_NUM_ROWS) - 1;
         }
         else
         {
             TitleHeader("High Scores");
             TitleDrawScores();
-            TitleText("any button: back", SCREEN_W / 2, 228, COLOR_GRAY);
+            TitleText("any button: back", SCREEN_W / 2, 228, COLOR_TETRIS_GHOST);
         }
     }
 

@@ -45,10 +45,6 @@ extern const App g_tetrisApp;               // app/tetris.c
 #define TETRIS_SCORE_PITCH        32
 #define TETRIS_STICK_ON           60        // stick flick thresholds
 #define TETRIS_STICK_OFF          30
-#define TETRIS_COL_GREEN          0x3C9A2EUL    // selected rectangle
-#define TETRIS_COL_EDGE           0x8CE070UL    // its bright border
-#define TETRIS_COL_ROW_OFF        0x282828UL    // unselected rectangle
-#define TETRIS_COL_NEW            0xFFD700UL    // score just earned
 
 // ---- D-pad mapping --------------------------------------------------------
 // The D-pad works alongside the joystick. To remap a button, point these at
