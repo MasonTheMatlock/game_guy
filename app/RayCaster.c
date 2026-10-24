@@ -93,6 +93,11 @@ extern const Song song_corridor_run;
 
 #define RC_BOSS_HP      140
 
+/* Frame cap. Reuses the free-running 32-bit down counter that joystick.c
+ * already starts (CpuTimer0): TimerNow() and TICKS_PER_MS come from drivers.h. */
+#define RC_TARGET_FPS   30UL
+#define RC_FRAME_TICKS  (((uint32_t)TICKS_PER_MS * 1000UL) / RC_TARGET_FPS)
+
 //*****************************************************************************
 // Enemies
 //*****************************************************************************
@@ -371,7 +376,7 @@ static const char *const *const kArt[SH_COUNT] = { kArtZombie, kArtBat, kArtLich
 typedef struct { char ch; uint32_t rgb; } PalEnt;      // list ends with ch = 0
 
 static const PalEnt kPalZombie[] =
-    { {'g',0x48A848UL},{'d',0x205828UL},{'r',0xFF3030UL},{'k',0x383868UL},{0,0} };
+    { {'g',COLOR_GREEN},{'d',0x205828UL},{'r',0xFF3030UL},{'k',0x383868UL},{0,0} };
 static const PalEnt kPalBrute[]  =
     { {'g',0xC06030UL},{'d',0x703010UL},{'r',0xFFE020UL},{'k',0x402828UL},{0,0} };
 static const PalEnt kPalBat[]    =
@@ -438,8 +443,8 @@ static bool     s_dirtyFull, s_invalidate, s_bannerDraw;
 static uint16_t s_hud, s_banner, s_viewDirty;
 static int16_t  s_cTop[RC_COLS], s_cBot[RC_COLS];       // what is on the LCD now
 static uint32_t s_cCol[RC_COLS];
-static uint16_t s_ovlA[RC_COLS], s_ovlB[RC_COLS];       // columns with overlay pixels
-static uint16_t *s_ovlPrev, *s_ovlCur;
+static int16_t  s_rngT[RC_COLS], s_rngB[RC_COLS];       // overlay rows drawn this frame (T > B = none)
+static int16_t  s_prvT[RC_COLS], s_prvB[RC_COLS];       // overlay rows drawn last frame
 
 // Shop
 #define TAB_STATS   0
@@ -552,6 +557,7 @@ static void DrawText(const char *s, int16_t x, int16_t y, uint32_t color)
     if(len == 0) return;
 
     Graphics_setForegroundColor(&g_sContext, color);
+    Graphics_setBackgroundColor(&g_sContext, COLOR_BLACK);
     Graphics_drawStringCentered(&g_sContext, (int16_t *)s, len,
                                 x, y, TRANSPARENT_TEXT);
 }
@@ -669,8 +675,6 @@ static void BuildTables(void)
             s_runCnt[sh][x] = n;
         }
 
-    s_ovlPrev = s_ovlA;
-    s_ovlCur  = s_ovlB;
     s_tablesReady = true;
 }
 
@@ -1160,22 +1164,34 @@ static void InvalidateView(void)
     for(c = 0; c < RC_COLS; c++)
     {
         s_cTop[c]  = -1;
-        s_ovlA[c]  = 0;
-        s_ovlB[c]  = 0;
+        s_rngT[c]  = RC_VIEW_H;  s_rngB[c] = -1;
+        s_prvT[c]  = RC_VIEW_H;  s_prvB[c] = -1;
     }
+}
+
+// Remember that rows y0..y1 of column c hold sprite/beam pixels this frame.
+static void AddRange(int16_t c, int16_t y0, int16_t y1)
+{
+    if(y0 < 0) y0 = 0;
+    if(y1 > RC_VIEW_H - 1) y1 = RC_VIEW_H - 1;
+    if(y0 < s_rngT[c]) s_rngT[c] = y0;
+    if(y1 > s_rngB[c]) s_rngB[c] = y1;
 }
 
 // Paint one wall strip, sending only what changed since the last frame.
 // t / b are the first / last wall rows inside the view.
-static void DrawColumn(uint16_t c, int16_t t1, int16_t b1, uint32_t col, bool full)
+// rt..rb = rows last frame's sprite/beam touched; only those get repainted.
+static void DrawColumn(uint16_t c, int16_t t1, int16_t b1, uint32_t col,
+                       int16_t rt, int16_t rb)
 {
     int16_t x0 = (int16_t)(RC_VIEW_X0 + (int16_t)c * RC_COL_W);
     int16_t x1 = x0 + RC_COL_W - 1;
     int16_t y0 = RC_VIEW_Y0;
     int16_t t0 = s_cTop[c];
     int16_t b0 = s_cBot[c];
+    int16_t a, e;
 
-    if(full || t0 < 0)
+    if(t0 < 0)
     {
         if(t1 > 0)
             Graphics_FillRect(x0, y0, x1, y0 + t1 - 1, COL_CEIL);
@@ -1196,6 +1212,24 @@ static void DrawColumn(uint16_t c, int16_t t1, int16_t b1, uint32_t col, bool fu
 
         if(b1 < b0)      Graphics_FillRect(x0, y0 + b1 + 1, x1, y0 + b0, COL_FLOOR);
         else if(b1 > b0) Graphics_FillRect(x0, y0 + b0 + 1, x1, y0 + b1, col);
+    }
+
+    // Repair only the rows a sprite/beam dirtied last frame
+    if(rt <= rb)
+    {
+        if(rt < t1)                                     // ceiling part
+        {
+            e = (rb < t1 - 1) ? rb : (int16_t)(t1 - 1);
+            Graphics_FillRect(x0, y0 + rt, x1, y0 + e, COL_CEIL);
+        }
+        a = (rt > t1) ? rt : t1;                        // wall part
+        e = (rb < b1) ? rb : b1;
+        if(a <= e) Graphics_FillRect(x0, y0 + a, x1, y0 + e, col);
+        if(rb > b1)                                     // floor part
+        {
+            a = (rt > b1 + 1) ? rt : (int16_t)(b1 + 1);
+            Graphics_FillRect(x0, y0 + a, x1, y0 + rb, COL_FLOOR);
+        }
     }
 
     s_cTop[c] = t1;
@@ -1314,14 +1348,13 @@ static void MarkOverlay(int16_t xa, int16_t xb)
     b = (int16_t)((xb - RC_VIEW_X0) / RC_COL_W) + 1;
     if(a < 0) a = 0;
     if(b > RC_COLS - 1) b = RC_COLS - 1;
-    for(c = a; c <= b; c++) s_ovlCur[c] = 1;
+    for(c = a; c <= b; c++) AddRange(c, 0, RC_VIEW_H - 1);
 }
 
 static void RenderView(void)
 {
     uint16_t c, k, tile, side, dist, perp, lineH, shade;
     int16_t  top, bot;
-    uint16_t *tmp;
     int16_t  cxp = RC_VIEW_X0 + RC_VIEW_W / 2;
     int16_t  cyp = RC_VIEW_Y0 + RC_HORIZON;
 
@@ -1332,8 +1365,11 @@ static void RenderView(void)
     }
 
     // Overlay bookkeeping: last frame's overlay columns must be repainted whole.
-    tmp = s_ovlPrev; s_ovlPrev = s_ovlCur; s_ovlCur = tmp;
-    for(c = 0; c < RC_COLS; c++) s_ovlCur[c] = 0;
+    for(c = 0; c < RC_COLS; c++)
+    {
+        s_prvT[c] = s_rngT[c];  s_prvB[c] = s_rngB[c];
+        s_rngT[c] = RC_VIEW_H;  s_rngB[c] = -1;
+    }
 
     ProjectSprites();
 
@@ -1353,14 +1389,16 @@ static void RenderView(void)
 
         shade = (perp < 512) ? 0 : (perp < 1024) ? 1 : (perp < 1792) ? 2 : 3;
 
-        DrawColumn(c, top, bot, s_wallCol[tile][shade][side], s_ovlPrev[c] != 0);
+        DrawColumn(c, top, bot, s_wallCol[tile][shade][side],
+                   s_prvT[c], s_prvB[c]);
 
         for(k = 0; k < s_nSpr; k++)
         {
             if(c >= s_spr[k].c0 && c <= s_spr[k].c1 && s_spr[k].dist < perp)
             {
                 DrawSlice(&s_spr[k], c);
-                s_ovlCur[c] = 1;
+                AddRange((int16_t)c, s_spr[k].top,
+                         (int16_t)(s_spr[k].top + (int16_t)s_spr[k].size - 1));
             }
         }
     }
@@ -1388,7 +1426,10 @@ static void RenderView(void)
         Graphics_FillRect(RC_VIEW_X0, RC_VIEW_Y0, RC_VIEW_X0 + 7, RC_VIEW_Y1, C_RED);
         Graphics_FillRect(RC_VIEW_X0 + RC_VIEW_W - 8, RC_VIEW_Y0,
                           RC_VIEW_X0 + RC_VIEW_W - 1, RC_VIEW_Y1, C_RED);
-        s_ovlCur[0] = s_ovlCur[1] = s_ovlCur[RC_COLS - 2] = s_ovlCur[RC_COLS - 1] = 1;
+        AddRange(0, 0, RC_VIEW_H - 1);
+        AddRange(1, 0, RC_VIEW_H - 1);
+        AddRange(RC_COLS - 2, 0, RC_VIEW_H - 1);
+        AddRange(RC_COLS - 1, 0, RC_VIEW_H - 1);
     }
 
     if(s_mode == MODE_PLAY)
@@ -1628,7 +1669,7 @@ static void DrawShopGold(void)
     char    buf[16];
     int16_t n;
 
-    Graphics_FillRect(190, 2, SCREEN_W - 1, 28, C_BLACK);
+    Graphics_FillRect(0, 2, SCREEN_W - 1, 28, C_BLACK);
     n = Cat(buf, 0, "G ", 2);
     Itoa(buf + n, s_gold);
     DrawText(buf, 265, 15, C_GOLD);
@@ -1656,7 +1697,7 @@ static void ShopRender(void)
 
     if(s_shopDirty & SD_MSG)
     {
-        Graphics_FillRect(6, 198, SCREEN_W - 7, 218, C_BLACK);
+        Graphics_FillRect(6, 240, SCREEN_W, 320, COLOR_BLACK);
         DrawText(kMsgText[s_shopMsg], SCREEN_W / 2, 208,
                  (s_shopMsg == 1 || s_shopMsg == 4) ? C_GREEN : C_BAD);
     }
@@ -1854,8 +1895,24 @@ static void UpdatePlay(void)
 //*****************************************************************************
 // App callbacks
 //*****************************************************************************
+static uint32_t s_lastTick;
+
+static void PaceInit(void)
+{
+    s_lastTick = TimerNow();
+}
+
+// Busy-wait until one frame period has passed since the previous frame ended.
+// The counter counts DOWN, so elapsed = last - now (wrap-safe in uint32).
+static void PaceWait(void)
+{
+    while((uint32_t)(s_lastTick - TimerNow()) < RC_FRAME_TICKS) { }
+    s_lastTick = TimerNow();
+}
+
 static void RC_Init(void)
 {
+    PaceInit();
     BuildTables();
     ResetRun();
     s_stX = s_stY = 0;
@@ -1920,7 +1977,7 @@ static void FullRepaint(void)
     }
 }
 
-static void RC_Render(void)
+static void RC_RenderInner(void)
 {
     if(s_dirtyFull)
     {
@@ -1951,9 +2008,16 @@ static void RC_Render(void)
     }
 }
 
+static void RC_Render(void)
+{
+    RC_RenderInner();
+    PaceWait();
+}
+
 // After the pause overlay: repaint everything from the current state.
 static void RC_Redraw(void)
 {
+    s_lastTick = TimerNow();                    // don't "catch up" after the pause
     s_dirtyFull = true;
     if(s_mode != MODE_OVER && s_mode != MODE_WIN)
         Buzzer_PlaySong(&song_corridor_run, 1);
