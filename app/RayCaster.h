@@ -40,10 +40,16 @@ extern const App g_raycasterApp;            // app/raycaster.c
 //     (RC_COLS * RC_COL_W) / RC_FOV_UNITS must come out as a whole number
 //     (it is the pixels-per-angle-unit used to place sprites and beams).
 //*****************************************************************************
+
+#define RC_VIEW_X_OFFSET    0
+#define RC_VIEW_Y_OFFSET    0
+
+#define RC_VIEW_Y0          (24 + RC_VIEW_Y_OFFSET)
+#define RC_VIEW_H           168
+
 #define RC_COLS             80
 #define RC_COL_W            4
-#define RC_VIEW_Y0          24              // top HUD is 24 px tall
-#define RC_VIEW_H           168             // view is y 24..191, bottom HUD below
+
 #define RC_FOV_UNITS        160
 
 //*****************************************************************************

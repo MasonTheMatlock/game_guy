@@ -50,8 +50,13 @@ extern const Song song_corridor_run;
 #define RC_MAP_SHIFT    4
 #define RC_MAP_CELLS    (RC_MAP_W * RC_MAP_H)
 
-#define RC_VIEW_W       (RC_COLS * RC_COL_W)
-#define RC_VIEW_X0      ((SCREEN_W - RC_VIEW_W) / 2)
+#define RC_VIEW_W   (RC_COLS * RC_COL_W)
+
+
+
+#define RC_VIEW_X0 (((SCREEN_W - RC_VIEW_W) / 2) + RC_VIEW_X_OFFSET)
+
+
 #define RC_VIEW_Y1      (RC_VIEW_Y0 + RC_VIEW_H - 1)
 #define RC_HORIZON      (RC_VIEW_H / 2)                 // row (inside view) of the horizon
 #define RC_PROJ         ((uint16_t)(RC_VIEW_H * 256UL)) // wall is full height at 1 tile
@@ -559,7 +564,7 @@ static void DrawText(const char *s, int16_t x, int16_t y, uint32_t color)
     Graphics_setForegroundColor(&g_sContext, color);
     Graphics_setBackgroundColor(&g_sContext, COLOR_BLACK);
     Graphics_drawStringCentered(&g_sContext, (int16_t *)s, len,
-                                x, y, TRANSPARENT_TEXT);
+                                x, y, OPAQUE_TEXT);
 }
 
 static void Sfx(const Song *s)
@@ -1697,7 +1702,7 @@ static void ShopRender(void)
 
     if(s_shopDirty & SD_MSG)
     {
-        Graphics_FillRect(6, 240, SCREEN_W, 320, COLOR_BLACK);
+        Graphics_FillRect(6, 240, 0, 320, C_BLACK);
         DrawText(kMsgText[s_shopMsg], SCREEN_W / 2, 208,
                  (s_shopMsg == 1 || s_shopMsg == 4) ? C_GREEN : C_BAD);
     }

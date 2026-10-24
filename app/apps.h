@@ -51,8 +51,8 @@
 //*****************************************************************************
 // Screen geometry
 //*****************************************************************************
-#define SCREEN_W      LCD_VERTICAL_MAX       // LCD is 320 x 240, landscape
-#define SCREEN_H      LCD_HORIZONTAL_MAX
+#define SCREEN_H      LCD_VERTICAL_MAX       // LCD is 320 x 240, landscape
+#define SCREEN_W     LCD_HORIZONTAL_MAX
 
 //*****************************************************************************
 // Shared services (defined in app/apps.c, used by every app)
