@@ -390,6 +390,7 @@ static AppStatus Settings_Update(void)
         case MODE_VOLUME:
             if(up || tap)
             {
+                Save_SyncSettings();        // write to flash now, not only when Settings exits
                 EnterMode(MODE_MENU);
                 break;
             }
@@ -413,6 +414,7 @@ static AppStatus Settings_Update(void)
         case MODE_BRIGHT:
             if(up || tap)
             {
+                Save_SyncSettings();        // write to flash now, not only when Settings exits
                 EnterMode(MODE_MENU);
                 break;
             }

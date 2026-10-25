@@ -132,8 +132,10 @@ bool Save_IsDirty(void);
 #define SAVE_ERR_ERASE      1
 #define SAVE_ERR_PROGRAM    2
 #define SAVE_ERR_VERIFY     3
+#define SAVE_ERR_SETUP      4   // Flash API scale factor / callback did not stick
 uint16_t Save_GetLastError(void);
 uint16_t Save_GetLastApiStatus(void);
+bool     Save_FlashSetupOk(void);       // false = Flash API scale/callback write did not stick
 
 // Write the RAM copy to flash if dirty. BLOCKS; interrupts off; buzzer is
 // stopped. Returns true if nothing to do or the save succeeded and verified.

@@ -263,6 +263,16 @@ uint16_t Buzzer_GetVolume(void)
     return s_volume;
 }
 
+// Hard-silence the buzzer pin (ePWM4A forced low) / release it. Used around
+// flash erase/program, when interrupts are off and the carrier ISR cannot
+// update CMPA: without this the pin can be stuck on its last carrier pulse.
+void Buzzer_Mute(uint16_t on)
+{
+    EALLOW;
+    EPwm4Regs.AQCSFRC.bit.CSFA = on ? 1 : 0;            // 1 = force low, 0 = AQ drives the pin
+    EDIS;
+}
+
 void Buzzer_PauseMusic(uint16_t pause)
 {
     s_musicPaused = pause;

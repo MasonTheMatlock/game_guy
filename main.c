@@ -26,6 +26,16 @@
 #include "app/apps.h"
 
 //*****************************************************************************
+// FACTORY RESET
+//   Erases ALL saves and settings (scores, names, volume, brightness, menu
+//   background). Normal builds keep this at 0.
+//     1. Change to 1, build, flash, let it boot once.
+//     2. Change back to 0, build, flash again.
+//   If you leave it at 1 every power-up wipes the saves, so nothing "saves".
+//*****************************************************************************
+#define FACTORY_RESET   0
+
+//*****************************************************************************
 // Boot helpers
 //*****************************************************************************
 #define WARNING_HOLD_MS   2000
@@ -99,7 +109,10 @@ void main(void)
     Backlight_Init();
 
     Save_Init();                    // load saved scores + apply volume/brightness
-    //Save_EraseAll();                // TEMPORARY: wipe old/garbage saves ONCE, then delete this line
+
+#if FACTORY_RESET
+    Save_EraseAll();                // wipes every save + setting (both flash sectors)
+#endif
 
     EINT;
     ERTM;

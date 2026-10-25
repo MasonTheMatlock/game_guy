@@ -94,6 +94,7 @@ void     Buzzer_PlaySfx(const Song *sfx);                   // effect (restarts 
 void     Buzzer_Stop(void);                                 // music + effect off
 void     Buzzer_SetVolume(uint16_t level);                  // 0..BUZZER_NUM_VOLUMES-1 (duty cycle)
 uint16_t Buzzer_GetVolume(void);
+void     Buzzer_Mute(uint16_t on);                          // 1 = force the pin low (flash ops), 0 = release
 void     Buzzer_PauseMusic(uint16_t pause);                 // 1 = freeze music, 0 = resume
 uint16_t Buzzer_IsPlaying(void);                            // 1 if music or an effect is active
 

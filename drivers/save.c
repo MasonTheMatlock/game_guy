@@ -99,6 +99,7 @@ static int16_t  s_active = -1;          // sector holding the newest record: -1 
 static uint16_t s_next;                 // word offset of the next blank slot in s_active
 static bool     s_dirty;
 static uint16_t s_err;                  // SAVE_ERR_*
+static bool     s_setupOk = true;       // Flash API scale/callback readback matched
 static uint16_t s_apiStatus;            // raw Flash API status of the last failure
 
 #define PAYLOAD             (s_img + HDR_WORDS)
@@ -287,6 +288,47 @@ static uint16_t FlashProgramOp(uint16_t sectorMask, bool erase,
     return r;
 }
 
+// Buzzer_Stop() only clears the "active" flags; the 1 ms ISR then drops the
+// tone on its NEXT tick. With interrupts off for the whole flash operation
+// that tick never comes, so the carrier could keep driving the buzzer (full
+// current, loud buzz, supply noise) while the flash is being written. So:
+// stop, let the ISR run (>= 2 ticks), then force the pin low in hardware.
+static void SilenceBuzzer(void)
+{
+    Buzzer_Stop();
+    DELAY_US(3000);
+    Buzzer_Mute(1);
+}
+
+static void UnmuteBuzzer(void)
+{
+    DELAY_US(3000);                     // ISR runs again: tone state is clean
+    Buzzer_Mute(0);
+}
+
+// The Flash API reads its CPU scale factor and callback pointer from two RAM
+// words (Flash_CPUScaleFactor / Flash_CallbackPtr). On the F2806x those words
+// sit at 0xD02/0xD04, INSIDE the PIE vector table RAM, which is EALLOW-
+// protected. Without EALLOW the writes are silently dropped, so the API runs
+// with whatever InitPieVectTable() left there (a default-ISR address): wrong
+// erase/program pulse timing (marginal cells that read back fine, then fail
+// after a power cycle) and a callback that points at a trap ISR. Writing them
+// under EALLOW and then CHECKING they stuck makes that failure impossible.
+static bool SetupFlashApi(void)
+{
+    volatile Uint32 *scale = (volatile Uint32 *)&Flash_CPUScaleFactor;
+
+    EALLOW;
+    Flash_CPUScaleFactor = SCALE_FACTOR;
+    Flash_CallbackPtr    = FlashCallback;
+    EDIS;
+
+    // Informational only: never block a save on this check. (Read through a
+    // volatile pointer so the compiler cannot optimise the read-back away.)
+    s_setupOk = (*scale == (Uint32)SCALE_FACTOR) && (Flash_CallbackPtr == FlashCallback);
+    return true;
+}
+
 // Erase (optional) + program the RAM image into sector `which` at `pos`,
 // then read it back. Returns true only if it verified.
 static bool WriteImage(int16_t which, uint16_t pos, bool erase)
@@ -298,13 +340,14 @@ static bool WriteImage(int16_t which, uint16_t pos, bool erase)
     s_err       = SAVE_ERR_NONE;
     s_apiStatus = 0;
 
-    Buzzer_Stop();                      // no sound ISR / note mid-operation
+    if(!SetupFlashApi())
+        return false;
 
-    Flash_CPUScaleFactor = SCALE_FACTOR;
-    Flash_CallbackPtr    = FlashCallback;
+    SilenceBuzzer();                    // pin must not be left driven while IRQs are off
 
     r = FlashProgramOp(SECTOR_MASK(which), erase, (uint16_t *)dst, s_img,
                        IMG_WORDS, &s_apiStatus);
+    UnmuteBuzzer();
     if(r != 0)
     {
         s_err = (r == 1) ? SAVE_ERR_ERASE : SAVE_ERR_PROGRAM;
@@ -457,6 +500,11 @@ uint16_t Save_GetLastApiStatus(void)
     return s_apiStatus;
 }
 
+bool Save_FlashSetupOk(void)
+{
+    return s_setupOk;
+}
+
 bool Save_Flush(void)
 {
     uint32_t seq;
@@ -538,13 +586,15 @@ bool Save_EraseAll(void)
     s_seq    = 0;
     s_dirty  = false;
 
-    Buzzer_Stop();
-    Flash_CPUScaleFactor = SCALE_FACTOR;
-    Flash_CallbackPtr    = FlashCallback;
+    if(!SetupFlashApi())
+        return false;
 
-    if(FlashProgramOp(SECTOR_A_MASK, true, 0, 0, 0, &st) != 0) return false;
-    if(FlashProgramOp(SECTOR_B_MASK, true, 0, 0, 0, &st) != 0) return false;
-    return true;
+    SilenceBuzzer();
+
+    i = FlashProgramOp(SECTOR_A_MASK, true, 0, 0, 0, &st);
+    if(i == 0) i = FlashProgramOp(SECTOR_B_MASK, true, 0, 0, 0, &st);
+    UnmuteBuzzer();
+    return (i == 0);
 }
 
 // Capture the live volume/brightness and write flash if they changed.
