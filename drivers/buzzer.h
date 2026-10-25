@@ -47,7 +47,9 @@
 #define N_A5    880
 #define N_B5    988
 #define N_C6    1047
+#define N_D6    1175
 #define N_E6    1319
+#define N_G6    1568
 
 //*****************************************************************************
 // Durations, in "eighths" (how long an eighth lasts is set per song)

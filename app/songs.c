@@ -144,7 +144,16 @@ static const Note n_gameOver[]= { {N_C5,2},{N_B4,2},{N_A4,2},{N_G4S,6} };
 
 static const Note n_tetrisSay[] = {{N_D5,2},{N_A5,1},{N_G5,1},{N_E5,1},{N_C5,3}};
 static const Note n_bootDmg[] = { {N_B5,2},{N_E6,10} };
-static const Note n_bootGbc[] = {{N_C5,1},{N_E5,1},{N_G5,1},{N_C6,1},{N_E6,1},{N_REST,2}, {N_E6,3},{N_G5S,0 + 1},{N_B5,1},{N_E6,10}};
+
+static const Note n_bootGbc[] = {
+    {N_G4, 2}, {N_A4, 2}, {N_C5, 2}, {N_D5, 2}, // Zan-ko-ku na
+    {N_E5, 3}, {N_D5, 1}, {N_C5, 2}, {N_D5, 4}, // ten-shi no (Fixed duration on D5)
+    {N_E5, 4}, {N_REST, 4},                     // yo-u ni...  (Lengthened rest)
+    {N_E5, 2}, {N_D5, 2}, {N_C5, 2}, {N_D5, 2}, // Sho-u-ne-n
+    {N_E5, 3}, {N_G5, 1}, {N_E5, 2}, {N_D5, 4}, // yo shin-wa    (Fixed duration on G5)
+    {N_C5, 4}, {N_D5, 2}, {N_E5, 4}, {N_D5, 4}  // ni na-re!    (Added iconic final resolution)
+};
+
 
 SFX(sfx_coin,   n_coinNotes,   30, 0, "Coin");
 
@@ -165,7 +174,7 @@ SFX(sfx_explosion, n_explode,  16,  0,  "Explosion");
 SFX(sfx_level_up,  n_levelUp,  80, 15,  "Level Up");
 SFX(sfx_game_over, n_gameOver, 110, 20, "Game Over");
 SFX(sfx_tetris_say, n_tetrisSay, 40, 8, "Tetris Say");
-SFX(sfx_boot_gbc, n_bootGbc, 35, 0, "Boot GBC");
+SFX(sfx_boot_gbc, n_bootGbc, 72, 25, "Boot GBC");
 SFX(sfx_boot_dmg, n_bootDmg, 45, 0, "Boot DMG");
 
 // ---- Staff shots (one per staff, played by raycaster Fire) -------------

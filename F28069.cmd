@@ -159,7 +159,12 @@ SECTIONS
    .esysmem            : > RAML5,      PAGE = 1
    .cio			       : > RAML5,      PAGE = 1
 
+
+
    /* Initalized sections to go in Flash */
+
+   .splash             : > FLASHC, PAGE = 0
+
    /* For SDFlash to program these, they must be allocated to page 0 */
    .econst             : > FLASHA,     PAGE = 0
    .switch             : > FLASHA,     PAGE = 0

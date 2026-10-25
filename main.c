@@ -41,6 +41,7 @@
 //*****************************************************************************
 // Boot helpers
 //*****************************************************************************
+
 #define WARNING_HOLD_MS   2000
 
 // Joystick_Init() returns 0 if calibration looked wrong. Say so on screen
@@ -120,7 +121,10 @@ void main(void)
     EINT;
     ERTM;
 
-    Sfx_PlayWait(&sfx_boot_gbc);    // pick sfx_boot_dmg for the plain "ba-ding"
+    Buzzer_PlaySfx(&sfx_boot_gbc);
+    Splash_Show();
+
+    
 
     // Step 6. Menu -> app -> menu -> ... (never returns)
     App_Loop();
