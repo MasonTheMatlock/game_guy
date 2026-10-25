@@ -12,8 +12,13 @@
 //     D-pad L/R or stick left/right : lower / raise
 //     D-pad D  (Volume only)        : play a test sound
 //     D-pad U or stick button tap   : back to the menu
-//   Apps:
-//     D-pad U / L or stick button tap : back to the menu
+//   Apps:  (row 0 = Menu, then one row per installed app)
+//     D-pad U/D or stick up/down      : move the highlight
+//     D-pad R or stick button tap     : open (Menu -> background color)
+//     D-pad L                         : back to the menu
+//   Menu color:
+//     D-pad L/R or stick left/right   : previous / next color
+//     D-pad U or stick button tap     : save and go back to Apps
 //   HOLD stick button: quit to the launcher (handled by apps.c)
 //
 // OVERLAY MODE: holding the stick inside any other app opens this app on top
@@ -34,6 +39,7 @@
 #define MODE_VOLUME     1
 #define MODE_BRIGHT     2
 #define MODE_APPS       3
+#define MODE_MENUBG     4
 
 // Menu item ids. 1..3 double as the mode they open.
 #define ID_VOLUME       1
@@ -65,6 +71,17 @@ bool g_settingsToMenu  = false;
 #define APPS_PITCH      32
 #define APPS_MAX_ROWS   5
 
+// Menu color screen: name, preview box, row of swatches.
+#define BG_NAME_Y       72
+#define BG_PREV_X0      60
+#define BG_PREV_X1      259
+#define BG_PREV_Y0      90
+#define BG_PREV_Y1      150
+#define BG_SW_W         28
+#define BG_SW_GAP       8
+#define BG_SW_Y         170
+#define BG_SW_X0        ((SCREEN_W - (MENU_NUM_BGS * BG_SW_W + (MENU_NUM_BGS - 1) * BG_SW_GAP)) / 2)
+
 #define LEVEL_TEXT_Y    100             // "3 / 5"
 #define LEVEL_BAR_BOTTOM 170
 
@@ -87,6 +104,8 @@ static int16_t  s_stX, s_stY;           // stick flick detection
 static bool     s_dirtyFull;            // whole screen must be redrawn
 static uint16_t s_dirtyRows;            // bit i = menu rectangle i needs redrawing
 static bool     s_dirtyValue;           // volume / brightness readout needs redrawing
+static uint16_t s_appSel;               // highlighted row on the Apps screen (0 = Menu)
+static uint16_t s_bgSel;                // palette index shown on the Menu color screen
 
 //*****************************************************************************
 // Small helpers
@@ -226,18 +245,65 @@ static void DrawLevel(void)
 }
 
 //*****************************************************************************
-// Apps drawing: one outlined rectangle per installed app, in the app's color.
+// Apps drawing: row 0 = Menu, then one row per installed app, in the app's color.
+// The highlighted row is a filled green rectangle (same look as the Settings menu).
 //*****************************************************************************
-static void DrawApps(void)
+// Row 0 is the main menu itself (it is not in g_apps[]); rows 1.. are g_apps[0..].
+static uint16_t AppsRowCount(void)
+{
+    uint16_t n = (uint16_t)(g_appCount + 1);
+
+    return (n > APPS_MAX_ROWS) ? APPS_MAX_ROWS : n;
+}
+
+static void DrawAppsRow(uint16_t i)
+{
+    const App *a   = (i == 0) ? &g_menuApp : g_apps[i - 1];
+    int16_t    top = APPS_Y0 + (int16_t)i * APPS_PITCH;
+    bool       sel = (i == s_appSel);
+
+    // Clear the whole band first: the selected rectangle is wider.
+    Graphics_FillRect(10, top - 1, SCREEN_W - 11, top + APPS_H, COLOR_BLACK);
+
+    if(sel)
+    {
+        Graphics_FillRect(APPS_X0 - 8, top,     APPS_X1 + 8, top + APPS_H - 1, COL_EDGE);
+        Graphics_FillRect(APPS_X0 - 6, top + 2, APPS_X1 + 6, top + APPS_H - 3, COL_GREEN);
+    }
+    else
+    {
+        FrameRect(APPS_X0, top, APPS_X1, top + APPS_H - 1, a->color);
+    }
+
+    DrawText((i == 0) ? "Menu" : a->name, SCREEN_W / 2, top + APPS_H / 2, COLOR_WHITE);
+}
+
+//*****************************************************************************
+// Menu color drawing: color name, a preview of the menu title on that color,
+// and a row of swatches with the chosen one outlined in white.
+//*****************************************************************************
+static void DrawBgPicker(void)
 {
     uint16_t i;
+    int16_t  x;
 
-    for(i = 0; i < g_appCount && i < APPS_MAX_ROWS; i++)
+    // Name
+    Graphics_FillRect(60, BG_NAME_Y - 14, SCREEN_W - 61, BG_NAME_Y + 14, COLOR_BLACK);
+    DrawText(Menu_BgName(s_bgSel), SCREEN_W / 2, BG_NAME_Y, COLOR_WHITE);
+
+    // Preview
+    FrameRect(BG_PREV_X0 - 3, BG_PREV_Y0 - 3, BG_PREV_X1 + 3, BG_PREV_Y1 + 3, COLOR_WHITE);
+    Graphics_FillRect(BG_PREV_X0, BG_PREV_Y0, BG_PREV_X1, BG_PREV_Y1, Menu_BgColor(s_bgSel));
+    DrawText("SELECT GAME", SCREEN_W / 2, (BG_PREV_Y0 + BG_PREV_Y1) / 2, COLOR_WHITE);
+
+    // Swatches (every one has a frame so Black is visible on the black screen)
+    for(i = 0; i < MENU_NUM_BGS; i++)
     {
-        int16_t top = APPS_Y0 + (int16_t)i * APPS_PITCH;
+        x = BG_SW_X0 + (int16_t)i * (BG_SW_W + BG_SW_GAP);
 
-        FrameRect(APPS_X0, top, APPS_X1, top + APPS_H - 1, g_apps[i]->color);
-        DrawText(g_apps[i]->name, SCREEN_W / 2, top + APPS_H / 2, COLOR_WHITE);
+        FrameRect(x - 3, BG_SW_Y - 3, x + BG_SW_W + 2, BG_SW_Y + BG_SW_W + 2,
+                  (i == s_bgSel) ? COLOR_WHITE : COL_BAR_OFF);
+        Graphics_FillRect(x, BG_SW_Y, x + BG_SW_W - 1, BG_SW_Y + BG_SW_W - 1, Menu_BgColor(i));
     }
 }
 
@@ -248,6 +314,7 @@ static void EnterMode(uint16_t mode)
 {
     s_mode      = mode;
     s_dirtyFull = true;
+    s_dirtyRows = 0;                    // Render sets the rows the new screen needs
 }
 
 //*****************************************************************************
@@ -264,6 +331,8 @@ static void Settings_Init(void)
 
     g_settingsToMenu = false;
     s_sel        = 0;
+    s_appSel     = 0;
+    s_bgSel      = 0;
     s_stX        = 0;
     s_stY        = 0;
     s_dirtyRows  = 0;
@@ -285,6 +354,7 @@ static AppStatus Settings_Update(void)
     bool    tap   = g_joy.btnPressed;
     uint16_t level;
     uint16_t old;
+    uint16_t n;
 
     switch(s_mode)
     {
@@ -317,10 +387,9 @@ static AppStatus Settings_Update(void)
             }
             break;
 
-                case MODE_VOLUME:
+        case MODE_VOLUME:
             if(up || tap)
             {
-                Save_SyncSettings();    // leaving the screen: write to flash if changed
                 EnterMode(MODE_MENU);
                 break;
             }
@@ -341,10 +410,9 @@ static AppStatus Settings_Update(void)
             }
             break;
 
-                case MODE_BRIGHT:
+        case MODE_BRIGHT:
             if(up || tap)
             {
-                Save_SyncSettings();    // leaving the screen: write to flash if changed
                 EnterMode(MODE_MENU);
                 break;
             }
@@ -360,9 +428,55 @@ static AppStatus Settings_Update(void)
             }
             break;
 
+        case MODE_MENUBG:
+            if(up || tap)
+            {
+                Save_Flush();           // leaving the screen: write to flash if changed
+                EnterMode(MODE_APPS);
+                break;
+            }
+
+            old = s_bgSel;
+            if(right) s_bgSel = (s_bgSel + 1) % MENU_NUM_BGS;
+            if(left)  s_bgSel = (s_bgSel + MENU_NUM_BGS - 1) % MENU_NUM_BGS;
+            if(s_bgSel != old)
+            {
+                Menu_SetBg(s_bgSel);    // RAM only; the main menu reads it when it next opens
+                Buzzer_PlaySfx(&sfx_menu_move);
+                s_dirtyValue = true;
+            }
+            break;
+
         default:                                        // MODE_APPS
-            if(up || left || tap)
+            if(left)
+            {
                 EnterMode(MODE_MENU);
+                break;
+            }
+
+            if(up || down)
+            {
+                n   = AppsRowCount();
+                old = s_appSel;
+                s_appSel = up ? (s_appSel + n - 1) % n
+                              : (s_appSel + 1) % n;
+                s_dirtyRows |= (1 << old) | (1 << s_appSel);
+                Buzzer_PlaySfx(&sfx_menu_move);
+            }
+
+            if(right || tap)
+            {
+                if(s_appSel == 0)                       // the Menu row
+                {
+                    s_bgSel = Menu_GetBg();
+                    Buzzer_PlaySfx(&sfx_menu_select);
+                    EnterMode(MODE_MENUBG);
+                }
+                else
+                {
+                    Buzzer_PlaySfx(&sfx_menu_bump);     // nothing to configure for this app yet
+                }
+            }
             break;
     }
 
@@ -401,10 +515,16 @@ static void Settings_Render(void)
                 s_dirtyValue = true;
                 break;
 
+            case MODE_MENUBG:
+                DrawTitle("Menu Color");
+                DrawHint("L/R:change  U:back");
+                s_dirtyValue = true;
+                break;
+
             default:                                    // MODE_APPS
                 DrawTitle("Apps");
-                DrawHint("U/L:back");
-                DrawApps();
+                DrawHint("U/D:pick  R:open  L:back");
+                s_dirtyRows = (1 << AppsRowCount()) - 1;    // all rows
                 break;
         }
     }
@@ -415,9 +535,16 @@ static void Settings_Render(void)
             if(s_dirtyRows & (1 << i)) DrawMenuRow(i);
         s_dirtyRows = 0;
     }
+    else if(s_mode == MODE_APPS)
+    {
+        for(i = 0; i < AppsRowCount(); i++)
+            if(s_dirtyRows & (1 << i)) DrawAppsRow(i);
+        s_dirtyRows = 0;
+    }
     else if(s_dirtyValue)
     {
-        DrawLevel();
+        if(s_mode == MODE_MENUBG) DrawBgPicker();
+        else                      DrawLevel();
         s_dirtyValue = false;
     }
 }

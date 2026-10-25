@@ -13,4 +13,14 @@
 
 extern const App g_menuApp;             // app/main_menu.c
 
+// ---- Background color (picked in Settings > Apps > Menu) -------------------
+// The menu has MENU_NUM_BGS preset background colors. Only the palette INDEX
+// is saved (SAVE_SLOT_MENU), so the colors themselves can be tweaked later.
+#define MENU_NUM_BGS   8
+
+uint32_t    Menu_BgColor(uint16_t idx);     // 0xRRGGBB of palette entry idx
+const char *Menu_BgName(uint16_t idx);      // "Black", "Navy", ...
+uint16_t    Menu_GetBg(void);               // saved index (0 if never saved)
+void        Menu_SetBg(uint16_t idx);       // RAM only; caller does Save_Flush()
+
 #endif // __MAIN_MENU_H__

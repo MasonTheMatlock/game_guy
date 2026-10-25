@@ -1678,7 +1678,7 @@ static void RenderView(void)
         }
     }
 
-    // Overlays: beams, hit flash on the screen edges, crosshair.
+        // Overlays: beams, hit flash on the screen edges, crosshair.
     if(s_fxTimer)
     {
         int16_t b;
@@ -1688,24 +1688,19 @@ static void RenderView(void)
             int16_t ex = s_fxX[b];
 
             Graphics_setForegroundColor(&g_sContext, s_fxColor);
-            Graphics_drawLine(&g_sContext, cxp,     RC_VIEW_Y0 + WPN_Y0 + WPN_TIP_ROW * WPN_SCALE, ex,     cyp);
-            Graphics_drawLine(&g_sContext, cxp + 1, RC_VIEW_Y0 + WPN_Y0 + WPN_TIP_ROW * WPN_SCALE, ex + 1, cyp);
-            Graphics_FillRect(ex - 3, cyp - 3, ex + 3, cyp + 3, s_fxColor);
-            MarkOverlay(cxp, ex + 4);
-            MarkOverlay(ex - 4, cxp);
+            
+            // Draw a single line down the middle of the beam path
+            Graphics_drawLine(&g_sContext, cxp, RC_VIEW_Y0 + WPN_Y0 + WPN_TIP_ROW * WPN_SCALE, ex, cyp);
+            
+            // Draw a crosshair or target pixel at the impact point instead of a large thick rect block
+            Graphics_drawPixel(&g_sContext, ex, cyp);
+            
+            // Update dirty ranges tightly around the line width rather than marking large multi-column buffers
+            MarkOverlay(cxp, ex + 1);
+            MarkOverlay(ex - 1, cxp);
         }
     }
 
-    if(s_hurtFx)
-    {
-        Graphics_FillRect(RC_VIEW_X0, RC_VIEW_Y0, RC_VIEW_X0 + 7, RC_VIEW_Y1, C_RED);
-        Graphics_FillRect(RC_VIEW_X0 + RC_VIEW_W - 8, RC_VIEW_Y0,
-                          RC_VIEW_X0 + RC_VIEW_W - 1, RC_VIEW_Y1, C_RED);
-        AddRange(0, 0, RC_VIEW_H - 1);
-        AddRange(1, 0, RC_VIEW_H - 1);
-        AddRange(RC_COLS - 2, 0, RC_VIEW_H - 1);
-        AddRange(RC_COLS - 1, 0, RC_VIEW_H - 1);
-    }
 
     if(s_mode == MODE_PLAY)
     {

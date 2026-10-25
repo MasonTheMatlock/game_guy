@@ -217,15 +217,19 @@ static bool LoadFromFlash(void)
 
 bool Save_Init(void)
 {
-    bool    found = LoadFromFlash();
+    bool found = LoadFromFlash();
     SaveSettings s;
 
-    // Apply the saved volume / brightness so main() doesn't have to.
-    if(Save_Read(SAVE_SLOT_SETTINGS, &s, sizeof s))
+    if(Save_Read(SAVE_SLOT_SETTINGS, &s,
+                 sizeof(s) / sizeof(uint16_t)))
     {
-        if(s.volume     < BUZZER_NUM_VOLUMES)   Buzzer_SetVolume(s.volume);
-        if(s.brightness < BACKLIGHT_NUM_LEVELS) Backlight_SetLevel(s.brightness);
+        if(s.volume < BUZZER_NUM_VOLUMES)
+            Buzzer_SetVolume(s.volume);
+
+        if(s.brightness < BACKLIGHT_NUM_LEVELS)
+            Backlight_SetLevel(s.brightness);
     }
+
     return found;
 }
 
@@ -346,6 +350,9 @@ void Save_SyncSettings(void)
 
     s.volume     = Buzzer_GetVolume();
     s.brightness = Backlight_GetLevel();
-    Save_Write(SAVE_SLOT_SETTINGS, &s, sizeof s);   // dirty only if changed
-    Save_Flush();                                   // no-op if not dirty
+
+    Save_Write(SAVE_SLOT_SETTINGS, &s,
+               sizeof(s) / sizeof(uint16_t));
+
+    Save_Flush();
 }

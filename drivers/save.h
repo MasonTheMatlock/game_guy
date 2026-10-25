@@ -51,7 +51,8 @@
     X(RAYCASTER,  4)            \
     X(SPARE,     16)            \
     X(TETRIS_SCORES, 10)        \
-    X(TETRIS_NAMES, 25)
+    X(TETRIS_NAMES, 25)         \
+    X(MENU,          2)
 typedef enum
 {
 #define X(name, words) SAVE_SLOT_##name,
@@ -96,6 +97,12 @@ typedef struct
     uint16_t bestLevel;
     uint16_t reserved;
 } SaveRaycaster;                        // 4 words
+
+typedef struct
+{
+    uint16_t bgIndex;                   // main menu background: palette index
+    uint16_t reserved;
+} SaveMenu;                             // 2 words
 
 //*****************************************************************************
 // API
