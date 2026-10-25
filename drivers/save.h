@@ -3,11 +3,13 @@
 // TITLE:  Save driver - persistent save data / settings in on-chip flash
 //
 // HOW IT WORKS
-//   Flash sectors H (0x3D8000) and G (0x3DC000) are NOT used by the linker
-//   (see 28069_RAM_lnk.cmd), so this driver owns them. They are used as two
-//   alternating copies ("ping-pong"): a save is written to the sector that is
-//   NOT the current good one, and only counts once its CRC checks out. If
-//   power dies mid-save, the previous save is still intact.
+//   Flash sectors H (0x3D8000) and G (0x3DC000) are NOT used by the linker,
+//   so this driver owns them. Each sector is an append-only LOG of save
+//   records: a save is APPENDED to the first blank slot, and a sector is
+//   erased only when it is full (~227 saves), at which point the other sector
+//   takes over. That is the wear leveling: ~227x fewer erases than erasing on
+//   every save. A record only counts once its CRC checks out, so if power
+//   dies mid-save the previous record is still the newest valid one.
 //
 //   Everything lives in a RAM copy. Save_Read()/Save_Write() only touch RAM
 //   (fast, call them whenever). Save_Flush() is the ONLY call that touches
@@ -123,6 +125,15 @@ bool Save_Write(SaveSlot slot, const void *src, uint16_t words);
 
 // True if RAM has changes not yet written to flash.
 bool Save_IsDirty(void);
+
+// Why the last Save_Flush()/write failed (SAVE_ERR_*), and the raw Flash API
+// status code. Handy to watch in the debugger or print on screen.
+#define SAVE_ERR_NONE       0
+#define SAVE_ERR_ERASE      1
+#define SAVE_ERR_PROGRAM    2
+#define SAVE_ERR_VERIFY     3
+uint16_t Save_GetLastError(void);
+uint16_t Save_GetLastApiStatus(void);
 
 // Write the RAM copy to flash if dirty. BLOCKS; interrupts off; buzzer is
 // stopped. Returns true if nothing to do or the save succeeded and verified.
