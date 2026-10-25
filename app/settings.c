@@ -317,9 +317,10 @@ static AppStatus Settings_Update(void)
             }
             break;
 
-        case MODE_VOLUME:
+                case MODE_VOLUME:
             if(up || tap)
             {
+                Save_SyncSettings();    // leaving the screen: write to flash if changed
                 EnterMode(MODE_MENU);
                 break;
             }
@@ -340,9 +341,10 @@ static AppStatus Settings_Update(void)
             }
             break;
 
-        case MODE_BRIGHT:
+                case MODE_BRIGHT:
             if(up || tap)
             {
+                Save_SyncSettings();    // leaving the screen: write to flash if changed
                 EnterMode(MODE_MENU);
                 break;
             }

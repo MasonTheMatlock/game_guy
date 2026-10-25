@@ -50,8 +50,8 @@
     X(TETRIS,     4)            \
     X(RAYCASTER,  4)            \
     X(SPARE,     16)            \
-    X(TETRIS_SCORES, 10)
-
+    X(TETRIS_SCORES, 10)        \
+    X(TETRIS_NAMES, 25)
 typedef enum
 {
 #define X(name, words) SAVE_SLOT_##name,
@@ -83,6 +83,12 @@ typedef struct
 {
     uint32_t score[TETRIS_NUM_SCORES];  // best first, 0 = empty
 } SaveTetrisScores;                     // 10 words (uint32_t = 2 words)
+
+#define TETRIS_NAME_LEN     5
+typedef struct
+{
+    uint16_t c[TETRIS_NUM_SCORES][TETRIS_NAME_LEN];   // ASCII, one char per word
+} SaveTetrisNames;                      // 25 words
 
 typedef struct
 {

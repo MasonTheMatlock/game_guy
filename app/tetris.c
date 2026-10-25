@@ -10,8 +10,9 @@
 //   D-pad            : A = left, B = right, C = soft drop, D = rotate
 //                      (change the mapping in the KEY_ defines below)
 //   Title screen     : Start / High Scores (section 5b below)
-//   After GAME OVER  : the score is saved if it makes the top 5, then any
-//                      button returns to the title screen
+//   After GAME OVER  : if the score makes the top 5, any button opens the
+//                      name-entry screen (5 characters), then the title
+//                      screen. Otherwise any button returns to the title.
 //
 // HOW THIS FILE IS ORGANIZED
 //   1. Constants         board size, timing, piece shapes, colors, scoring
@@ -19,7 +20,10 @@
 //   3. Board rules       Fits / place / clear rows - NO drawing in here
 //   4. Drawing           LCD output; only repaints what changed
 //   5. Game flow         spawn, reset, shift, rotate, lock
-//   5b. Title + scores   Start / High Scores screen, top-5 list saved in flash
+//   5b. Title + scores   Start / High Scores screen, name entry, top-5 list
+//                        saved in flash. FUNCTION ORDER MATTERS in this
+//                        section: each function must be defined above the
+//                        first function that calls it.
 //   6. App callbacks     Tetris_Init / Tetris_Update / Tetris_Render
 //
 // DESIGN NOTES
@@ -33,6 +37,10 @@
 //   * No while(1), no Joy_Update(), no Dpad_Update(), no DELAY_US():
 //     main.c's RunApp() does all of that. Even the game-over wait is a
 //     state (s_gameOver + s_gameOverTimer), not a blocking loop.
+//   * Line clears: LockAndSpawn() only DETECTS full rows and starts a short
+//     flash (s_clearing). The rows are removed by FinishClear() when the flash
+//     ends. A 4-row clear shows a TETRIS! banner; passing the saved #1 score
+//     shows a NEW #1! banner (both drawn by DrawBanner()).
 //   * One public symbol: g_tetrisApp.
 //#############################################################################
 
@@ -60,7 +68,7 @@ static const uint16_t s_shapes[7][4] =
 };
 
 // Cell colors. Index 0 = EMPTY. Index 1..7 = piece type + 1.
-static const uint32_t s_colors[8] =
+static const uint32_t s_colors[9] =
 {
     COLOR_BLACK,
     COLOR_TETRIS_I_CYAN,
@@ -69,7 +77,8 @@ static const uint32_t s_colors[8] =
     COLOR_TETRIS_O_YELLOW,
     COLOR_TETRIS_S_GREEN,
     COLOR_TETRIS_T_PURPLE,
-    COLOR_TETRIS_Z_RED
+    COLOR_TETRIS_Z_RED,
+    COLOR_WHITE                 // 8 = line-clear flash (CELL_FLASH)
 };
 
 // ---- Scoring and speed ----------------------------------------------------
@@ -79,6 +88,30 @@ static const uint16_t s_lineScore[5] = { 0, 40, 100, 300, 1200 };
 // Gravity per level: the piece falls one row every N frames. Lower = faster.
 static const uint16_t s_gravityFrames[20] =
     { 30, 26, 22, 18, 15, 12, 10, 8, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5, 3, 1 };
+
+// ---- Name entry characters -------------------------------------------------
+// The characters a player can pick, in cycling order. The grlib font draws
+// them; this table only decides WHICH ones are selectable.
+// (On the C28x sizeof counts 16-bit words = chars, so this is correct.)
+static const char s_nameCharset[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+#define NAME_NCHARS   (sizeof(s_nameCharset) - 1)
+
+// ---- Line-clear flash + banner ---------------------------------------------
+#define CELL_FLASH    8             // s_colors[] index used for the white flash
+
+// The banner ("TETRIS!" / "NEW #1!") is a box across the playfield covering
+// cell rows BANNER_ROW0..BANNER_ROW1 (3 rows = 30 px). Because it lines up
+// with whole cell rows, it can be erased just by marking those cells
+// "unknown" in s_shown so the board repaints them.
+#define BANNER_NONE   0
+#define BANNER_TETRIS 1
+#define BANNER_RECORD 2
+#define BANNER_ROW0   9
+#define BANNER_ROW1   11
+#define BANNER_X0     TETRIS_BOARD_X
+#define BANNER_X1     (TETRIS_BOARD_X + TETRIS_BOARD_W * TETRIS_CELL - 1)
+#define BANNER_Y0     (TETRIS_BOARD_Y + BANNER_ROW0 * TETRIS_CELL)
+#define BANNER_Y1     (TETRIS_BOARD_Y + (BANNER_ROW1 + 1) * TETRIS_CELL - 1)
 
 //*****************************************************************************
 // 2. GAME STATE
@@ -122,6 +155,20 @@ static uint16_t s_gameOverTimer;        // frames left in the "ignore input" win
 static bool     s_gameOverDrawn;        // GAME OVER text already on the LCD
 static int16_t  s_gameOverRank;         // high-score rank earned this game, -1 = none
 
+// Line-clear animation: full rows flash white for TETRIS_CLEAR_FRAMES, THEN
+// they are removed. The board is frozen while this runs.
+static bool     s_clearing;
+static uint16_t s_clearTimer;           // frames left in the flash
+static uint32_t s_clearMask;            // bit r = row r is being cleared
+static int16_t  s_clearCount;           // rows being cleared (1..4)
+
+// Banner over the playfield
+static uint16_t s_bannerKind;           // BANNER_NONE / _TETRIS / _RECORD
+static uint16_t s_bannerTimer;          // frames left on screen
+static bool     s_bannerDirty;          // box must be (re)drawn
+static bool     s_bannerErase;          // box just expired: repaint the board under it
+static bool     s_recordShown;          // NEW #1! already shown this game
+
 // Title screen (Start / High Scores) is shown before each game.
 static bool     s_inTitle;
 static uint16_t s_titleView;            // TITLE_VIEW_MENU or TITLE_VIEW_SCORES
@@ -132,7 +179,17 @@ static uint16_t s_titleDirtyRows;       // bit i = menu rectangle i needs redraw
 
 // High scores: RAM copy of the saved top-5 list (best first, 0 = empty).
 static SaveTetrisScores s_hs;
+static SaveTetrisNames  s_hsn;          // names matching s_hs.score[]
 static bool     s_hsLoaded;
+
+// Name entry (after a top-5 game over)
+static bool     s_nameActive;
+static uint16_t s_nameCur;                      // cursor position 0..TETRIS_NAME_LEN-1
+static uint16_t s_nameIdx[TETRIS_NAME_LEN];     // index into s_nameCharset
+static bool     s_nameDirtyFull;
+static bool     s_nameDirtyBoxes;
+static int16_t  s_nameStickX;
+static int16_t  s_nameStickY;
 
 //*****************************************************************************
 // 3. BOARD RULES (no drawing in this section)
@@ -232,6 +289,29 @@ static int16_t ClearFullRows(void)
         }
     }
     return cleared;
+}
+
+// Which rows are full RIGHT NOW? Returns a bitmask (bit r = row r) and the
+// count. Does NOT change the board: the flash plays first, ClearFullRows()
+// runs afterwards.  (1UL: the C28x int is only 16 bits, rows go up to 19.)
+static uint32_t FindFullRows(int16_t *count)
+{
+    uint32_t mask = 0;
+    int16_t  r, c, n = 0;
+
+    for(r = 0; r < TETRIS_BOARD_H; r++)
+    {
+        for(c = 0; c < TETRIS_BOARD_W; c++)
+            if(!s_board[r][c]) break;
+
+        if(c == TETRIS_BOARD_W)
+        {
+            mask |= 1UL << r;
+            n++;
+        }
+    }
+    *count = n;
+    return mask;
 }
 
 //*****************************************************************************
@@ -353,7 +433,13 @@ static void DrawTetrisBoard(void)
 {
     uint16_t mask = s_shapes[s_cur.type][s_cur.rot];
     uint16_t colorIdx;
-    int16_t r, c, pr, pc;
+    bool     flashOn = false;
+    int16_t  r, c, pr, pc;
+
+    // Line-clear flash: white for TETRIS_CLEAR_FLASH_FRAMES, normal for the
+    // next TETRIS_CLEAR_FLASH_FRAMES, and so on. Starts and ends on white.
+    if(s_clearing)
+        flashOn = ((((TETRIS_CLEAR_FRAMES - s_clearTimer) / TETRIS_CLEAR_FLASH_FRAMES) & 1) == 0);
 
     for(r = 0; r < TETRIS_BOARD_H; r++)
     {
@@ -361,24 +447,79 @@ static void DrawTetrisBoard(void)
         {
             colorIdx = s_board[r][c];
 
-            pr = r - s_cur.y;
-            pc = c - s_cur.x;
-            if(pr >= 0 && pr < 4 && pc >= 0 && pc < 4)
+            if(s_clearing)
             {
-                if(mask & (0x8000U >> (pr * 4 + pc)))
-                    colorIdx = (uint16_t)(s_cur.type + 1);
+                // The locked piece is already in s_board: don't draw s_cur on top.
+                if(flashOn && ((s_clearMask >> r) & 1UL))
+                    colorIdx = CELL_FLASH;
+            }
+            else
+            {
+                pr = r - s_cur.y;
+                pc = c - s_cur.x;
+                if(pr >= 0 && pr < 4 && pc >= 0 && pc < 4)
+                {
+                    if(mask & (0x8000U >> (pr * 4 + pc)))
+                        colorIdx = (uint16_t)(s_cur.type + 1);
+                }
             }
 
             if(colorIdx != s_shown[r][c])
             {
                 DrawCell(TETRIS_BOARD_X + c * TETRIS_CELL, TETRIS_BOARD_Y + r * TETRIS_CELL, colorIdx);
                 s_shown[r][c] = colorIdx;
+
+                // A cell under the banner was repainted: the banner needs redrawing.
+                if(r >= BANNER_ROW0 && r <= BANNER_ROW1)
+                    s_bannerDirty = true;
             }
         }
     }
 
     DrawNextPreview();
     DrawTetrisStats();
+}
+
+// Draw the banner box, but only when it is new or something painted over it.
+static void DrawBanner(void)
+{
+    const char *msg;
+    uint32_t    border, text;
+
+    if(s_bannerKind == BANNER_NONE || !s_bannerDirty) return;
+    s_bannerDirty = false;
+
+    if(s_bannerKind == BANNER_TETRIS)
+    {
+        msg    = "TETRIS!";
+        border = COLOR_TETRIS_I_CYAN;
+        text   = COLOR_WHITE;
+    }
+    else
+    {
+        msg    = "NEW #1!";
+        border = COLOR_GOLD;
+        text   = COLOR_GOLD;
+    }
+
+    Graphics_FillRect(BANNER_X0,     BANNER_Y0,     BANNER_X1,     BANNER_Y1,     border);
+    Graphics_FillRect(BANNER_X0 + 2, BANNER_Y0 + 2, BANNER_X1 - 2, BANNER_Y1 - 2, COLOR_BLACK);
+
+    Graphics_setForegroundColor(&g_sContext, text);
+    Graphics_drawStringCentered(&g_sContext, (int16_t *)msg, AUTO_STRING_LENGTH,
+                                (BANNER_X0 + BANNER_X1) / 2, (BANNER_Y0 + BANNER_Y1) / 2,
+                                TRANSPARENT_TEXT);
+}
+
+// The banner expired (or the game ended): forget what the LCD shows in those
+// rows so DrawTetrisBoard() paints the real cells back over the box.
+static void EraseBanner(void)
+{
+    int16_t r, c;
+
+    s_bannerErase = false;
+    for(r = BANNER_ROW0; r <= BANNER_ROW1; r++)
+        for(c = 0; c < TETRIS_BOARD_W; c++) s_shown[r][c] = 0xFFFF;
 }
 
 static void DrawGameOver(void)
@@ -392,8 +533,10 @@ static void DrawGameOver(void)
     if(s_gameOverRank >= 0)
     {
         // Made the top 5: say so, and push "Press btn" down a line.
-        Graphics_setForegroundColor(&g_sContext, 0xFFD700UL);
-        Graphics_drawStringCentered(&g_sContext, (int16_t *)"TOP 5!", AUTO_STRING_LENGTH,
+        Graphics_setForegroundColor(&g_sContext, COLOR_GOLD);
+        Graphics_drawStringCentered(&g_sContext,
+                                    (int16_t *)((s_gameOverRank == 0) ? "NEW #1!" : "TOP 5!"),
+                                    AUTO_STRING_LENGTH,
                                     TETRIS_BOARD_X + (TETRIS_BOARD_W * TETRIS_CELL) / 2,
                                     TETRIS_BOARD_Y + (TETRIS_BOARD_H * TETRIS_CELL) / 2 + 12, OPAQUE_TEXT);
         Graphics_setForegroundColor(&g_sContext, COLOR_WHITE);
@@ -441,38 +584,74 @@ static void TetrisRotate(void)
     else if(Fits(s_cur.type, nr, s_cur.x + 1, s_cur.y))   { s_cur.rot = nr; s_cur.x++; }
 }
 
-// Lock the piece, clear rows, update score/level, spawn the next piece.
+// Start a banner over the playfield.
+static void ShowBanner(uint16_t kind)
+{
+    s_bannerKind  = kind;
+    s_bannerTimer = TETRIS_BANNER_FRAMES;
+    s_bannerDirty = true;
+    s_bannerErase = false;
+}
+
+// Lock the piece. If any rows are full, START the flash (the rows are removed
+// later by FinishClear(), and the next piece spawns then). Otherwise spawn now.
 // Returns false if the next piece cannot spawn (game over).
 static bool LockAndSpawn(void)
 {
-    int16_t cleared;
-
     PlaceOnBoard(s_cur.type, s_cur.rot, s_cur.x, s_cur.y);
 
-    cleared = ClearFullRows();
-    if(cleared > 0)
+    s_clearMask = FindFullRows(&s_clearCount);
+    if(s_clearMask)
     {
-        s_score += (uint32_t)s_lineScore[cleared] * (s_level + 1);
-        s_lines += cleared;
-        s_level  = s_lines / 10;
-        if(s_level > 9) s_level = 9;            // plenty fast by level 9
+        s_clearing   = true;
+        s_clearTimer = TETRIS_CLEAR_FRAMES;
 
-        if(cleared == 4) Buzzer_PlaySfx(&sfx_tetris_say);   // four rows = "TETRIS!"
-        else             Buzzer_PlaySfx(&sfx_coin);         // 1-3 rows: chime
+        if(s_clearCount == 4)
+        {
+            Buzzer_PlaySfx(&sfx_tetris_say);        // four rows = "TETRIS!"
+            ShowBanner(BANNER_TETRIS);
+        }
+        else
+        {
+            Buzzer_PlaySfx(&sfx_coin);              // 1-3 rows: chime
+        }
+        return true;                                // spawn happens in FinishClear()
     }
-    else
-    {
-        Buzzer_PlaySfx(&sfx_thud);              // optional: piece landed, no clear
-    }
-    s_score += 4;                               // bonus for every piece locked
 
+    Buzzer_PlaySfx(&sfx_thud);                      // optional: piece landed, no clear
+    s_score += 4;                                   // bonus for every piece locked
+    return SpawnPiece();
+}
+
+// The flash is over: remove the rows, score them, spawn the next piece.
+// Returns false if the next piece cannot spawn (game over).
+static bool FinishClear(void)
+{
+    int16_t cleared = ClearFullRows();
+
+    s_score += (uint32_t)s_lineScore[cleared] * (s_level + 1);
+    s_lines += cleared;
+    s_level  = s_lines / 10;
+    if(s_level > 9) s_level = 9;                    // plenty fast by level 9
+    s_score += 4;                                   // bonus for every piece locked
+
+    s_clearing  = false;
+    s_clearMask = 0;
     return SpawnPiece();
 }
 
 //*****************************************************************************
-// 5b. TITLE SCREEN + HIGH SCORES
+// 5b. TITLE SCREEN + HIGH SCORES + NAME ENTRY
 //     Title: D-pad U/D or stick up/down = move, R or stick tap = select,
 //            L = leave Tetris.   Scores view: any button = back.
+//
+//     ORDER IN THIS SECTION (each function only calls ones above it):
+//       HsEnsureLoaded, HsSubmit
+//       TitleStickEdge, TitleText, TitleTextLeft, TitleHeader
+//       TitleDrawRow, TitleDrawScores
+//       TitleInit, TitleRedraw
+//       NameEdge, NameBegin, NameFinish, NameUpdate, NameRender
+//       TitleUpdate, TitleRender
 //*****************************************************************************
 
 #define TITLE_VIEW_MENU     0
@@ -490,10 +669,10 @@ static const char *const s_titleRowName[TITLE_NUM_ROWS] = { "Start", "High Score
 
 // ---- High scores ----------------------------------------------------------
 
-// Load the list from the save driver the first time it is needed.
+// Load the list (and names) from the save driver the first time they are needed.
 static void HsEnsureLoaded(void)
 {
-    uint16_t i;
+    uint16_t i, j;
 
     if(s_hsLoaded) return;
     s_hsLoaded = true;
@@ -501,13 +680,25 @@ static void HsEnsureLoaded(void)
     if(!Save_Read(SAVE_SLOT_TETRIS_SCORES, &s_hs, sizeof s_hs))
         for(i = 0; i < TETRIS_NUM_SCORES; i++)
             s_hs.score[i] = 0;                  // nothing saved yet
+
+    if(!Save_Read(SAVE_SLOT_TETRIS_NAMES, &s_hsn, sizeof s_hsn))
+        for(i = 0; i < TETRIS_NUM_SCORES; i++)
+            for(j = 0; j < TETRIS_NAME_LEN; j++)
+                s_hsn.c[i][j] = ' ';            // old save: blank names
+
+    // Sanitize: anything outside ' '..'Z' becomes a space.
+    for(i = 0; i < TETRIS_NUM_SCORES; i++)
+        for(j = 0; j < TETRIS_NAME_LEN; j++)
+            if(s_hsn.c[i][j] < ' ' || s_hsn.c[i][j] > 'Z')
+                s_hsn.c[i][j] = ' ';
 }
 
-// Insert `score` into the top-5 list and save it if it placed.
+// Insert `score` into the top-5 list with a BLANK name and save right away,
+// so the score is safe even if the player quits during name entry.
 // Returns the rank 0..4, or -1 if it did not place. Blocks briefly (flash).
 static int16_t HsSubmit(uint32_t score)
 {
-    int16_t i;
+    int16_t i, j;
     int16_t rank = -1;
 
     HsEnsureLoaded();
@@ -525,10 +716,17 @@ static int16_t HsSubmit(uint32_t score)
     if(rank < 0) return -1;
 
     for(i = TETRIS_NUM_SCORES - 1; i > rank; i--)
+    {
         s_hs.score[i] = s_hs.score[i - 1];
+        for(j = 0; j < TETRIS_NAME_LEN; j++)
+            s_hsn.c[i][j] = s_hsn.c[i - 1][j];
+    }
     s_hs.score[rank] = score;
+    for(j = 0; j < TETRIS_NAME_LEN; j++)
+        s_hsn.c[rank][j] = ' ';
 
-    Save_Write(SAVE_SLOT_TETRIS_SCORES, &s_hs, sizeof s_hs);
+    Save_Write(SAVE_SLOT_TETRIS_SCORES, &s_hs,  sizeof s_hs);
+    Save_Write(SAVE_SLOT_TETRIS_NAMES,  &s_hsn, sizeof s_hsn);
     Save_Flush();
     return rank;
 }
@@ -553,11 +751,20 @@ static int16_t TitleStickEdge(int16_t v, int16_t *state)
     return 0;
 }
 
+// Centered text.
 static void TitleText(const char *s, int16_t x, int16_t y, uint32_t color)
 {
     Graphics_setForegroundColor(&g_sContext, color);
     Graphics_drawStringCentered(&g_sContext, (int16_t *)s, AUTO_STRING_LENGTH,
                                 x, y, TRANSPARENT_TEXT);
+}
+
+// Left-aligned text; y is the vertical CENTRE of the line (same as TitleText).
+static void TitleTextLeft(const char *s, int16_t x, int16_t y, uint32_t color)
+{
+    Graphics_setForegroundColor(&g_sContext, color);
+    Graphics_drawString(&g_sContext, (int16_t *)s, AUTO_STRING_LENGTH,
+                        x, y - 10, TRANSPARENT_TEXT);
 }
 
 static void TitleHeader(const char *title)
@@ -594,26 +801,41 @@ static void TitleDrawRow(uint16_t i)
 
     TitleText(s_titleRowName[i], SCREEN_W / 2, top + TETRIS_TITLE_ROW_H / 2,
               sel ? COLOR_WHITE : COLOR_TETRIS_GRID);
-}
+}   // end TitleDrawRow
 
+// Rank, name and score on one line. The font is proportional, so the three
+// pieces are drawn separately at fixed x positions instead of padded with spaces.
 static void TitleDrawScores(void)
 {
-    char    buf[24];
-    int16_t i;
+    char     buf[24];
+    char     nm[TETRIS_NAME_LEN + 1];
+    int16_t  i, j, y;
+    uint32_t col;
 
     for(i = 0; i < TETRIS_NUM_SCORES; i++)
     {
-        if(s_hs.score[i] == 0)
-            sprintf(buf, "%u. -", (unsigned)(i + 1));
-        else
-            sprintf(buf, "%u. %lu", (unsigned)(i + 1), (unsigned long)s_hs.score[i]);
+        y   = TETRIS_SCORE_Y0 + i * TETRIS_SCORE_PITCH;
+        col = (i == 0) ? COLOR_GOLD : COLOR_WHITE;
 
-        TitleText(buf, SCREEN_W / 2, TETRIS_SCORE_Y0 + i * TETRIS_SCORE_PITCH,
-                  (i == s_gameOverRank) ? COLOR_GOLD : COLOR_WHITE);
+        sprintf(buf, "%u.", (unsigned)(i + 1));
+        TitleTextLeft(buf, 40, y, col);
+
+        if(s_hs.score[i] == 0)
+        {
+            TitleTextLeft("-", 75, y, col);
+            continue;
+        }
+
+        for(j = 0; j < TETRIS_NAME_LEN; j++) nm[j] = (char)s_hsn.c[i][j];
+        nm[TETRIS_NAME_LEN] = 0;
+        TitleTextLeft(nm, 75, y, col);
+
+        sprintf(buf, "%lu", (unsigned long)s_hs.score[i]);
+        TitleTextLeft(buf, 195, y, col);
     }
 }
 
-// ---- Title screen: init / redraw / update / render ------------------------
+// ---- Title screen: init / redraw ------------------------------------------
 
 static void TitleInit(void)
 {
@@ -629,6 +851,141 @@ static void TitleRedraw(void)
 {
     s_titleDirtyFull = true;
 }
+
+// ---- Name entry -----------------------------------------------------------
+// U/D (D-pad or stick) = change letter, L/R = move cursor,
+// button tap = next position; on the last letter it confirms.
+
+#define NAME_BOX_W   36
+#define NAME_BOX_GAP 8
+#define NAME_BOX_X0  ((SCREEN_W - (TETRIS_NAME_LEN * NAME_BOX_W + (TETRIS_NAME_LEN - 1) * NAME_BOX_GAP)) / 2)
+#define NAME_BOX_Y   100
+#define NAME_BOX_H   44
+
+// One event per stick push: returns v only on the frame it changes to nonzero.
+static int16_t NameEdge(int16_t v, int16_t *prev)
+{
+    int16_t e = (v != 0 && v != *prev) ? v : 0;
+    *prev = v;
+    return e;
+}
+
+static void NameBegin(void)
+{
+    uint16_t i;
+
+    for(i = 0; i < TETRIS_NAME_LEN; i++) s_nameIdx[i] = 0;     // 'A'
+    s_nameCur        = 0;
+    s_nameStickX     = g_joy.dirX;     // a stick still held doesn't fire
+    s_nameStickY     = g_joy.dirY;
+    s_nameActive     = true;
+    s_nameDirtyFull  = true;
+    s_nameDirtyBoxes = true;
+}
+
+// Store the typed name at this game's rank, save, and go to the title.
+static void NameFinish(void)
+{
+    uint16_t j;
+
+    for(j = 0; j < TETRIS_NAME_LEN; j++)
+        s_hsn.c[s_gameOverRank][j] = (uint16_t)s_nameCharset[s_nameIdx[j]];
+
+    Save_Write(SAVE_SLOT_TETRIS_NAMES, &s_hsn, sizeof s_hsn);
+    Save_Flush();                       // blocks briefly (flash)
+    Buzzer_PlaySfx(&sfx_menu_select);
+
+    s_nameActive = false;
+    s_inTitle    = true;
+    TitleInit();
+}
+
+// Logic only.
+static void NameUpdate(void)
+{
+    int16_t sx = NameEdge(g_joy.dirX, &s_nameStickX);
+    int16_t sy = NameEdge(g_joy.dirY, &s_nameStickY);   // +1 = down
+    bool up    = g_dpad.uPressed || (sy < 0);
+    bool down  = g_dpad.dPressed || (sy > 0);
+    bool left  = g_dpad.lPressed || (sx < 0);
+    bool right = g_dpad.rPressed || (sx > 0);
+    bool tap   = g_joy.btnPressed;
+
+    if(up)
+    {
+        s_nameIdx[s_nameCur] = (uint16_t)((s_nameIdx[s_nameCur] + 1) % NAME_NCHARS);
+        s_nameDirtyBoxes = true;
+        Buzzer_PlaySfx(&sfx_menu_move);
+    }
+    if(down)
+    {
+        s_nameIdx[s_nameCur] = (uint16_t)((s_nameIdx[s_nameCur] + NAME_NCHARS - 1) % NAME_NCHARS);
+        s_nameDirtyBoxes = true;
+        Buzzer_PlaySfx(&sfx_menu_move);
+    }
+    if(left && s_nameCur > 0)
+    {
+        s_nameCur--;
+        s_nameDirtyBoxes = true;
+    }
+    if(right && s_nameCur < TETRIS_NAME_LEN - 1)
+    {
+        s_nameCur++;
+        s_nameDirtyBoxes = true;
+    }
+    if(tap)
+    {
+        if(s_nameCur < TETRIS_NAME_LEN - 1)
+        {
+            s_nameCur++;
+            s_nameDirtyBoxes = true;
+        }
+        else
+        {
+            NameFinish();
+        }
+    }
+}
+
+// Drawing only.
+static void NameRender(void)
+{
+    char     buf[24];
+    char     ch[2];
+    uint16_t i;
+    int16_t  x;
+    bool     sel;
+
+    if(s_nameDirtyFull)
+    {
+        s_nameDirtyFull = false;
+        TitleHeader((s_gameOverRank == 0) ? "NEW #1 HIGH SCORE!" : "NEW HIGH SCORE!");
+        sprintf(buf, "Score: %lu", (unsigned long)s_score);
+        TitleText(buf, SCREEN_W / 2, 60, COLOR_GOLD);
+        TitleText("Enter your name", SCREEN_W / 2, 82, COLOR_WHITE);
+        TitleText("U/D:letter  L/R:move  Btn:next/OK", SCREEN_W / 2, 228, COLOR_WHITE);
+    }
+
+    if(s_nameDirtyBoxes)
+    {
+        s_nameDirtyBoxes = false;
+        ch[1] = 0;
+
+        for(i = 0; i < TETRIS_NAME_LEN; i++)
+        {
+            x   = NAME_BOX_X0 + (int16_t)i * (NAME_BOX_W + NAME_BOX_GAP);
+            sel = (i == s_nameCur);
+
+            Graphics_FillRect(x, NAME_BOX_Y, x + NAME_BOX_W - 1, NAME_BOX_Y + NAME_BOX_H - 1,
+                              sel ? COLOR_TETRIS_T_PURPLE : COLOR_TETRIS_GHOST);
+
+            ch[0] = s_nameCharset[s_nameIdx[i]];
+            TitleText(ch, x + NAME_BOX_W / 2, NAME_BOX_Y + NAME_BOX_H / 2, COLOR_WHITE);
+        }
+    }
+}
+
+// ---- Title screen: update / render ----------------------------------------
 
 // Logic only. Tells Tetris_Update what the player chose.
 static TitleResult TitleUpdate(void)
@@ -739,6 +1096,15 @@ static void StartGame(void)
     s_gameOverDrawn = false;
     s_gameOverRank  = -1;
 
+    s_clearing      = false;
+    s_clearMask     = 0;
+    s_clearTimer    = 0;
+    s_bannerKind    = BANNER_NONE;
+    s_bannerTimer   = 0;
+    s_bannerDirty   = false;
+    s_bannerErase   = false;
+    s_recordShown   = false;
+
     DrawTetrisLayout();                 // also invalidates the screen cache
     SpawnPiece();                       // an empty board always has room
     Buzzer_PlaySong(&song_tetris, 1);   // background music (stopped by the app loop on exit)
@@ -752,8 +1118,30 @@ static void Tetris_Init(void)
 {
     s_gameOverRank = -1;                // no gold highlight until a score is earned
     s_hsLoaded     = false;             // never trust power-up RAM: reload the list from the save driver
+    s_nameActive   = false;
     s_inTitle = true;
     TitleInit();
+}
+
+// The stack reached the top. render() draws the overlay.
+static void TetrisGameOver(void)
+{
+    s_gameOver      = true;
+    s_gameOverTimer = TETRIS_GAME_OVER_HOLD_FRAMES;
+    s_clearing      = false;
+
+    if(s_bannerKind != BANNER_NONE)             // GAME OVER text replaces the banner
+    {
+        s_bannerKind  = BANNER_NONE;
+        s_bannerTimer = 0;
+        s_bannerErase = true;
+    }
+
+    Buzzer_Stop();                              // silence on game over
+
+    // Save the score (blank name) if it made the top 5. Blocks briefly
+    // (flash). The name is typed afterwards.
+    s_gameOverRank = HsSubmit(s_score);
 }
 
 // update: once per frame. LOGIC ONLY. No drawing here.
@@ -776,19 +1164,46 @@ static AppStatus Tetris_Update(void)
         return APP_CONTINUE;
     }
 
-    // ---- Game over: wait out the hold time, then any button -> title -------
+    // ---- Game over: wait out the hold time, then any button ----------------
+    //      top 5 -> name entry -> title;  otherwise -> title
     if(s_gameOver)
     {
-        if(s_gameOverTimer > 0)
+        if(s_nameActive)
+        {
+            NameUpdate();
+        }
+        else if(s_gameOverTimer > 0)
         {
             s_gameOverTimer--;
         }
         else if(g_joy.btnPressed || Dpad_AnyPressed())
         {
-            s_inTitle = true;
-            TitleInit();
+            if(s_gameOverRank >= 0)
+            {
+                NameBegin();            // top 5: ask for a name first
+            }
+            else
+            {
+                s_inTitle = true;
+                TitleInit();
+            }
         }
 
+        return APP_CONTINUE;
+    }
+
+    // ---- Banner countdown (keeps running during the flash) -----------------
+    if(s_bannerTimer > 0 && --s_bannerTimer == 0)
+    {
+        s_bannerKind  = BANNER_NONE;
+        s_bannerErase = true;
+    }
+
+    // ---- Line-clear flash: the board is frozen until it ends ---------------
+    if(s_clearing)
+    {
+        if(--s_clearTimer == 0 && !FinishClear())
+            TetrisGameOver();
         return APP_CONTINUE;
     }
 
@@ -843,14 +1258,17 @@ static AppStatus Tetris_Update(void)
         }
         else if(!LockAndSpawn())
         {
-            // Stack reached the top. render() will draw the overlay.
-            s_gameOver      = true;
-            s_gameOverTimer = TETRIS_GAME_OVER_HOLD_FRAMES;
-            Buzzer_Stop();                          // silence on game over
-
-            // Save the score if it made the top 5. Blocks briefly (flash).
-            s_gameOverRank = HsSubmit(s_score);
+            TetrisGameOver();
         }
+    }
+
+    // ---- 3. NEW #1: once per game, when the saved record is passed ---------
+    // (Waits for a free banner, so it never cuts off a TETRIS! banner.)
+    if(!s_recordShown && s_hs.score[0] > 0 && s_score > s_hs.score[0] && s_bannerTimer == 0)
+    {
+        s_recordShown = true;
+        ShowBanner(BANNER_RECORD);
+        Buzzer_PlaySfx(&sfx_coin);              // swap for a fancier sfx from songs.h
     }
 
     return APP_CONTINUE;
@@ -865,10 +1283,19 @@ static void Tetris_Render(void)
         return;
     }
 
+    if(s_nameActive)
+    {
+        NameRender();
+        return;
+    }
+
     if(s_gameOverDrawn)
         return;                                     // nothing changes any more
 
+    if(s_bannerErase) EraseBanner();                // must come BEFORE the board repaint
+
     DrawTetrisBoard();                              // diff-based, cheap when idle
+    DrawBanner();                                   // only draws when new / painted over
 
     if(s_gameOver)
     {
@@ -887,8 +1314,17 @@ static void Tetris_Redraw(void)
         return;
     }
 
+    if(s_nameActive)
+    {
+        s_nameDirtyFull  = true;        // name screen: just repaint it
+        s_nameDirtyBoxes = true;
+        return;
+    }
+
     DrawTetrisLayout();                 // wipes LCD + invalidates s_shown / stats cache
     s_gameOverDrawn = false;            // if the game was over, render() redraws the overlay
+    s_bannerDirty = (s_bannerKind != BANNER_NONE);  // the wipe removed the banner box
+    s_bannerErase = false;
     if(!s_gameOver)
         Buzzer_PlaySong(&song_tetris, 1);   // the runner stopped the music; restart it
 }

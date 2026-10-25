@@ -32,6 +32,11 @@ extern const App g_tetrisApp;               // app/tetris.c
 #define TETRIS_ARR_FRAMES         3         // frames between repeats
 #define TETRIS_GAME_OVER_HOLD_FRAMES 90     // ignore input after game over
                                             //   (~1.5 s at 16 ms/frame)
+#define TETRIS_CLEAR_FRAMES       20        // full rows flash this long before they vanish
+                                            //   (~0.3 s at 16 ms/frame)
+#define TETRIS_CLEAR_FLASH_FRAMES 4         // frames per white / normal phase
+                                            //   (20 / 4 = white, normal, white, normal, white)
+#define TETRIS_BANNER_FRAMES      75        // how long TETRIS! / NEW #1! stays up (~1.2 s)
 
 // ---- Title screen / high scores ------------------------------------------
 // Start / High Scores screen (drawn by tetris.c). The top-5 list itself is
