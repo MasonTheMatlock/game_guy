@@ -26,14 +26,17 @@
 #include "app/apps.h"
 
 //*****************************************************************************
-// FACTORY RESET
+// MEMORY WIPE
 //   Erases ALL saves and settings (scores, names, volume, brightness, menu
-//   background). Normal builds keep this at 0.
+//   background). 
+//   This wipes the whole flash sector and bypasses the level beveling system,
+//   and should only be used for testing purposes.
+//   Normal builds keep this at 0.
 //     1. Change to 1, build, flash, let it boot once.
 //     2. Change back to 0, build, flash again.
 //   If you leave it at 1 every power-up wipes the saves, so nothing "saves".
 //*****************************************************************************
-#define FACTORY_RESET   0
+#define MEMORY_WIPE   0
 
 //*****************************************************************************
 // Boot helpers
@@ -110,7 +113,7 @@ void main(void)
 
     Save_Init();                    // load saved scores + apply volume/brightness
 
-#if FACTORY_RESET
+#if MEMORY_WIPE
     Save_EraseAll();                // wipes every save + setting (both flash sectors)
 #endif
 

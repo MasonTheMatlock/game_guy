@@ -597,6 +597,40 @@ bool Save_EraseAll(void)
     return (i == 0);
 }
 
+// Factory values. Screen shows level = index + 1.
+#define FACTORY_VOLUME_IDX      4       // "5 / 5"
+#define FACTORY_BRIGHTNESS_IDX  7       // "8 / 8"
+
+bool Save_FactoryReset(void)
+{
+    SaveSettings    st;
+    SaveTetrisNames nm;
+    uint16_t        i, j;
+
+    // Every slot: zeros (menu color 0, scores 0, ...) and marked as written,
+    // so apps read the zeros instead of "never saved".
+    for(i = 0; i < SAVE_PAYLOAD_WORDS; i++)
+        PAYLOAD[i] = 0;
+    s_mask = (SAVE_SLOT_COUNT >= 32) ? 0xFFFFFFFFUL
+                                     : ((1UL << SAVE_SLOT_COUNT) - 1UL);
+
+    st.volume     = FACTORY_VOLUME_IDX;
+    st.brightness = FACTORY_BRIGHTNESS_IDX;
+    Save_Write(SAVE_SLOT_SETTINGS, &st, sizeof(st) / sizeof(uint16_t));
+
+    // Blank names are spaces (what Tetris itself stores for "no name").
+    for(i = 0; i < TETRIS_NUM_SCORES; i++)
+        for(j = 0; j < TETRIS_NAME_LEN; j++)
+            nm.c[i][j] = ' ';
+    Save_Write(SAVE_SLOT_TETRIS_NAMES, &nm, sizeof(nm) / sizeof(uint16_t));
+
+    Buzzer_SetVolume(FACTORY_VOLUME_IDX);
+    Backlight_SetLevel(FACTORY_BRIGHTNESS_IDX);
+
+    s_dirty = true;                     // always append, even if RAM looked identical
+    return Save_Flush();                // stays dirty on failure; next flush retries
+}
+
 // Capture the live volume/brightness and write flash if they changed.
 // Signature matches App.exit, so it can be plugged straight into Settings.
 void Save_SyncSettings(void)

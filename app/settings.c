@@ -19,6 +19,16 @@
 //   Menu color:
 //     D-pad L/R or stick left/right   : previous / next color
 //     D-pad U or stick button tap     : save and go back to Apps
+//   Apps > Settings row: FACTORY RESET
+//     Confirm screen (Cancel is highlighted first):
+//       D-pad U/D or stick up/down      : Cancel / Erase Everything
+//       D-pad R or stick button tap     : choose the highlighted one
+//       D-pad L                         : back to Apps, nothing changed
+//     "Erase Everything" calls Save_FactoryReset() right away (no restart
+//     needed): it APPENDS one record with the factory values (volume 5,
+//     brightness 8, Tetris scores 0 with blank names, ...), so no sector is
+//     erased and wear leveling is untouched. It then shows "complete", and any
+//     button leaves to the main menu so every app re-reads its save data.
 //   HOLD stick button: quit to the launcher (handled by apps.c)
 //
 // OVERLAY MODE: holding the stick inside any other app opens this app on top
@@ -40,6 +50,8 @@
 #define MODE_BRIGHT     2
 #define MODE_APPS       3
 #define MODE_MENUBG     4
+#define MODE_FACTORY    5               // "Erase everything?" Cancel / Erase
+#define MODE_FACTORY_DONE 6             // reset finished (or failed)
 
 // Menu item ids. 1..3 double as the mode they open.
 #define ID_VOLUME       1
@@ -82,6 +94,12 @@ bool g_settingsToMenu  = false;
 #define BG_SW_Y         170
 #define BG_SW_X0        ((SCREEN_W - (MENU_NUM_BGS * BG_SW_W + (MENU_NUM_BGS - 1) * BG_SW_GAP)) / 2)
 
+// Factory reset screens: three lines of text, then two buttons.
+#define FR_TEXT_Y0      58
+#define FR_TEXT_PITCH   26
+#define FR_BTN_Y0       132
+#define FR_BTN_NUM      2               // 0 = Cancel, 1 = Erase Everything
+
 #define LEVEL_TEXT_Y    100             // "3 / 5"
 #define LEVEL_BAR_BOTTOM 170
 
@@ -92,6 +110,8 @@ bool g_settingsToMenu  = false;
 #define COL_EDGE        0x8CE070UL      // its bright border
 #define COL_ROW_OFF     0x282828UL      // unselected rectangle
 #define COL_BAR_OFF     0x404040UL
+#define COL_RED_EDGE    0xFF6060UL      // selected "Erase Everything"
+#define COL_RED         0xA02020UL
 
 //*****************************************************************************
 // State
@@ -106,6 +126,8 @@ static uint16_t s_dirtyRows;            // bit i = menu rectangle i needs redraw
 static bool     s_dirtyValue;           // volume / brightness readout needs redrawing
 static uint16_t s_appSel;               // highlighted row on the Apps screen (0 = Menu)
 static uint16_t s_bgSel;                // palette index shown on the Menu color screen
+static uint16_t s_confSel;              // factory reset confirm: 0 = Cancel, 1 = Erase
+static bool     s_resetOk;              // Save_FactoryReset() reached flash
 
 //*****************************************************************************
 // Small helpers
@@ -308,6 +330,57 @@ static void DrawBgPicker(void)
 }
 
 //*****************************************************************************
+// Factory reset drawing
+//   Confirm screen: what will be erased, then Cancel / Erase Everything
+//   (same rectangles as the Settings menu; Erase turns red when selected).
+//   Result screen:  "complete", or "failed" if the flash write did not work.
+//*****************************************************************************
+static void DrawFactoryText(uint16_t line, const char *s, uint32_t color)
+{
+    DrawText(s, SCREEN_W / 2, FR_TEXT_Y0 + (int16_t)line * FR_TEXT_PITCH, color);
+}
+
+static void DrawFactoryButton(uint16_t i)
+{
+    int16_t  top  = FR_BTN_Y0 + (int16_t)i * (ROW_H + ROW_GAP);
+    bool     sel  = (i == s_confSel);
+    uint32_t edge = (i == 1) ? COL_RED_EDGE : COL_EDGE;
+    uint32_t fill = (i == 1) ? COL_RED      : COL_GREEN;
+
+    // Clear the whole band first: the selected rectangle is wider.
+    Graphics_FillRect(10, top - 1, SCREEN_W - 11, top + ROW_H, COLOR_BLACK);
+
+    if(sel)
+    {
+        Graphics_FillRect(ROW_X0 - 10, top,     ROW_X1 + 10, top + ROW_H - 1, edge);
+        Graphics_FillRect(ROW_X0 - 8,  top + 2, ROW_X1 + 8,  top + ROW_H - 3, fill);
+    }
+    else
+    {
+        Graphics_FillRect(ROW_X0, top, ROW_X1, top + ROW_H - 1, COL_ROW_OFF);
+    }
+
+    DrawText((i == 0) ? "Cancel" : "Erase Everything", SCREEN_W / 2,
+             top + ROW_H / 2, sel ? COLOR_WHITE : COLOR_GRAY);
+}
+
+static void DrawFactoryResult(void)
+{
+    if(s_resetOk)
+    {
+        DrawFactoryText(0, "Factory reset complete.", COLOR_WHITE);
+        DrawFactoryText(1, "All saves and settings",  COLOR_GRAY);
+        DrawFactoryText(2, "are back to defaults.",   COLOR_GRAY);
+    }
+    else
+    {
+        DrawFactoryText(0, "Factory reset failed.",   COLOR_RED);
+        DrawFactoryText(1, "The flash write did not", COLOR_WHITE);
+        DrawFactoryText(2, "work. Try again.",        COLOR_WHITE);
+    }
+}
+
+//*****************************************************************************
 // Mode switching (logic only; Render draws via s_dirtyFull)
 //*****************************************************************************
 static void EnterMode(uint16_t mode)
@@ -333,6 +406,8 @@ static void Settings_Init(void)
     s_sel        = 0;
     s_appSel     = 0;
     s_bgSel      = 0;
+    s_confSel    = 0;                   // Cancel is the safe default
+    s_resetOk    = false;
     s_stX        = 0;
     s_stY        = 0;
     s_dirtyRows  = 0;
@@ -430,6 +505,55 @@ static AppStatus Settings_Update(void)
             }
             break;
 
+        case MODE_FACTORY:
+            if(left)                                    // back out, nothing changed
+            {
+                Buzzer_PlaySfx(&sfx_menu_back);
+                EnterMode(MODE_APPS);
+                break;
+            }
+
+            if(up || down)
+            {
+                s_confSel ^= 1;                         // only two buttons
+                s_dirtyRows |= (1 << FR_BTN_NUM) - 1;
+                Buzzer_PlaySfx(&sfx_menu_move);
+            }
+
+            if(right || tap)
+            {
+                if(s_confSel == 0)                      // Cancel
+                {
+                    Buzzer_PlaySfx(&sfx_menu_back);
+                    EnterMode(MODE_APPS);
+                    break;
+                }
+
+                // Erase Everything: append one record of factory values (blocks
+                // briefly). Also sets the live volume and brightness.
+                s_resetOk = Save_FactoryReset();
+                EnterMode(MODE_FACTORY_DONE);
+                Buzzer_PlaySfx(s_resetOk ? &sfx_menu_select : &sfx_menu_bump);
+            }
+            break;
+
+        case MODE_FACTORY_DONE:
+            if(left || right || up || down || tap)
+            {
+                if(!s_resetOk)                          // failed: back to Apps
+                {
+                    Buzzer_PlaySfx(&sfx_menu_back);
+                    EnterMode(MODE_APPS);
+                    break;
+                }
+
+                // Done: leave to the main menu so a game that was paused under
+                // the Settings overlay cannot write its old cached scores back.
+                g_settingsToMenu = true;
+                return APP_QUIT;
+            }
+            break;
+
         case MODE_MENUBG:
             if(up || tap)
             {
@@ -473,6 +597,12 @@ static AppStatus Settings_Update(void)
                     s_bgSel = Menu_GetBg();
                     Buzzer_PlaySfx(&sfx_menu_select);
                     EnterMode(MODE_MENUBG);
+                }
+                else if(g_apps[s_appSel - 1] == &g_settingsApp)
+                {
+                    s_confSel = 0;                      // always start on Cancel
+                    Buzzer_PlaySfx(&sfx_menu_select);
+                    EnterMode(MODE_FACTORY);            // Settings > Apps > Settings
                 }
                 else
                 {
@@ -523,6 +653,21 @@ static void Settings_Render(void)
                 s_dirtyValue = true;
                 break;
 
+            case MODE_FACTORY:
+                DrawTitle("Factory Reset");
+                DrawFactoryText(0, "Erase ALL saved data?",        COLOR_WHITE);
+                DrawFactoryText(1, "Scores and all settings",  COLOR_GRAY);
+                DrawFactoryText(2, "This cannot be undone.",       COLOR_ORANGE);
+                DrawHint("U/D:pick  R:choose  L:back");
+                s_dirtyRows = (1 << FR_BTN_NUM) - 1;    // both buttons
+                break;
+
+            case MODE_FACTORY_DONE:
+                DrawTitle("Factory Reset");
+                DrawFactoryResult();
+                DrawHint(s_resetOk ? "Any button: main menu" : "Any button: back");
+                break;
+
             default:                                    // MODE_APPS
                 DrawTitle("Apps");
                 DrawHint("U/D:pick  R:open  L:back");
@@ -542,6 +687,16 @@ static void Settings_Render(void)
         for(i = 0; i < AppsRowCount(); i++)
             if(s_dirtyRows & (1 << i)) DrawAppsRow(i);
         s_dirtyRows = 0;
+    }
+    else if(s_mode == MODE_FACTORY)
+    {
+        for(i = 0; i < FR_BTN_NUM; i++)
+            if(s_dirtyRows & (1 << i)) DrawFactoryButton(i);
+        s_dirtyRows = 0;
+    }
+    else if(s_mode == MODE_FACTORY_DONE)
+    {
+        // Static screen, nothing more to draw.
     }
     else if(s_dirtyValue)
     {

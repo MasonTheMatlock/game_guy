@@ -148,4 +148,14 @@ void Save_SyncSettings(void);
 // Factory reset: forget everything (RAM and flash).
 bool Save_EraseAll(void);
 
+// Factory reset WITHOUT erasing: put every slot back to its factory values and
+// APPEND one new record to the log (the old records just become history), so
+// it costs the same flash wear as any other save. Sector erase only happens
+// if the active sector happens to be full, exactly like Save_Flush().
+//   volume level 5 (index 4), brightness level 8 (index 7), menu color 0,
+//   Tetris scores 0 with blank names, every other slot zeroed.
+// Also applies the volume/brightness to the hardware now. BLOCKS (flash).
+// Returns true if it reached flash and verified.
+bool Save_FactoryReset(void);
+
 #endif // __SAVE_H__
