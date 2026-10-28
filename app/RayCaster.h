@@ -2,19 +2,21 @@
 // FILE:   app/raycaster.h
 // TITLE:  RAYCASTER - public descriptor and tuning constants
 //
-//   You are Ray Caster, called to clean out a dungeon by casting rays.
-//   5 arena rooms, then a boss. Clear each wave, spend gold in the shop,
-//   survive. Three hearts, contact damage.
+//   You are Ray Caster, called to clear an endless dungeon by casting rays.
+//   Clear a room and its door opens; walk through it for the next one. Every
+//   6th room is the Lich. Kills give gold and XP; fill the XP bar to level
+//   up and spend gold on one of three random cards (or reroll them).
+//   Three hearts, contact damage.
 //
 // CONTROLS
 //   Stick          move (up/down = forward/back, left/right = strafe)
 //   D-pad L / R    turn
-//   D-pad U        fire the equipped staff (hold = auto-fire)
-//   D-pad D        open / close the shop
+//   D-pad U        use the equipped staff / item (hold = auto-use)
+//   D-pad D        swap to the next staff / item you own
 //   Hold stick btn pause menu (handled by apps.c, nothing to do here)
 //
-//   In the shop:  stick up/down = row,  D-pad L/R = tab,
-//                 D-pad U or stick button = buy / equip,  D-pad D = close
+//   Level-up cards:  D-pad L/R (or stick) = pick card / reroll button,
+//                    D-pad U or stick button = buy,  D-pad D = continue
 //#############################################################################
 
 #ifndef __RAYCASTER_H__
@@ -34,8 +36,7 @@ extern const App g_raycasterApp;            // app/raycaster.c
 //*****************************************************************************
 // Render size.  The 3D view is RC_COLS strips, each RC_COL_W pixels wide.
 //   - RC_COLS * RC_COL_W   should be 320 (the full LCD width)
-//   - RC_COL_W 4 / RC_COLS 80 is the default. If the game is too slow, use
-//     RC_COL_W 8 / RC_COLS 40 (and RC_FOV_UNITS 160 still works: 4 units/col).
+//   - raycaster.c currently forces 40 strips x 8 pixels (see top of that file)
 //   - RC_FOV_UNITS is the field of view in 1/1024-turn units (160 = ~56 deg).
 //     (RC_COLS * RC_COL_W) / RC_FOV_UNITS must come out as a whole number
 //     (it is the pixels-per-angle-unit used to place sprites and beams).
@@ -57,8 +58,8 @@ extern const App g_raycasterApp;            // app/raycaster.c
 //*****************************************************************************
 #define RC_MAP_W            16              // MUST stay 16 (index uses a shift)
 #define RC_MAP_H            16
-#define RC_NUM_LEVELS       6               // 5 rooms + boss
 #define RC_MAX_ENEMIES      12
+#define RC_MAX_OBJ          10              // flasks, clouds, sparks, enemy bolts
 #define RC_MAX_SPAWNS       8               // 'e' markers per map
 
 //*****************************************************************************
@@ -75,7 +76,7 @@ extern const App g_raycasterApp;            // app/raycaster.c
 #define RC_THICK_FRAMES     160             // with the Thick Skin trait
 
 //*****************************************************************************
-// Stick "flick" detection in the shop (same idea as test.c)
+// Stick "flick" detection on the card screen (same idea as test.c)
 //*****************************************************************************
 #define RC_EDGE_ON          60
 #define RC_EDGE_OFF         30
