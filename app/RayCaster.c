@@ -635,13 +635,13 @@ static const PalEnt *const kPal[PT_COUNT] =
 // Sprite tint: 0 none, 1 white (hit), 2 orange (burning), 3 ice blue (frozen)
 static const uint32_t kTint[4] = { 0, 0xFFFFFFUL, 0xFF8820UL, 0x70C8FFUL };
 
-// Wall tiles: 0 unused, 1 stone, 2 pillar, 3 brick, 4 door (closed), 5 portal (open)
+// Wall tiles: 0 unused, 1 stone, 2 pillar, 3 brick, 4 door (closed), 5 portal (open),
+// 6 = the portal's second pulse colour (only used for drawing, never in the map)
 #define TILE_DOOR    4
 #define TILE_PORTAL  5
-#define TILE_KINDS   6
+#define TILE_KINDS   7                  // tile 6 = portal second pulse colour (draw only)
 static const uint32_t kWallBase[TILE_KINDS] =
-    { 0, 0x8088A0UL, 0xB09060UL, 0xA05040UL, 0x7A4A24UL, 0x30E0B0UL };
-#define PORTAL_ALT   0xA0FFE8UL                 // portal pulse color
+    { 0, 0x8088A0UL, 0xB09060UL, 0xA05040UL, 0x7A4A24UL, 0x30E0B0UL, 0xA0FFE8UL };
 static const uint16_t kShadeMul[4] = { 256, 190, 130, 84 };
 //*****************************************************************************
 // First-person art (what Ray Caster holds in his LEFT hand). 20 x 18 cells,
@@ -657,7 +657,7 @@ static const uint16_t kShadeMul[4] = { 256, 190, 130, 84 };
 #define WPN_H        18
 #define WPN_SCALE    4                  // 80 x 72 pixels on screen
 #define WPN_TIP_ROW  1                  // art row the beam leaves from
-#define WPN_RECT_MAX 110                // rectangles after merging
+#define WPN_MAXRUNS  12                 // vertical runs kept per art column
 #define WPN_Y0       (RC_VIEW_H - WPN_H * WPN_SCALE)   // top row of the art in the view
 #define WPN_XOFF     20                 // art sits left of centre: it is the LEFT hand
 
@@ -947,14 +947,12 @@ static uint16_t s_fxTimer, s_fxN;
 static int16_t  s_fxX[5];
 static uint32_t s_fxColor;
 
-// Held item art (static; only columns something changed under are redrawn)
-typedef struct { int16_t x, y, w, h; uint16_t ci; } WpnRect;
-static WpnRect  s_wRect[WPN_RECT_MAX];
-static uint16_t s_wCnt;
+// Held item: one list of vertical colour runs per ART column (4 px wide),
+// packed y0 | y1 << 5 | colour << 10 (rows are art cells).
+static uint16_t s_wRun[WPN_W][WPN_MAXRUNS];
+static uint16_t s_wRunN[WPN_W];
 static uint32_t s_wPal[26];
-static uint32_t s_wCov[WPN_H];                  // build scratch
-static uint16_t s_wpnColDirty[RC_COLS];         // columns whose art pixels need redrawing
-static uint16_t s_wLoaded = 0xFFFFu;            // slot the rects were built for
+static uint16_t s_wLoaded = 0xFFFFu;            // slot the runs were built for
 static uint16_t s_stepAcc, s_stepBlock, s_stepAlt;   // footsteps: distance walked, sfx guard, foot
 static uint16_t s_sfxHold;                      // frames an important sfx is protected
 static int16_t  s_cdShown = -1;                 // cooldown strip pixels currently on screen
@@ -966,10 +964,22 @@ static int16_t  s_cdShown = -1;                 // cooldown strip pixels current
 // Draw state
 static bool     s_dirtyFull, s_invalidate, s_bannerDraw;
 static uint16_t s_hud, s_banner, s_viewDirty;
-static int16_t  s_cTop[RC_COLS], s_cBot[RC_COLS];       // what is on the LCD now
-static uint32_t s_cCol[RC_COLS];
 static int16_t  s_rngT[RC_COLS], s_rngB[RC_COLS];       // overlay rows drawn this frame (T > B = none)
 static int16_t  s_prvT[RC_COLS], s_prvB[RC_COLS];       // overlay rows drawn last frame
+
+// What is on the LCD, per vertical STRIP, as a list of colour runs. Each frame
+// the new picture is built the same way and only the runs whose colour changed
+// are sent. A run is (last row << 8) | colour id; the list always covers all
+// RC_VIEW_H rows. Columns under the held item are split into two 4 px strips
+// so the art (4 px cells) fits the model exactly.
+#define RC_MAXR      12                 // runs stored per strip
+#define RC_MAXN      32                 // runs allowed while a strip is being built
+#define RC_WPN_COLS  (((WPN_X0 + WPN_W * WPN_SCALE - 1 - RC_VIEW_X0) / RC_COL_W) - ((WPN_X0 - RC_VIEW_X0) / RC_COL_W) + 1)
+#define RC_STRIPS    (RC_COLS + RC_WPN_COLS)
+static uint16_t s_sl[RC_STRIPS][RC_MAXR];
+static uint16_t s_sn[RC_STRIPS];
+uint16_t g_rcOverflow;                          // diagnostics: paints dropped (should stay ~0)
+uint16_t g_rcTrunc;                             // diagnostics: strips too busy to store in full
 
 // Level-up cards
 #define CARD_NONE   0xFFFFu
@@ -1141,19 +1151,6 @@ static void SetPal(uint16_t type, const PalEnt *list)
             s_pal[type][list[i].ch - 'a'] = list[i].rgb;
 }
 
-// The portal pulses between two colours; only its 8 entries ever change.
-static void SetPortalPhase(uint16_t ph)
-{
-    uint32_t base = ph ? PORTAL_ALT : kWallBase[TILE_PORTAL];
-    uint16_t sh;
-
-    for(sh = 0; sh < 4; sh++)
-    {
-        s_wallCol[TILE_PORTAL][sh][0] = ScaleRgb(base, kShadeMul[sh]);
-        s_wallCol[TILE_PORTAL][sh][1] = ScaleRgb(s_wallCol[TILE_PORTAL][sh][0], 200);
-    }
-}
-
 static void BuildTables(void)
 {
     uint16_t i, c, sh, x, y, n;
@@ -1299,9 +1296,6 @@ static void LoadMap(uint16_t m, bool flip)
 //   *tile = wall type hit (1..5), *side = 0 for a x-face, 1 for a y-face
 // Start point comes from the player position.
 //*****************************************************************************
-#ifdef RC_USE_RAMFUNCS      // opt-in: needs a ramfuncs entry in your linker .cmd
-#pragma CODE_SECTION(RC_CastRay, "ramfuncs");
-#endif
 static uint16_t RC_CastRay(int16_t angle, uint16_t *tile, uint16_t *side)
 {
     uint16_t a     = (uint16_t)angle & RC_ANGLE_MASK;
@@ -2367,30 +2361,76 @@ static void DrawCdStrip(void)
     }
 
     if(w == s_cdShown) return;
-    s_cdShown = w;
 
-    Graphics_FillRect(CD_STRIP_X0, 213, CD_STRIP_X0 + CD_STRIP_W - 1, 215, C_DKGRAY);
-    if(w > 0)
-        Graphics_FillRect(CD_STRIP_X0, 213, CD_STRIP_X0 + w - 1, 215,
-                          (w == CD_STRIP_W) ? SlotColor(s_equip) : C_GRAY);
+    if(s_cdShown >= 0 && w > s_cdShown && w < CD_STRIP_W)
+    {
+        // filling up: only the new part
+        Graphics_FillRect(CD_STRIP_X0 + s_cdShown, 213, CD_STRIP_X0 + w - 1, 215, C_GRAY);
+    }
+    else
+    {
+        Graphics_FillRect(CD_STRIP_X0, 213, CD_STRIP_X0 + CD_STRIP_W - 1, 215, C_DKGRAY);
+        if(w > 0)
+            Graphics_FillRect(CD_STRIP_X0, 213, CD_STRIP_X0 + w - 1, 215,
+                              (w == CD_STRIP_W) ? SlotColor(s_equip) : C_GRAY);
+    }
+    s_cdShown = w;
 }
 
 //*****************************************************************************
 // 3D view
 //*****************************************************************************
+//-----------------------------------------------------------------------------
+// Strip run lists
+//-----------------------------------------------------------------------------
+#define ID_CEIL     0u
+#define ID_FLOOR    1u
+#define ID_SPR      64u                 // + palette * 8 + letter
+#define ID_TINT     184u                // + tint index (1..3)
+#define ID_WPN      192u                // + palette letter
+#define ID_UNKNOWN  255u                // "something else is on the LCD here"
+#define ID_WALL(tile, shade, side)  (2u + (tile) * 8u + (shade) * 2u + (side))
+
+// One run entry: last row in the high byte, colour id in the low byte. The shift is
+// done on an unsigned 16-bit value (rows >= 128 would overflow a signed 16-bit int).
+#define RUN_MAKE(row, id)  ((uint16_t)(((uint16_t)(row) << 8) | (uint16_t)(id)))
+
+static uint32_t IdColor(uint16_t id)
+{
+    if(id == ID_CEIL)  return COL_CEIL;
+    if(id == ID_FLOOR) return COL_FLOOR;
+    if(id < ID_SPR)  { id -= 2u;       return s_wallCol[id >> 3][(id >> 1) & 3u][id & 1u]; }
+    if(id < ID_TINT) { id -= ID_SPR;   return s_pal[id >> 3][id & 7u]; }
+    if(id < ID_WPN)  return kTint[id - ID_TINT];
+    return s_wPal[id - ID_WPN];
+}
+
+// Strip index of column c (half = 0/1 inside the weapon columns).
+static uint16_t StripIndex(uint16_t c, uint16_t half)
+{
+    if(c < WPN_C0)  return c;
+    if(c <= WPN_C1) return (uint16_t)(WPN_C0 + 2u * (c - WPN_C0) + half);
+    return (uint16_t)(c + (WPN_C1 - WPN_C0 + 1));
+}
+
 static void InvalidateView(void)
 {
     uint16_t c;
 
+    for(c = 0; c < RC_STRIPS; c++)
+    {
+        s_sl[c][0] = RUN_MAKE(RC_VIEW_H - 1, ID_UNKNOWN);
+        s_sn[c]    = 1;
+    }
     for(c = 0; c < RC_COLS; c++)
     {
-        s_cTop[c]  = -1;
-        s_rngT[c]  = RC_VIEW_H;  s_rngB[c] = -1;
-        s_prvT[c]  = RC_VIEW_H;  s_prvB[c] = -1;
+        s_rngT[c] = RC_VIEW_H;  s_rngB[c] = -1;
+        s_prvT[c] = RC_VIEW_H;  s_prvB[c] = -1;
     }
 }
 
-// Remember that rows y0..y1 of column c hold sprite/beam pixels this frame.
+// Remember that rows y0..y1 of column c hold beam pixels this frame
+// (they are repainted next frame because the LCD no longer matches the model).
 static void AddRange(int16_t c, int16_t y0, int16_t y1)
 {
     if(y0 < 0) y0 = 0;
@@ -2399,63 +2439,108 @@ static void AddRange(int16_t c, int16_t y0, int16_t y1)
     if(y1 > s_rngB[c]) s_rngB[c] = y1;
 }
 
-// Paint one wall strip, sending only what changed since the last frame.
-// t / b are the first / last wall rows inside the view.
-// rt..rb = rows last frame's sprite/beam touched; only those get repainted.
-static void DrawColumn(uint16_t c, int16_t t1, int16_t b1, uint32_t col,
-                       int16_t rt, int16_t rb)
+// Paint rows y0..y1 of a run list with colour `id` (later paints cover earlier
+// ones). Returns false, leaving the list untouched, if it would not fit.
+static bool ListPaint(uint16_t *l, uint16_t *n, uint16_t cap, int16_t y0, int16_t y1, uint16_t id)
 {
-    int16_t x0 = (int16_t)(RC_VIEW_X0 + (int16_t)c * RC_COL_W);
-    int16_t x1 = x0 + RC_COL_W - 1;
-    int16_t y0 = RC_VIEW_Y0;
-    int16_t t0 = s_cTop[c];
-    int16_t b0 = s_cBot[c];
-    int16_t a, e;
+    uint16_t tmp[RC_MAXN + 3];
+    uint16_t m = 0, i, rid;
+    int16_t  rs = 0, re;
+    bool     placed = false;
 
-    if(t0 < 0)
-    {
-        if(t1 > 0)
-            Graphics_FillRect(x0, y0, x1, y0 + t1 - 1, COL_CEIL);
-        Graphics_FillRect(x0, y0 + t1, x1, y0 + b1, col);
-        if(b1 < RC_VIEW_H - 1)
-            Graphics_FillRect(x0, y0 + b1 + 1, x1, y0 + RC_VIEW_H - 1, COL_FLOOR);
-    }
-    else if(col != s_cCol[c])
-    {
-        Graphics_FillRect(x0, y0 + t1, x1, y0 + b1, col);
-        if(t1 > t0) Graphics_FillRect(x0, y0 + t0, x1, y0 + t1 - 1, COL_CEIL);
-        if(b1 < b0) Graphics_FillRect(x0, y0 + b1 + 1, x1, y0 + b0, COL_FLOOR);
-    }
-    else
-    {
-        if(t1 > t0)      Graphics_FillRect(x0, y0 + t0, x1, y0 + t1 - 1, COL_CEIL);
-        else if(t1 < t0) Graphics_FillRect(x0, y0 + t1, x1, y0 + t0 - 1, col);
+    if(y0 < 0) y0 = 0;
+    if(y1 > RC_VIEW_H - 1) y1 = RC_VIEW_H - 1;
+    if(y1 < y0) return true;
 
-        if(b1 < b0)      Graphics_FillRect(x0, y0 + b1 + 1, x1, y0 + b0, COL_FLOOR);
-        else if(b1 > b0) Graphics_FillRect(x0, y0 + b0 + 1, x1, y0 + b1, col);
-    }
+#define LP_PUSH(e, ident)                                                   \
+    do {                                                                    \
+        if(m && (tmp[m - 1] & 255u) == (ident))                             \
+            tmp[m - 1] = (uint16_t)(((uint16_t)(e) << 8) | (ident));        \
+        else                                                                \
+            tmp[m++] = (uint16_t)(((uint16_t)(e) << 8) | (ident));          \
+    } while(0)
 
-    // Repair only the rows a sprite/beam dirtied last frame
-    if(rt <= rb)
+    for(i = 0; i < *n; i++)
     {
-        if(rt < t1)                                     // ceiling part
+        re  = (int16_t)(l[i] >> 8);
+        rid = l[i] & 255u;
+
+        if(rs <= y0 - 1)                                    // part above the new run
+            LP_PUSH((re < y0 - 1) ? re : (int16_t)(y0 - 1), rid);
+
+        if(!placed && re >= y0)
         {
-            e = (rb < t1 - 1) ? rb : (int16_t)(t1 - 1);
-            Graphics_FillRect(x0, y0 + rt, x1, y0 + e, COL_CEIL);
+            LP_PUSH(y1, id);
+            placed = true;
         }
-        a = (rt > t1) ? rt : t1;                        // wall part
-        e = (rb < b1) ? rb : b1;
-        if(a <= e) Graphics_FillRect(x0, y0 + a, x1, y0 + e, col);
-        if(rb > b1)                                     // floor part
+
+        if(re > y1)                                         // part below it
+            LP_PUSH(re, rid);
+
+        rs = (int16_t)(re + 1);
+    }
+#undef LP_PUSH
+
+    if(m > cap) { g_rcOverflow++; return false; }
+
+    for(i = 0; i < m; i++) l[i] = tmp[i];
+    *n = m;
+    return true;
+}
+
+// Send the differences between what is on the LCD (old list) and the new
+// picture, then remember the new picture. One FillRect per changed run.
+static void EmitStrip(uint16_t si, int16_t x0, int16_t w, const uint16_t *nl, uint16_t nn)
+{
+    uint16_t *ol = s_sl[si];
+    uint16_t  on = s_sn[si];
+    uint16_t  i = 0, j = 0, k, oid, nid, pId = 0;
+    int16_t   row = 0, oe, ne, e, pS = 0, pE = -1;
+    int16_t   x1 = (int16_t)(x0 + w - 1);
+    bool      pend = false;
+
+    if(on == 0) { ol[0] = RUN_MAKE(RC_VIEW_H - 1, ID_UNKNOWN); on = 1; }
+
+    while(i < on && j < nn)
+    {
+        oe  = (int16_t)(ol[i] >> 8);   oid = ol[i] & 255u;
+        ne  = (int16_t)(nl[j] >> 8);   nid = nl[j] & 255u;
+        e   = (oe < ne) ? oe : ne;
+
+        if(oid != nid)
         {
-            a = (rt > b1 + 1) ? rt : (int16_t)(b1 + 1);
-            Graphics_FillRect(x0, y0 + a, x1, y0 + rb, COL_FLOOR);
+            if(pend && pId == nid && pE + 1 == row)
+                pE = e;                                     // extends the pending fill
+            else
+            {
+                if(pend)
+                    Graphics_FillRect(x0, (int16_t)(RC_VIEW_Y0 + pS), x1,
+                                      (int16_t)(RC_VIEW_Y0 + pE), IdColor(pId));
+                pend = true;  pS = row;  pE = e;  pId = nid;
+            }
         }
+
+        row = (int16_t)(e + 1);
+        if(oe == e) i++;
+        if(ne == e) j++;
     }
 
-    s_cTop[c] = t1;
-    s_cBot[c] = b1;
-    s_cCol[c] = col;
+    if(pend)
+        Graphics_FillRect(x0, (int16_t)(RC_VIEW_Y0 + pS), x1,
+                          (int16_t)(RC_VIEW_Y0 + pE), IdColor(pId));
+
+    if(nn <= RC_MAXR)
+    {
+        for(k = 0; k < nn; k++) ol[k] = nl[k];
+        s_sn[si] = nn;
+    }
+    else                                    // too busy to remember: the tail repaints next frame
+    {
+        for(k = 0; k < RC_MAXR - 1; k++) ol[k] = nl[k];
+        ol[RC_MAXR - 1] = RUN_MAKE(RC_VIEW_H - 1, ID_UNKNOWN);
+        s_sn[si] = RC_MAXR;
+        g_rcTrunc++;
+    }
 }
 
 // Project one world point into the sprite list (sorted far to near).
@@ -2573,14 +2658,14 @@ static void ProjectSprites(void)
     }
 }
 
-static void DrawSlice(const Spr *sp, uint16_t c)
+// Paint one sprite's pixel column (the one under screen x = xc) into a strip.
+static void PaintSlice(uint16_t *nl, uint16_t *nn, const Spr *sp, int16_t xc)
 {
-    int16_t  xl = (int16_t)(RC_VIEW_X0 + (int16_t)c * RC_COL_W);
-    int16_t  xc = xl + (RC_COL_W >> 1) - sp->x0;
-    uint16_t u, n, r, v;
+    uint16_t u, n, r, v, id;
+    int16_t  xs = (int16_t)(xc - sp->x0);
 
-    if(xc < 0) xc = 0;
-    u = (uint16_t)(((int32_t)xc * sp->uStep) >> 8);
+    if(xs < 0) xs = 0;
+    u = (uint16_t)(((int32_t)xs * sp->uStep) >> 8);
     if(u > SPR_N - 1) u = SPR_N - 1;
 
     n = s_runCnt[sp->shape][u];
@@ -2592,13 +2677,13 @@ static void DrawSlice(const Spr *sp, uint16_t c)
         v  = s_run[sp->shape][u][r];
         y0 = (int16_t)(sp->top + (int16_t)(((int32_t)RUN_Y0(v) * sp->size) >> 4));
         y1 = (int16_t)(sp->top + (int16_t)(((int32_t)(RUN_Y1(v) + 1) * sp->size) >> 4) - 1);
-
         if(y0 < 0) y0 = 0;
         if(y1 > RC_VIEW_H - 1) y1 = RC_VIEW_H - 1;
         if(y1 < y0) continue;
 
-        Graphics_FillRect(xl, RC_VIEW_Y0 + y0, xl + RC_COL_W - 1, RC_VIEW_Y0 + y1,
-                          sp->flash ? kTint[sp->flash] : s_pal[sp->type][RUN_CI(v)]);
+        id = sp->flash ? (uint16_t)(ID_TINT + sp->flash)
+                       : (uint16_t)(ID_SPR + sp->type * 8u + RUN_CI(v));
+        ListPaint(nl, nn, RC_MAXN, y0, y1, id);
     }
 }
 
@@ -2618,7 +2703,7 @@ static void MarkRect(int16_t x0, int16_t y0, int16_t x1, int16_t y1)
 }
 
 //*****************************************************************************
-// Held item: build once per equip, draw per screen column
+// Held item: build once per equip, painted into the strip lists
 //*****************************************************************************
 static char WpnCell(const char *art, uint16_t x, uint16_t y)
 {
@@ -2628,78 +2713,47 @@ static char WpnCell(const char *art, uint16_t x, uint16_t y)
 
 static void WpnBuild(uint16_t slot)
 {
-    uint16_t x, y, w, h, xx, yy, n, i;
+    uint16_t k, y, y1, n, i;
     char     ch;
-    bool     ok;
     const char *art = kWpnArt[slot];
 
     for(i = 0; i < 26; i++) s_wPal[i] = 0xFF00FFUL;
     for(i = 0; kWpnPal[slot][i].ch; i++)
         s_wPal[kWpnPal[slot][i].ch - 'a'] = kWpnPal[slot][i].rgb;
 
-    for(y = 0; y < WPN_H; y++) s_wCov[y] = 0;
-    n = 0;
-
-    for(y = 0; y < WPN_H; y++)
+    for(k = 0; k < WPN_W; k++)                          // vertical runs per art column
     {
-        for(x = 0; x < WPN_W; x++)
+        n = 0;
+        y = 0;
+        while(y < WPN_H)
         {
-            ch = WpnCell(art, x, y);
-            if(ch == '.' || (s_wCov[y] & (1UL << x))) continue;
+            ch = WpnCell(art, k, y);
+            if(ch == '.') { y++; continue; }
 
-            w = 1;
-            while(x + w < WPN_W && WpnCell(art, x + w, y) == ch &&
-                  !(s_wCov[y] & (1UL << (x + w)))) w++;
+            y1 = y;
+            while(y1 + 1 < WPN_H && WpnCell(art, k, y1 + 1) == ch) y1++;
 
-            h = 1;
-            while(y + h < WPN_H)
-            {
-                ok = true;
-                for(xx = x; xx < x + w; xx++)
-                    if(WpnCell(art, xx, y + h) != ch ||
-                       (s_wCov[y + h] & (1UL << xx))) { ok = false; break; }
-                if(!ok) break;
-                h++;
-            }
-
-            for(yy = y; yy < y + h; yy++)
-                for(xx = x; xx < x + w; xx++)
-                    s_wCov[yy] |= (1UL << xx);
-
-            if(n < WPN_RECT_MAX)
-            {
-                s_wRect[n].x = (int16_t)x;  s_wRect[n].y = (int16_t)y;
-                s_wRect[n].w = (int16_t)w;  s_wRect[n].h = (int16_t)h;
-                s_wRect[n].ci = (uint16_t)(ch - 'a');
-                n++;
-            }
+            if(n < WPN_MAXRUNS)
+                s_wRun[k][n++] = (uint16_t)(y | (y1 << 5) | ((uint16_t)(ch - 'a') << 10));
+            y = y1 + 1;
         }
+        s_wRunN[k] = n;
     }
-    s_wCnt    = n;
     s_wLoaded = slot;
 }
 
-// Draw the part of the held item that lies inside screen column c.
-static void DrawStaffCol(uint16_t c)
+// Paint the held item's art column ak (0..WPN_W-1) into a strip list.
+static void PaintWeapon(uint16_t *nl, uint16_t *nn, uint16_t ak)
 {
-    int16_t  cx0 = (int16_t)(RC_VIEW_X0 + (int16_t)c * RC_COL_W);
-    int16_t  cx1 = cx0 + RC_COL_W - 1;
-    int16_t  sx, ex, sy, ey;
-    uint16_t i;
-    const WpnRect *r;
+    uint16_t r, v;
 
-    for(i = 0; i < s_wCnt; i++)
+    for(r = 0; r < s_wRunN[ak]; r++)
     {
-        r  = &s_wRect[i];
-        sx = (int16_t)(WPN_X0 + r->x * WPN_SCALE);
-        ex = (int16_t)(sx + r->w * WPN_SCALE - 1);
-        if(ex < cx0 || sx > cx1) continue;
-        if(sx < cx0) sx = cx0;
-        if(ex > cx1) ex = cx1;
-
-        sy = (int16_t)(WPN_Y0 + r->y * WPN_SCALE);
-        ey = (int16_t)(sy + r->h * WPN_SCALE - 1);
-        Graphics_FillRect(sx, RC_VIEW_Y0 + sy, ex, RC_VIEW_Y0 + ey, s_wPal[r->ci]);
+        v = s_wRun[ak][r];
+        ListPaint(nl, nn, RC_MAXN,
+                  (int16_t)(WPN_Y0 + (int16_t)(v & 31u) * WPN_SCALE),
+                  (int16_t)(WPN_Y0 + (int16_t)(((v >> 5) & 31u) + 1) * WPN_SCALE - 1),
+                  (uint16_t)(ID_WPN + (v >> 10)));
     }
 }
 
@@ -2762,8 +2816,9 @@ static void DrawFx(void)
 
 static void RenderView(void)
 {
-    uint16_t c, k, tile, side, dist, perp, lineH, shade;
-    int16_t  top, bot;
+    uint16_t c, k, tile, side, dist, perp, lineH, shade, h, nStrips, nn, si, wallId;
+    int16_t  top, bot, sx, w, ak;
+    uint16_t nl[RC_MAXN];
     int16_t  cxp = RC_VIEW_X0 + RC_VIEW_W / 2;
     int16_t  cyp = RC_VIEW_Y0 + RC_HORIZON;
 
@@ -2775,14 +2830,17 @@ static void RenderView(void)
 
     if(s_wLoaded != s_equip)
     {
-        uint16_t wc;
-
-        WpnBuild(s_equip);
-        for(wc = WPN_C0; wc <= WPN_C1; wc++)            // repaint only the rows the hand covers
-            AddRange((int16_t)wc, WPN_Y0, RC_VIEW_H - 1);
+        WpnBuild(s_equip);          // new art AND palette: repaint the strips behind the hand
+        for(c = WPN_C0; c <= WPN_C1; c++)
+            for(h = 0; h < 2; h++)
+            {
+                si = StripIndex(c, h);
+                s_sl[si][0] = RUN_MAKE(RC_VIEW_H - 1, ID_UNKNOWN);
+                s_sn[si]    = 1;
+            }
     }
 
-    // Overlay bookkeeping: last frame's overlay columns must be repainted.
+    // Beam overlay bookkeeping: last frame's overlay rows must be repainted.
     for(c = 0; c < RC_COLS; c++)
     {
         s_prvT[c] = s_rngT[c];  s_prvB[c] = s_rngB[c];
@@ -2798,53 +2856,60 @@ static void RenderView(void)
         if(perp < RC_MIN_DIST) perp = RC_MIN_DIST;
 
         lineH = RC_PROJ / perp;
-        lineH &= ~1u;                                   // even heights: fewer redraws
+        lineH &= ~1u;                                   // even heights: fewer changed rows
         if(lineH > RC_VIEW_H) lineH = RC_VIEW_H;
         if(lineH < 2)         lineH = 2;
 
         top = (int16_t)((RC_VIEW_H - lineH) >> 1);
         bot = (int16_t)(top + lineH - 1);
 
-        shade = (perp < 512) ? 0 : (perp < 1024) ? 1 : (perp < 1792) ? 2 : 3;
+        shade  = (perp < 512) ? 0 : (perp < 1024) ? 1 : (perp < 1792) ? 2 : 3;
+        if(tile == TILE_PORTAL && s_portalPhase) tile = TILE_PORTAL + 1u;   // pulse
+        wallId = ID_WALL(tile, shade, side);
 
+        nStrips = ((int16_t)c >= WPN_C0 && (int16_t)c <= WPN_C1) ? 2u : 1u;
+        w       = (int16_t)(RC_COL_W / nStrips);
+
+        for(h = 0; h < nStrips; h++)
         {
-            // Did this column repaint anything down in the held item's rows?
-            bool wd = false;
+            sx = (int16_t)(RC_VIEW_X0 + (int16_t)c * RC_COL_W + (int16_t)h * w);
+            si = StripIndex(c, h);
 
-            if((int16_t)c >= WPN_C0 && (int16_t)c <= WPN_C1)
+            // background: ceiling / wall / floor
+            nn = 0;
+            if(top > 0)
+                nl[nn++] = RUN_MAKE(top - 1, ID_CEIL);
+            nl[nn++] = RUN_MAKE(bot, wallId);
+            if(bot < RC_VIEW_H - 1)
+                nl[nn++] = RUN_MAKE(RC_VIEW_H - 1, ID_FLOOR);
+
+            // sprites, far to near, hidden behind nearer wall
+            for(k = 0; k < s_nSpr; k++)
+                if(c >= s_spr[k].c0 && c <= s_spr[k].c1 && s_spr[k].dist < perp)
+                    PaintSlice(nl, &nn, &s_spr[k], (int16_t)(sx + (w >> 1)));
+
+            // held item on top of everything
+            if(nStrips == 2 && sx >= WPN_X0)
             {
-                int16_t lo = (s_cBot[c] > bot) ? s_cBot[c] : bot;
-
-                if(s_cTop[c] < 0) wd = true;
-                else if(s_prvT[c] <= s_prvB[c] && s_prvB[c] >= WPN_Y0) wd = true;
-                else if(lo >= WPN_Y0 &&
-                        (top != s_cTop[c] || bot != s_cBot[c] ||
-                         s_wallCol[tile][shade][side] != s_cCol[c])) wd = true;
+                ak = (int16_t)((sx - WPN_X0) / WPN_SCALE);
+                if(ak < WPN_W) PaintWeapon(nl, &nn, (uint16_t)ak);
             }
 
-            DrawColumn(c, top, bot, s_wallCol[tile][shade][side],
-                       s_prvT[c], s_prvB[c]);
-
-            if(wd) s_wpnColDirty[c] = 1;
-        }
-
-        for(k = 0; k < s_nSpr; k++)
-        {
-            if(c >= s_spr[k].c0 && c <= s_spr[k].c1 && s_spr[k].dist < perp)
+            // beam pixels from last frame are not in the model: repaint them
+            if(s_prvT[c] <= s_prvB[c])
             {
-                DrawSlice(&s_spr[k], c);
-                if((int16_t)c >= WPN_C0 && (int16_t)c <= WPN_C1 &&
-                   s_spr[k].top + (int16_t)s_spr[k].size > WPN_Y0)
-                    s_wpnColDirty[c] = 1;
-                AddRange((int16_t)c, s_spr[k].top,
-                         (int16_t)(s_spr[k].top + (int16_t)s_spr[k].size - 1));
-            }
-        }
+                uint16_t *ol = s_sl[si];
+                uint16_t  on = s_sn[si];
 
-        if(s_wpnColDirty[c])
-        {
-            DrawStaffCol(c);
-            s_wpnColDirty[c] = 0;
+                if(on == 0 || !ListPaint(ol, &on, RC_MAXR, s_prvT[c], s_prvB[c], ID_UNKNOWN))
+                {
+                    ol[0] = RUN_MAKE(RC_VIEW_H - 1, ID_UNKNOWN);
+                    on = 1;
+                }
+                s_sn[si] = on;
+            }
+
+            EmitStrip(si, sx, w, nl, nn);
         }
     }
 
@@ -3377,7 +3442,6 @@ static void StartLevel(uint16_t lv)
 
     s_doorOpen = false;
     s_portalTick = s_portalPhase = 0;
-    SetPortalPhase(0);
 
     s_ang    = 768;                     // face "up" the map (the door is on that wall)
     s_invuln = 60;
@@ -3403,7 +3467,6 @@ static void LevelClear(void)
     s_doorOpen = true;
     s_tile[((uint16_t)s_doorY << RC_MAP_SHIFT) + (uint16_t)s_doorX] = TILE_PORTAL;
     s_portalTick = s_portalPhase = 0;
-    SetPortalPhase(0);
 
     s_mode       = MODE_CLEAR;
     s_timer      = 70;
@@ -3503,7 +3566,6 @@ static void UpdatePlay(void)
         {
             s_portalTick  = 0;
             s_portalPhase ^= 1u;
-            SetPortalPhase(s_portalPhase);
         }
     }
 
@@ -3519,11 +3581,17 @@ static void UpdatePlay(void)
 //*****************************************************************************
 // App callbacks
 //*****************************************************************************
-static uint32_t s_lastTick;
+static uint32_t s_lastTick;             // end of the previous frame (for the frame cap)
+static uint32_t s_lastUpd;              // time of the previous update
+static uint32_t s_owed;                 // simulation time not yet run, in timer ticks
+
+#define RC_MAX_CATCHUP  3               // never run more than this many ticks per frame
 
 static void PaceInit(void)
 {
     s_lastTick = TimerNow();
+    s_lastUpd  = s_lastTick;
+    s_owed     = 0;
 }
 
 // Busy-wait until one frame period has passed since the previous frame ended.
@@ -3532,6 +3600,28 @@ static void PaceWait(void)
 {
     while((uint32_t)(s_lastTick - TimerNow()) < RC_FRAME_TICKS) { }
     s_lastTick = TimerNow();
+}
+
+// The game simulates at a fixed 30 ticks per second no matter how long drawing
+// took: if a frame was slow, the missing ticks are run now (up to
+// RC_MAX_CATCHUP), so walking speed, cooldowns and enemy speed stay in real
+// time instead of slowing down with the frame rate.
+static uint16_t TicksOwed(void)
+{
+    uint32_t now = TimerNow();
+    uint16_t n   = 0;
+
+    s_owed   += (uint32_t)(s_lastUpd - now);
+    s_lastUpd = now;
+
+    while(s_owed >= RC_FRAME_TICKS && n < RC_MAX_CATCHUP)
+    {
+        s_owed -= RC_FRAME_TICKS;
+        n++;
+    }
+    if(s_owed > RC_FRAME_TICKS) s_owed = RC_FRAME_TICKS;    // too far behind: let go
+    if(n == 0) { n = 1; s_owed = 0; }                       // always make progress
+    return n;
 }
 
 static void RC_Init(void)
@@ -3553,10 +3643,14 @@ static void RC_Init(void)
 
 static AppStatus RC_Update(void)
 {
+    uint16_t n, i;
+
     switch(s_mode)
     {
         case MODE_INTRO:
-            if(--s_timer == 0)
+            n = TicksOwed();
+            s_timer = (s_timer > n) ? (uint16_t)(s_timer - n) : 0;
+            if(s_timer == 0)
             {
                 s_mode       = MODE_PLAY;
                 s_invalidate = true;            // wipes the banner
@@ -3565,16 +3659,27 @@ static AppStatus RC_Update(void)
             break;
 
         case MODE_PLAY:
-            UpdatePlay();
+            n = TicksOwed();
+            for(i = 0; i < n && s_mode == MODE_PLAY; i++)
+            {
+                UpdatePlay();
+                g_dpad.uPressed = g_dpad.dPressed = 0;      // button edges count once,
+                g_dpad.lPressed = g_dpad.rPressed = 0;      // not once per catch-up tick
+                g_joy.btnPressed = 0;
+            }
             if(s_lvPending && s_mode == MODE_PLAY) EnterCards();
             break;
 
         case MODE_CARDS:
             UpdateCards();
+            s_lastUpd = TimerNow();             // time spent choosing is not owed to the game
+            s_owed    = 0;
             break;
 
         case MODE_CLEAR:
-            if(--s_timer == 0)
+            n = TicksOwed();
+            s_timer = (s_timer > n) ? (uint16_t)(s_timer - n) : 0;
+            if(s_timer == 0)
             {
                 s_mode       = MODE_PLAY;
                 s_invalidate = true;            // wipes the banner
@@ -3650,7 +3755,7 @@ static void RC_Render(void)
 // After the pause overlay: repaint everything from the current state.
 static void RC_Redraw(void)
 {
-    s_lastTick = TimerNow();                    // don't "catch up" after the pause
+    PaceInit();                                 // don't "catch up" after the pause
     s_dirtyFull = true;
     if(s_mode != MODE_OVER)
         Buzzer_PlaySong(&song_corridor_run, 1);
