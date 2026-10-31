@@ -19,8 +19,11 @@
 //    pixel-by-pixel lines), and only the rows they touched get repaired.
 //
 // GAME FLOW
-//  * Endless rooms. Clear every enemy and the room's DOOR opens (it glows);
-//    walk into it to reach the next room. Every 6th room is the Lich.
+//  * One big ring-shaped map cut into 6 sections by doors (like COD zombies).
+//    Rounds never stop: kill the wave, a short breather, the next wave starts.
+//    Doors are BOUGHT with gold (stick button while facing one). Enemies only
+//    spawn in sections you have opened and path-find through open doors.
+//    Every 6th round is the Lich.
 //  * Kills give GOLD (same as before) and XP. When the XP bar fills you level
 //    up and get 3 random cards to buy with gold (or reroll them for gold).
 //  * D-pad Down cycles the equipped staff / magic item. D-pad Up uses it.
@@ -37,6 +40,8 @@
 #undef RC_COL_W
 #define RC_COLS  60
 #define RC_COL_W 5
+#undef RC_MAX_SPAWNS
+#define RC_MAX_SPAWNS 12                /* 2 spawn markers in each of the 6 sections */
 
 #define COL_CEIL    COLOR_BLACK
 #define COL_FLOOR   COLOR_TETRIS_GRID
@@ -112,6 +117,19 @@ extern const Song song_corridor_run;
 #define MANA_PICKUP_R       380         // pickup distance (Q10)
 #define MANA_BOTTLE_LIFE    450         // frames a bottle stays on the floor
 #define C_MANA              COLOR_BLUE
+
+//*****************************************************************************
+// Doors and rounds. Door k (1..6) joins section k-1 and section k % 6; the
+// sections form a ring, so with every door open you can run laps.
+//*****************************************************************************
+#define RC_NUM_DOORS        6
+#define RC_NUM_SECTIONS     6
+#define SEC_START           0           // you start in section A (top-left)
+#define DOOR_COST_BASE      100         // first door
+#define DOOR_COST_STEP      100         // each door bought makes the next one dearer
+#define DOOR_USE_DIST       2600        // Q10: how close you must be to buy
+#define ROUND_GAP_FRAMES    150         // breather between rounds (5 s at 30 fps)
+#define SPAWN_MIN_DIST      2600        // Q10: never spawn closer than this to the player
 
 /* Frame cap. Reuses the free-running 32-bit down counter that joystick.c
  * already starts (CpuTimer0): TimerNow() and TICKS_PER_MS come from drivers.h. */
@@ -312,122 +330,37 @@ typedef struct
 } LevelDef;
 
 //*****************************************************************************
-// Maps (16 x 16).  # stone   P pillar   B brick   . floor   D door
-//                  e enemy spawn marker   @ player start
-// The door is a wall tile on the top edge: dark wood while the room is
-// full, a glowing portal once it is cleared. Walk into it for the next room.
+// The map (16 x 16): a ring of six sections around a solid centre block.
+//   # stone   P pillar   B brick   . floor   @ player start
+//   1..6  door k (3 tiles wide, closed until bought)
+//   a..f  enemy spawn marker for section A..F (A top-left, then clockwise)
+// Section layout (doors are the numbers between them):
+//        A --1-- B --2-- C
+//        |               |
+//        6               3
+//        |               |
+//        F --5-- E --4-- D
 //*****************************************************************************
-#define RC_NUM_MAPS 6
-#define MAP_BOSS    5
+#define RC_NUM_MAPS 1
 
 static const char *const kMaps[RC_NUM_MAPS][RC_MAP_H] =
 {
-    {   // 0 - Entry Hall
-        "#######D########",
-        "#e............e#",
-        "#..............#",
-        "#...P......P...#",
-        "#..............#",
-        "#..............#",
-        "#...P......P...#",
-        "#..............#",
-        "#......@.......#",
-        "#..............#",
-        "#...P......P...#",
-        "#..............#",
-        "#..............#",
-        "#...P......P...#",
-        "#e............e#",
-        "################"
-    },
-    {   // 1 - Notched Court
-        "#######D########",
-        "##e..........e##",
-        "#..............#",
-        "#....##..##....#",
+    {
+        "################",
+        "#a..a#b..b#c...#",
+        "#....1....2....#",
+        "#.P..1.PP.2..P.#",
+        "#....1....2....#",
         "#....#....#....#",
-        "#..............#",
-        "#..............#",
-        "#.......@......#",
-        "#..............#",
-        "#..............#",
+        "#..@..####.....#",
+        "#.....####....c#",
+        "##666######333##",
+        "#.....####....d#",
         "#....#....#....#",
-        "#....##..##....#",
-        "#..............#",
-        "#..............#",
-        "##e..........e##",
-        "################"
-    },
-    {   // 2 - Cloister
-        "#######D########",
-        "#e............e#",
-        "#.####....####.#",
-        "#.#..........#.#",
-        "#.#...P..P...#.#",
-        "#..............#",
-        "#..............#",
-        "#.......@......#",
-        "#..............#",
-        "#..............#",
-        "#.#...P..P...#.#",
-        "#.#..........#.#",
-        "#.####....####.#",
-        "#..............#",
-        "#e............e#",
-        "################"
-    },
-    {   // 3 - Crypt
-        "#######D########",
-        "#e............e#",
-        "#..P.....P.....#",
-        "#.....BB.......#",
-        "#.P....BB..P...#",
-        "#..............#",
-        "#.....P....P...#",
-        "#BB..........BB#",
-        "#BB....@.....BB#",
-        "#..............#",
-        "#...P....P.....#",
-        "#..............#",
-        "#...P..BB..P...#",
-        "#..............#",
-        "#e....P..P....e#",
-        "################"
-    },
-    {   // 4 - The Ring
-        "#######D########",
-        "#e............e#",
-        "#..............#",
-        "#..PP......PP..#",
-        "#..PP......PP..#",
-        "#......@.......#",
-        "#.....####.....#",
-        "#.....####.....#",
-        "#.....####.....#",
-        "#.....####.....#",
-        "#..............#",
-        "#..PP......PP..#",
-        "#..PP......PP..#",
-        "#..............#",
-        "#e............e#",
-        "################"
-    },
-    {   // 5 - Boss arena
-        "#######D########",
-        "##....e..e....##",
-        "#..............#",
-        "#...P......P...#",
-        "#..............#",
-        "#..............#",
-        "#......BB......#",
-        "#..............#",
-        "#..............#",
-        "#..............#",
-        "#...P......P...#",
-        "#..............#",
-        "#..............#",
-        "#......@.......#",
-        "##............##",
+        "#....5....4....#",
+        "#.P..5....4.P..#",
+        "#....5....4....#",
+        "#f..f#e..e#...d#",
         "################"
     },
 };
@@ -660,7 +593,7 @@ static const uint32_t kTint[4] = { 0, COLOR_WHITE, COLOR_TETRIS_L_ORANGE, COLOR_
 #define TILE_PORTAL  5
 #define TILE_KINDS   7                  // tile 6 = portal second pulse colour (draw only)
 static const uint32_t kWallBase[TILE_KINDS] =
-    { 0, COLOR_GRAY, COLOR_GRAY, COLOR_BROWN, COLOR_BROWN, COLOR_TURQUOISE, COLOR_SKY_BLUE };
+    { 0, COLOR_GRAY, COLOR_GRAY, COLOR_BROWN, COLOR_ORANGE, COLOR_TURQUOISE, COLOR_SKY_BLUE };
 static const uint16_t kShadeMul[4] = { 256, 190, 130, 84 };
 //*****************************************************************************
 // First-person art (what Ray Caster holds in his LEFT hand). 20 x 18 cells,
@@ -899,9 +832,10 @@ static const PalEnt *const kWpnPal[NUM_SLOT] =
 //*****************************************************************************
 #define PAL_N 8                                 // sprite palette letters a..h
 
-static int16_t  s_sin[RC_ANGLES];               // Q14. cos(a) = s_sin[a + 256]
-static uint16_t s_dx[RC_ANGLES];                // 256/|cos| (Q8, clamped)
-static uint16_t s_dy[RC_ANGLES];                // 256/|sin|
+// Quarter-wave tables (angles 0..256 = 0..90 deg). The other three quadrants are
+// mirrored on lookup, which saves ~3000 words of RAM versus full 1024-entry tables.
+static int16_t  s_qsin[257];                    // sin, Q14
+static uint16_t s_qinv[257];                    // 256/sin (Q8, clamped): ray step length
 static int16_t  s_colOff[RC_COLS];              // ray angle offset per column
 static int16_t  s_colCos[RC_COLS];              // Q14 fisheye correction
 static int16_t  s_atan[257];                    // atan(i/256) in angle units
@@ -916,8 +850,29 @@ static bool     s_tablesReady = false;
 #define RUN_Y1(v)   (((v) >> 4) & 15u)
 #define RUN_CI(v)   ((v) >> 8)
 
-#define SIN(a)  s_sin[(uint16_t)(a) & RC_ANGLE_MASK]
-#define COS(a)  s_sin[((uint16_t)(a) + 256u) & RC_ANGLE_MASK]
+
+// sin(a) for any angle 0..1023 (Q14), mirrored from the first quadrant.
+static int16_t SinLut(uint16_t a)
+{
+    uint16_t i = a & 255u;
+    int16_t  v;
+
+    if(a & 256u) i = (uint16_t)(256u - i);          // 2nd / 4th quadrant: mirror
+    v = s_qsin[i];
+    return (a & 512u) ? (int16_t)-v : v;            // 3rd / 4th quadrant: negative
+}
+
+// 256/|sin(b)| (Q8). 256/|cos(a)| is QInv(a + 256), 256/|sin(a)| is QInv(a).
+static uint16_t QInv(uint16_t b)
+{
+    uint16_t i = b & 255u;
+
+    if(b & 256u) i = (uint16_t)(256u - i);
+    return s_qinv[i];
+}
+
+#define SIN(a)  SinLut((uint16_t)(a))
+#define COS(a)  SinLut((uint16_t)((uint16_t)(a) + 256u))
 
 //*****************************************************************************
 // State
@@ -943,8 +898,16 @@ static LevelDef s_lv;
 static uint16_t s_tile[RC_MAP_CELLS];
 static int16_t  s_spX[RC_MAX_SPAWNS], s_spY[RC_MAX_SPAWNS];
 static uint16_t s_spCount;
-static int16_t  s_doorX, s_doorY;               // tile coordinates of the door
-static bool     s_doorOpen;
+static bool     s_secOpen[RC_NUM_SECTIONS];     // sections the player has unlocked
+static bool     s_doorBought[RC_NUM_DOORS + 1]; // index 1..6
+static uint16_t s_doorsBought;
+static int16_t  s_doorCx[RC_NUM_DOORS + 1], s_doorCy[RC_NUM_DOORS + 1];   // door centres, Q10
+static uint16_t s_spSec[RC_MAX_SPAWNS];         // section of each spawn marker
+static uint16_t s_doorNear;                     // door the player is facing (0 = none)
+static uint16_t s_doorShown = 0xFFFFu;          // prompt state last drawn
+static uint16_t s_roundGap;                     // breather frames left (0 = round running)
+static uint16_t s_flow[RC_MAP_CELLS];           // steps to the player, 0xFFFF = unreachable
+static int16_t  s_flowTx = -1, s_flowTy = -1;   // player tile the flow field was built for
 static uint16_t s_portalTick, s_portalPhase;
 static Enemy    s_en[RC_MAX_ENEMIES];
 static uint16_t s_alive, s_toSpawn, s_spawnTimer, s_spawnIdx;
@@ -958,6 +921,11 @@ typedef struct
     uint16_t kind, pal, sc, life, age, aux, alive;
 } Obj;
 enum { OB_FLASK, OB_BOLT, OB_CLOUD, OB_SPARK, OB_MANA };
+
+static uint16_t DoorCost(void)
+{
+    return (uint16_t)(DOOR_COST_BASE + DOOR_COST_STEP * s_doorsBought);
+}
 static Obj      s_obj[RC_MAX_OBJ];
 
 // Flow
@@ -1182,18 +1150,14 @@ static void BuildTables(void)
 
     if(s_tablesReady) return;
 
-    for(i = 0; i < RC_ANGLES; i++)
+    for(i = 0; i <= 256; i++)
     {
-        s  = sinf((float)i * (6.2831853f / RC_ANGLES));
-        co = cosf((float)i * (6.2831853f / RC_ANGLES));
+        s = sinf((float)i * (6.2831853f / RC_ANGLES));
 
-        s_sin[i] = (int16_t)(s * 16384.0f + ((s >= 0.0f) ? 0.5f : -0.5f));
-
-        f = (fabsf(co) < 0.0001f) ? 65535.0f : 256.0f / fabsf(co);
-        s_dx[i] = (f > 65535.0f) ? 65535u : (uint16_t)f;
+        s_qsin[i] = (int16_t)(s * 16384.0f + 0.5f);
 
         f = (fabsf(s) < 0.0001f) ? 65535.0f : 256.0f / fabsf(s);
-        s_dy[i] = (f > 65535.0f) ? 65535u : (uint16_t)f;
+        s_qinv[i] = (f > 65535.0f) ? 65535u : (uint16_t)f;
     }
 
     for(c = 0; c < RC_COLS; c++)
@@ -1271,45 +1235,62 @@ static bool Blocked(int16_t x, int16_t y, int16_t r)
     return Solid(x0, y0) || Solid(x1, y0) || Solid(x0, y1) || Solid(x1, y1);
 }
 
-// flip = mirror the room left/right (more variety from the same six maps)
-static void LoadMap(uint16_t m, bool flip)
+static void LoadMap(void)
 {
-    uint16_t x, y, t;
+    uint16_t x, y, t, k;
+    int32_t  sx[RC_NUM_DOORS + 1], sy[RC_NUM_DOORS + 1];    // sums for the door centres
+    uint16_t cnt[RC_NUM_DOORS + 1];
 
     s_spCount = 0;
-    s_doorX = s_doorY = 0;
+    for(k = 0; k <= RC_NUM_DOORS; k++) { sx[k] = 0; sy[k] = 0; cnt[k] = 0; }
 
     for(y = 0; y < RC_MAP_H; y++)
         for(x = 0; x < RC_MAP_W; x++)
         {
-            char ch = kMaps[m][y][flip ? (RC_MAP_W - 1 - x) : x];
+            char ch = kMaps[0][y][x];
 
             t = 0;
-            switch(ch)
+
+            if(ch >= 'a' && ch <= 'f')                  // spawn marker, letter = section
             {
-                case '#': t = 1; break;
-                case 'P': t = 2; break;
-                case 'B': t = 3; break;
-                case 'D':
-                    t = TILE_DOOR;
-                    s_doorX = (int16_t)x;
-                    s_doorY = (int16_t)y;
-                    break;
-                case 'e':
-                    if(s_spCount < RC_MAX_SPAWNS)
-                    {
-                        s_spX[s_spCount] = (int16_t)((x << 10) + 512);
-                        s_spY[s_spCount] = (int16_t)((y << 10) + 512);
-                        s_spCount++;
-                    }
-                    break;
-                case '@':
-                    s_px = (int16_t)((x << 10) + 512);
-                    s_py = (int16_t)((y << 10) + 512);
-                    break;
-                default: break;
+                if(s_spCount < RC_MAX_SPAWNS)
+                {
+                    s_spX[s_spCount]   = (int16_t)((x << 10) + 512);
+                    s_spY[s_spCount]   = (int16_t)((y << 10) + 512);
+                    s_spSec[s_spCount] = (uint16_t)(ch - 'a');
+                    s_spCount++;
+                }
+            }
+            else if(ch >= '1' && ch <= '6')             // door tile
+            {
+                k = (uint16_t)(ch - '0');
+                t = TILE_DOOR;
+                sx[k] += (int32_t)((x << 10) + 512);
+                sy[k] += (int32_t)((y << 10) + 512);
+                cnt[k]++;
+            }
+            else
+            {
+                switch(ch)
+                {
+                    case '#': t = 1; break;
+                    case 'P': t = 2; break;
+                    case 'B': t = 3; break;
+                    case '@':
+                        s_px = (int16_t)((x << 10) + 512);
+                        s_py = (int16_t)((y << 10) + 512);
+                        break;
+                    default: break;
+                }
             }
             s_tile[(y << RC_MAP_SHIFT) + x] = t;
+        }
+
+    for(k = 1; k <= RC_NUM_DOORS; k++)
+        if(cnt[k])
+        {
+            s_doorCx[k] = (int16_t)(sx[k] / (int32_t)cnt[k]);
+            s_doorCy[k] = (int16_t)(sy[k] / (int32_t)cnt[k]);
         }
 }
 
@@ -1325,8 +1306,8 @@ static uint16_t RC_CastRay(int16_t angle, uint16_t *tile, uint16_t *side)
     uint16_t a     = (uint16_t)angle & RC_ANGLE_MASK;
     int16_t  c     = COS(a);
     int16_t  s     = SIN(a);
-    uint16_t dX    = s_dx[a];
-    uint16_t dY    = s_dy[a];
+    uint16_t dX    = QInv((uint16_t)(a + 256u));
+    uint16_t dY    = QInv(a);
     int16_t  mx    = (int16_t)(s_px >> 10);
     int16_t  my    = (int16_t)(s_py >> 10);
     uint16_t fx    = (uint16_t)(s_px >> 2) & 255u;         // fraction inside tile, Q8
@@ -2065,17 +2046,24 @@ static void TrySpawn(void)
 {
     uint16_t tries, idx = 0, type, r, gap;
     uint16_t behCap;
+    bool     found = false;
 
     if(s_spawnTimer) { s_spawnTimer--; return; }
     if(!s_toSpawn || s_alive >= s_lv.maxAlive || s_spCount == 0) return;
 
-    // First marker that is not right on top of the player.
+    // First marker in an UNLOCKED section that is not right on top of the player.
     for(tries = 0; tries < s_spCount; tries++)
     {
         idx = s_spawnIdx;
         s_spawnIdx = (s_spawnIdx + 1u) % s_spCount;
-        if(Dist10(s_spX[idx] - s_px, s_spY[idx] - s_py) > 3072) break;
+        if(!s_secOpen[s_spSec[idx]]) continue;
+        if(Dist10(s_spX[idx] - s_px, s_spY[idx] - s_py) > SPAWN_MIN_DIST)
+        {
+            found = true;
+            break;
+        }
     }
+    if(!found) { s_spawnTimer = 20; return; }
 
     gap = s_lv.gap;
 
@@ -2169,6 +2157,106 @@ static void LichSummon(const Enemy *lich, uint16_t n)
     SfxSoft(&sfx_powerup);
 }
 
+//-----------------------------------------------------------------------------
+// Path-finding: a breadth-first "steps to the player" map over the 16 x 16 grid.
+// Rebuilt whenever the player changes tile or a door opens (a few hundred cells).
+// Enemies that can see you walk straight at you; otherwise they follow the map.
+//-----------------------------------------------------------------------------
+static const int16_t kNbDx[4] = { 1, -1, 0, 0 };
+static const int16_t kNbDy[4] = { 0, 0, 1, -1 };
+
+static void BuildFlow(void)
+{
+    uint16_t i, d, cell, nb;
+    int16_t  tx = (int16_t)(s_px >> 10);
+    int16_t  ty = (int16_t)(s_py >> 10);
+    int16_t  x, y, nx, ny;
+    bool     any;
+
+    for(i = 0; i < RC_MAP_CELLS; i++) s_flow[i] = 0xFFFFu;
+    s_flowTx = tx;
+    s_flowTy = ty;
+    if((uint16_t)tx >= RC_MAP_W || (uint16_t)ty >= RC_MAP_H) return;
+
+    s_flow[((uint16_t)ty << RC_MAP_SHIFT) + (uint16_t)tx] = 0;
+
+    // Wavefront: grow the distance one ring at a time (no queue array needed).
+    for(d = 0; d < 64u; d++)
+    {
+        any = false;
+        for(cell = 0; cell < RC_MAP_CELLS; cell++)
+        {
+            if(s_flow[cell] != d) continue;
+            x = (int16_t)(cell & 15u);
+            y = (int16_t)(cell >> 4);
+
+            for(i = 0; i < 4; i++)
+            {
+                nx = (int16_t)(x + kNbDx[i]);
+                ny = (int16_t)(y + kNbDy[i]);
+                if((uint16_t)nx >= RC_MAP_W || (uint16_t)ny >= RC_MAP_H) continue;
+                if(Solid(nx, ny)) continue;
+                nb = (uint16_t)(((uint16_t)ny << RC_MAP_SHIFT) + (uint16_t)nx);
+                if(s_flow[nb] != 0xFFFFu) continue;
+                s_flow[nb] = (uint16_t)(d + 1u);
+                any = true;
+            }
+        }
+        if(!any) break;
+    }
+}
+
+static void EnsureFlow(void)
+{
+    if((int16_t)(s_px >> 10) != s_flowTx || (int16_t)(s_py >> 10) != s_flowTy)
+        BuildFlow();
+}
+
+// Is the straight line between two points free of walls?
+static bool LineClear(int16_t x0, int16_t y0, int16_t x1, int16_t y1)
+{
+    int16_t dx = (int16_t)(x1 - x0);
+    int16_t dy = (int16_t)(y1 - y0);
+    int16_t n  = (int16_t)(Dist10(dx, dy) / 320);
+    int16_t i;
+
+    for(i = 1; i < n; i++)
+        if(Blocked((int16_t)(x0 + (int16_t)(((int32_t)dx * i) / n)),
+                   (int16_t)(y0 + (int16_t)(((int32_t)dy * i) / n)), 220))
+            return false;
+    return true;
+}
+
+// Where an enemy at (ex, ey) should head, as a vector (dx, dy).
+static void SteerTarget(int16_t ex, int16_t ey, int16_t *tdx, int16_t *tdy)
+{
+    int16_t  etx = (int16_t)(ex >> 10);
+    int16_t  ety = (int16_t)(ey >> 10);
+    int16_t  nx, ny;
+    uint16_t d, i;
+
+    *tdx = (int16_t)(s_px - ex);                        // default: straight at the player
+    *tdy = (int16_t)(s_py - ey);
+
+    if((uint16_t)etx >= RC_MAP_W || (uint16_t)ety >= RC_MAP_H) return;
+    d = s_flow[((uint16_t)ety << RC_MAP_SHIFT) + (uint16_t)etx];
+    if(d <= 1u || d == 0xFFFFu) return;                 // next to the player / no route
+    if(LineClear(ex, ey, s_px, s_py)) return;           // can see the player
+
+    for(i = 0; i < 4; i++)                              // step to the tile that is closer
+    {
+        nx = (int16_t)(etx + kNbDx[i]);
+        ny = (int16_t)(ety + kNbDy[i]);
+        if((uint16_t)nx >= RC_MAP_W || (uint16_t)ny >= RC_MAP_H) continue;
+        if(s_flow[((uint16_t)ny << RC_MAP_SHIFT) + (uint16_t)nx] == (uint16_t)(d - 1u))
+        {
+            *tdx = (int16_t)((nx << 10) + 512 - ex);
+            *tdy = (int16_t)((ny << 10) + 512 - ey);
+            return;
+        }
+    }
+}
+
 static void UpdateEnemies(void)
 {
     uint16_t i, j;
@@ -2239,8 +2327,13 @@ static void UpdateEnemies(void)
             {
                 if(dist > 3800)
                 {
-                    mx = (int16_t)(((int32_t)dx * sp) / dist);
-                    my = (int16_t)(((int32_t)dy * sp) / dist);
+                    int16_t sdx, sdy, sd;
+
+                    SteerTarget(e->x, e->y, &sdx, &sdy);
+                    sd = Dist10(sdx, sdy);
+                    if(sd < 1) sd = 1;
+                    mx = (int16_t)(((int32_t)sdx * sp) / sd);
+                    my = (int16_t)(((int32_t)sdy * sp) / sd);
                 }
                 else if(dist < 2600)
                 {
@@ -2263,8 +2356,13 @@ static void UpdateEnemies(void)
         }
         else if(dist > 200)
         {
-            mx = (int16_t)(((int32_t)dx * sp) / dist);
-            my = (int16_t)(((int32_t)dy * sp) / dist);
+            int16_t sdx, sdy, sd;
+
+            SteerTarget(e->x, e->y, &sdx, &sdy);
+            sd = Dist10(sdx, sdy);
+            if(sd < 1) sd = 1;
+            mx = (int16_t)(((int32_t)sdx * sp) / sd);
+            my = (int16_t)(((int32_t)sdy * sp) / sd);
 
             nx = e->x + mx;
             if(!Blocked(nx, e->y, 230)) e->x = nx;
@@ -2318,13 +2416,31 @@ static void DrawHudFrame(void)
 {
     Graphics_FillRect(0, 0, SCREEN_W - 1, RC_VIEW_Y0 - 1, C_BLACK);
     Graphics_FillRect(0, RC_VIEW_Y1 + 1, SCREEN_W - 1, SCREEN_H - 1, C_BLACK);
+
+    // Side margins around the 3D view are always black.
+    if(RC_VIEW_X0 > 0)
+        Graphics_FillRect(0, RC_VIEW_Y0, RC_VIEW_X0 - 1, RC_VIEW_Y1, C_BLACK);
+    if(RC_VIEW_X0 + RC_VIEW_W <= SCREEN_W - 1)
+        Graphics_FillRect(RC_VIEW_X0 + RC_VIEW_W, RC_VIEW_Y0, SCREEN_W - 1, RC_VIEW_Y1, C_BLACK);
 }
 
 // Bottom line: what is active, else the controls.
 static void DrawHint(void)
 {
+    char    buf[32];
+    int16_t n;
+
     Graphics_FillRect(0, 217, SCREEN_W - 1, SCREEN_H - 1, C_BLACK);
-    if(s_aegis)      DrawText("SHIELD UP!", SCREEN_W / 2, 229, COLOR_SKY_BLUE);
+    if(s_doorNear)
+    {
+        uint16_t cost = DoorCost();
+
+        n  = Cat(buf, 0, "DOOR ", 5);
+        n += Itoa(buf + n, cost);
+        Cat(buf, n, "G - press stick", 15);
+        DrawText(buf, SCREEN_W / 2, 229, (s_gold >= cost) ? C_GREEN : C_BAD);
+    }
+    else if(s_aegis) DrawText("SHIELD UP!", SCREEN_W / 2, 229, COLOR_SKY_BLUE);
     else if(s_haste) DrawText("HASTE!", SCREEN_W / 2, 229, C_GOLD);
     else             DrawText("U:use  D:swap  L/R:turn", SCREEN_W / 2, 229, C_DKGRAY);
 }
@@ -2356,7 +2472,7 @@ static void DrawHud(void)
             DrawSmall("BOSS", 140, 8, C_RED, C_BLACK);
         else
         {
-            n  = Cat(buf, 0, "ROOM ", 5);
+            n  = Cat(buf, 0, "ROUND ", 6);
             Itoa(buf + n, s_level + 1);
             DrawSmall(buf, 140, 8, C_WHITE, C_BLACK);
         }
@@ -2390,9 +2506,11 @@ static void DrawHud(void)
     if(s_hud & HUD_LEFT)
     {
         Graphics_FillRect(190, RC_VIEW_Y1 + 2, SCREEN_W - 1, 215, C_BLACK);
-        if(s_doorOpen)
+        if(s_roundGap)
         {
-            DrawText("DOOR OPEN", 255, 203, C_GREEN);
+            n  = Cat(buf, 0, "Next round ", 11);
+            Itoa(buf + n, (uint16_t)((s_roundGap + 29u) / 30u));
+            DrawText(buf, 255, 203, C_GREEN);
         }
         else
         {
@@ -3054,15 +3172,15 @@ static void DrawBanner(void)
     }
     else if(s_lv.boss)
     {
-        DrawText("BOSS ROOM", SCREEN_W / 2, 105, C_RED);
+        DrawText("BOSS ROUND", SCREEN_W / 2, 105, C_RED);
         DrawText("The Lich awaits", SCREEN_W / 2, 126, C_GRAY);
     }
     else
     {
-        n  = Cat(buf, 0, "ROOM ", 5);
+        n  = Cat(buf, 0, "ROUND ", 6);
         n += Itoa(buf + n, s_level + 1);
         DrawText(buf, SCREEN_W / 2, 105, C_WHITE);
-        DrawText("Clear the wave!", SCREEN_W / 2, 126, C_GRAY);
+        DrawText("Buy doors with the stick", SCREEN_W / 2, 126, C_GRAY);
     }
 }
 
@@ -3074,7 +3192,7 @@ static void DrawEndScreen(void)
     Graphics_FillRect(0, 0, SCREEN_W - 1, SCREEN_H - 1, C_BLACK);
 
     DrawText("GAME OVER", SCREEN_W / 2, 55, C_RED);
-    n  = Cat(buf, 0, "Died in room ", 13);
+    n  = Cat(buf, 0, "Died in round ", 14);
     Itoa(buf + n, s_level + 1);
     DrawText(buf, SCREEN_W / 2, 90, C_WHITE);
 
@@ -3525,40 +3643,41 @@ static void MakeLevelDef(uint16_t d, LevelDef *o)
     o->pBeh   = (d >= 3u) ? ((4u * (d - 2u) > 14u) ? 14u : 4u * (d - 2u)) : 0u;
 }
 
-static uint16_t PickMap(uint16_t lv)
+// A new round starts without touching the map: only the wave numbers change.
+static void StartRound(uint16_t r)
 {
-    uint16_t m;
-
-    if(IsBossLevel(lv)) return MAP_BOSS;
-    if(lv < 5u) return lv;                      // the first rooms in order
-    do { m = Rand16() % 5u; } while(m == s_lastMap);
-    return m;
+    s_level = r;
+    MakeLevelDef(r, &s_lv);
+    s_toSpawn     = s_lv.total;
+    s_spawnTimer  = 45;
+    s_bossSpawned = s_bossAlive = 0;
+    s_roundGap    = 0;
+    s_hud        |= HUD_TOPR | HUD_LEFT;
+    if(r > 0u) Sfx(&sfx_level_up);
 }
 
+// New run: load the ring map, lock every door, start round 1.
 static void StartLevel(uint16_t lv)
 {
-    uint16_t i, m;
+    uint16_t i;
 
-    s_level = lv;
-    MakeLevelDef(lv, &s_lv);
-
-    m = PickMap(lv);
-    s_lastMap = m;
-    LoadMap(m, (lv > 0u) ? ((Rand16() & 1u) != 0) : false);
+    LoadMap();
 
     for(i = 0; i < RC_MAX_ENEMIES; i++) s_en[i].alive = 0;
     for(i = 0; i < RC_MAX_OBJ; i++)     s_obj[i].alive = 0;
+    for(i = 0; i < RC_NUM_SECTIONS; i++) s_secOpen[i] = (i == SEC_START);
+    for(i = 0; i <= RC_NUM_DOORS; i++)   s_doorBought[i] = false;
+    s_doorsBought = 0;
+    s_doorNear    = 0;
+    s_doorShown   = 0xFFFFu;
+    s_flowTx      = -1;
+    s_alive       = 0;
+    s_spawnIdx    = 0;
 
-    s_alive = 0;
-    s_toSpawn = s_lv.total;
+    StartRound(lv);
     s_spawnTimer = 90;
-    s_spawnIdx = 0;
-    s_bossSpawned = s_bossAlive = 0;
 
-    s_doorOpen = false;
-    s_portalTick = s_portalPhase = 0;
-
-    s_ang    = 768;                     // face "up" the map (the door is on that wall)
+    s_ang    = 256;                     // face "down" the map: door 6 is right there
     s_invuln = 60;
     s_fxTimer = 0;
     s_stepAcc = 0;
@@ -3576,18 +3695,55 @@ static void EnterOver(void)
     Sfx(&sfx_game_over);
 }
 
-// Last enemy down: the door lights up. Walk into it for the next room.
-static void LevelClear(void)
+// Which closed door (if any) is the player facing and close to?
+static void UpdateDoorNear(void)
 {
-    s_doorOpen = true;
-    s_tile[((uint16_t)s_doorY << RC_MAP_SHIFT) + (uint16_t)s_doorX] = TILE_PORTAL;
-    s_portalTick = s_portalPhase = 0;
+    uint16_t k, best = 0;
+    int16_t  bestD = 32767, dx, dy, d;
+    int32_t  fwd;
+    uint16_t key;
 
-    s_mode       = MODE_CLEAR;
-    s_timer      = 70;
-    s_banner     = BAN_CLEAR;
-    s_bannerDraw = true;
-    s_hud       |= HUD_LEFT;
+    for(k = 1; k <= RC_NUM_DOORS; k++)
+    {
+        if(s_doorBought[k]) continue;
+        dx = (int16_t)(s_doorCx[k] - s_px);
+        dy = (int16_t)(s_doorCy[k] - s_py);
+        d  = Dist10(dx, dy);
+        if(d >= DOOR_USE_DIST || d >= bestD) continue;
+        fwd = (((int32_t)dx * COS(s_ang)) + ((int32_t)dy * SIN(s_ang))) >> 14;
+        if(fwd * 10L < (int32_t)d * 6L) continue;       // must be roughly in front
+        best  = k;
+        bestD = d;
+    }
+
+    s_doorNear = best;
+    key = (uint16_t)(best ? (best * 2u + ((s_gold >= DoorCost()) ? 1u : 0u)) : 0u);
+    if(key != s_doorShown)
+    {
+        s_doorShown = key;
+        s_hud      |= HUD_HINT;
+    }
+}
+
+static void BuyDoor(uint16_t k)
+{
+    uint16_t i, cost = DoorCost();
+
+    if(s_gold < cost) { Sfx(&sfx_menu_bump); return; }
+
+    s_gold -= cost;
+    s_doorsBought++;
+    s_doorBought[k] = true;
+    for(i = 0; i < RC_MAP_CELLS; i++)                   // the doorway is now open floor
+        if(kMaps[0][i >> RC_MAP_SHIFT][i & 15u] == (char)('0' + k)) s_tile[i] = 0;
+
+    s_secOpen[k - 1u]                = true;            // both sides are unlocked
+    s_secOpen[k % RC_NUM_SECTIONS]   = true;
+
+    s_flowTx    = -1;                                   // re-path through the new opening
+    s_doorShown = 0xFFFFu;
+    s_viewDirty = 2;
+    s_hud      |= HUD_GOLD | HUD_HINT;
     Sfx(&sfx_level_up);
 }
 
@@ -3662,38 +3818,39 @@ static void UpdatePlay(void)
         s_mana++;
     }
 
+    // Doors: face one and press the stick to buy it
+    UpdateDoorNear();
+    if(g_joy.btnPressed && s_doorNear) BuyDoor(s_doorNear);
+
     // Use the equipped staff / item (hold = auto-use)
     if(g_dpad.u) UseEquipped();
 
+    EnsureFlow();
     UpdateObjects();
     UpdateEnemies();
     TrySpawn();
 
-    if(s_mode == MODE_PLAY && !s_doorOpen)
+    // Rounds never stop: a short breather, then the next wave starts by itself.
+    if(s_mode == MODE_PLAY)
     {
-        bool cleared = s_lv.boss ? (s_bossSpawned && !s_bossAlive)
-                                 : (s_toSpawn == 0 && s_alive == 0);
-        if(cleared) LevelClear();
-    }
-
-    // Through the open door -> next room
-    if(s_mode == MODE_PLAY && s_doorOpen &&
-       (s_px >> 10) == s_doorX && (s_py >> 10) == s_doorY)
-    {
-        StartLevel(s_level + 1u);
-        return;
-    }
-
-    if(s_doorOpen)                              // portal pulse
-    {
-        if(++s_portalTick >= 6u)
+        if(s_roundGap == 0)
         {
-            s_portalTick  = 0;
-            s_portalPhase ^= 1u;
+            bool cleared = s_lv.boss ? (s_bossSpawned && !s_bossAlive)
+                                     : (s_toSpawn == 0 && s_alive == 0);
+            if(cleared)
+            {
+                s_roundGap = ROUND_GAP_FRAMES;
+                s_hud     |= HUD_LEFT;
+                Sfx(&sfx_level_up);
+            }
         }
+        else if(--s_roundGap == 0)
+            StartRound(s_level + 1u);
+        else if((s_roundGap % 30u) == 0)
+            s_hud |= HUD_LEFT;
     }
 
-    if(moved || s_alive || s_fxTimer || s_doorOpen || s_haste || s_aegis)
+    if(moved || s_alive || s_fxTimer || s_haste || s_aegis)
         s_viewDirty = 2;
     else
     {

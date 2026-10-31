@@ -154,10 +154,11 @@ SECTIONS
    csm_rsvd            : > CSM_RSVD,   PAGE = 0
 
    /* Allocate uninitalized data sections: */
-   .stack              : > RAMM0,      PAGE = 1
-   .ebss               : > RAML5,      PAGE = 1
-   .esysmem            : > RAML5,      PAGE = 1
-   .cio			       : > RAML5,      PAGE = 1
+   /* Allocate uninitialized data sections: */
+.stack              : > RAMM0,      PAGE = 1
+.ebss               : >> RAML5 | RAML6, PAGE = 1
+.esysmem            : > RAML7,      PAGE = 1
+.cio                : > RAML8,      PAGE = 1
 
    /* Initalized sections to go in Flash */
    /* For SDFlash to program these, they must be allocated to page 0 */
