@@ -146,12 +146,23 @@ static const Note n_tetrisSay[] = {{N_D5,2},{N_A5,1},{N_G5,1},{N_E5,1},{N_C5,3}}
 static const Note n_bootDmg[] = { {N_B5,2},{N_E6,10} };
 
 static const Note n_bootGbc[] = {
-    {N_G4, 2}, {N_A4, 2}, {N_C5, 2}, {N_D5, 2}, // Zan-ko-ku na
-    {N_E5, 3}, {N_D5, 1}, {N_C5, 2}, {N_D5, 4}, // ten-shi no (Fixed duration on D5)
-    {N_E5, 4}, {N_REST, 4},                     // yo-u ni...  (Lengthened rest)
-    {N_E5, 2}, {N_D5, 2}, {N_C5, 2}, {N_D5, 2}, // Sho-u-ne-n
-    {N_E5, 3}, {N_G5, 1}, {N_E5, 2}, {N_D5, 4}, // yo shin-wa    (Fixed duration on G5)
-    {N_C5, 4}, {N_D5, 2}, {N_E5, 4}, {N_D5, 4}  // ni na-re!    (Added iconic final resolution)
+    {N_REST, 4},  // 0.0–0.4s: startup pause
+    {N_E5,   2},  // 0.4–0.6s
+    {N_G5,   2},  // 0.6–0.8s
+    {N_C6,   3},  // 0.8–1.1s: bright rising chime
+    {N_G5,   2},  // 1.1–1.3s
+    {N_C6,   4},  // 1.3–1.7s: main startup note
+    {N_REST, 2},  // 1.7–1.9s: short breath
+    {N_G5,   2},  // 1.9–2.1s
+    {N_C6,   2},  // 2.1–2.3s
+    {N_E6,   4},  // 2.3–2.7s: high sparkle
+    {N_C6,   2},  // 2.7–2.9s
+    {N_G5,   3},  // 2.9–3.2s
+    {N_C6,   3},  // 3.2–3.5s
+    {N_E6,   4},  // 3.5–3.9s: final flourish
+    {N_G5,   2},  // 3.9–4.1s
+    {N_C6,   2},  // 4.1–4.3s
+    {N_E6,   7},  // 4.3–5.0s: final sustained note
 };
 
 

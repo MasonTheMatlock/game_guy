@@ -125,9 +125,9 @@ SECTIONS
 {
 
    /* Allocate program areas: */
-   .cinit              : > FLASHA,     PAGE = 0
-   .pinit              : > FLASHA,     PAGE = 0
-   .text               : { *(.text) } >> FLASHA | FLASHB | FLASHC, PAGE = 0
+   .cinit              : > FLASHD,     PAGE = 0
+   .pinit              : > FLASHD,     PAGE = 0
+   .text               : { *(.text) } >> FLASHA | FLASHB | FLASHC | FLASHD | FLASHE | FLASHF | FLASHG | FLASHH, PAGE = 0
    codestart           : > BEGIN,      PAGE = 0
 
 #ifdef __TI_COMPILER_VERSION__
@@ -164,14 +164,14 @@ SECTIONS
 
    /* Initalized sections to go in Flash */
 
-   .splash             : > FLASHC, PAGE = 0
+   .splash             : > FLASHH, PAGE = 0
 
    /* For SDFlash to program these, they must be allocated to page 0 */
-   .econst             : > FLASHA,     PAGE = 0
-   .switch             : > FLASHA,     PAGE = 0
+   .econst             : > FLASHG,     PAGE = 0
+   .switch             : > FLASHF,     PAGE = 0
 
    /* Allocate IQ math areas: */
-   IQmath              : > FLASHA,     PAGE = 0            /* Math Code */
+   IQmath              : > FLASHE,     PAGE = 0            /* Math Code */
    IQmathTables        : > IQTABLES,   PAGE = 0, TYPE = NOLOAD
    
    /* Allocate FPU math areas: */
@@ -228,4 +228,3 @@ SECTIONS
 // End of file.
 //===========================================================================
 */
-
