@@ -32,11 +32,24 @@
 #include "raycaster.h"
 #include <math.h>
 
-/* Performance configuration: 40 strips x 8 pixels = 320 pixels. */
+/* Performance configuration: 60 strips x 5 pixels = 300 pixels. */
 #undef RC_COLS
 #undef RC_COL_W
-#define RC_COLS  40
-#define RC_COL_W 8
+#define RC_COLS  60
+#define RC_COL_W 5
+
+#define COL_CEIL    COLOR_BLACK
+#define COL_FLOOR   COLOR_TETRIS_GRID
+#define C_BLACK    COLOR_BLACK
+#define C_WHITE    COLOR_WHITE
+#define C_GRAY     COLOR_GRAY
+#define C_DKGRAY   COLOR_DARK_GRAY
+#define C_RED      COLOR_CRIMSON
+#define C_GOLD     COLOR_GOLD
+#define C_GREEN    COLOR_GREEN
+#define C_CYAN     COLOR_TURQUOISE
+#define C_BAD      COLOR_CORAL
+#define C_XP       COLOR_VIOLET
 
 /* Corridor Run is the looping background theme declared with the other songs. */
 extern const Song song_corridor_run;
@@ -62,18 +75,6 @@ extern const Song song_corridor_run;
 #define RC_STEP_DIST    560
 #define RC_PX_PER_UNIT  ((RC_COLS * RC_COL_W) / RC_FOV_UNITS)
 
-#define COL_CEIL        0x17121EUL
-#define COL_FLOOR       0x2E261AUL
-#define C_BLACK         0x000000UL
-#define C_WHITE         0xFFFFFFUL
-#define C_GRAY          0x909090UL
-#define C_DKGRAY        0x404040UL
-#define C_RED           0xE02020UL
-#define C_GOLD          0xFFD040UL
-#define C_GREEN         0x40FF40UL
-#define C_CYAN          0x40E0FFUL
-#define C_BAD           0xFF6060UL
-#define C_XP            0xB070FFUL
 
 // Game modes
 #define MODE_INTRO      0               // "ROOM n" banner, world frozen
@@ -100,6 +101,18 @@ extern const Song song_corridor_run;
 #define RC_BOSS_HP      140
 #define RC_BOSS_EVERY   6               // every 6th room is the Lich
 
+//*****************************************************************************
+// Mana. Every staff / item costs mana (kStaffMana / kItemMana below). It refills
+// slowly while the stick is released and bottles drop from dead enemies.
+//*****************************************************************************
+#define MANA_MAX            100
+#define MANA_REGEN_FRAMES   10          // standing still: +1 mana every N frames (~3/s)
+#define MANA_BOTTLE         25          // mana per bottle
+#define MANA_DROP_PCT       20          // % chance an enemy drops a bottle (Lich: always)
+#define MANA_PICKUP_R       380         // pickup distance (Q10)
+#define MANA_BOTTLE_LIFE    450         // frames a bottle stays on the floor
+#define C_MANA              COLOR_BLUE
+
 /* Frame cap. Reuses the free-running 32-bit down counter that joystick.c
  * already starts (CpuTimer0): TimerNow() and TICKS_PER_MS come from drivers.h. */
 #define RC_TARGET_FPS   30UL
@@ -119,7 +132,7 @@ enum { SH_GOBLIN, SH_BAT, SH_SKELETON, SH_LICH, SH_BEHOLDER,
        SH_FLASK, SH_BOLT, SH_PUFF, SH_COUNT };
 enum { PT_GOBLIN, PT_BAT, PT_HOBGOB, PT_SKELETON, PT_BEHOLDER, PT_LICH,
        PT_BEHOLDER_HOT,
-       PT_FLASK_FIRE, PT_FLASK_FROST, PT_FLASK_VENOM,
+       PT_FLASK_FIRE, PT_FLASK_FROST, PT_FLASK_VENOM, PT_FLASK_MANA,
        PT_BOLT,
        PT_PUFF_FIRE, PT_PUFF_FROST, PT_PUFF_VENOM, PT_PUFF_ARCANE,
        PT_COUNT };
@@ -183,13 +196,15 @@ typedef struct
 
 static const Staff kStaff[NUM_STAFF] =
 {
-    { "Ray Wand",    3, 16, 1,  0,  0, 0x40E0FFUL },
-    { "Prism Staff", 3, 22, 3, 16,  0, 0xFF60FFUL },
-    { "Lance",       5, 30, 1,  0, 99, 0xFFFF60UL },
-    { "Storm Rod",   2,  8, 1,  0,  0, 0xA0A0FFUL },
-    { "Sunfire",     4, 34, 5, 14,  1, 0xFF9030UL },
+    { "Ray Wand",    3, 16, 1,  0,  0, COLOR_TURQUOISE },
+    { "Prism Staff", 3, 22, 3, 16,  0, COLOR_VIOLET },
+    { "Lance",       5, 30, 1,  0, 99, COLOR_KHAKI },
+    { "Storm Rod",   2,  8, 1,  0,  0, COLOR_PLUM },
+    { "Sunfire",     4, 34, 5, 14,  1, COLOR_CORAL },
 };
 static const uint16_t kStaffCost[NUM_STAFF] = { 0, 70, 130, 110, 260 };
+// Mana per shot, same order as kStaff
+static const uint16_t kStaffMana[NUM_STAFF] = { 2, 6, 8, 1, 10 };
 
 /* Shot sound for each staff (same order as kStaff). Defined in songs.c. */
 static const Song *const kStaffSfx[NUM_STAFF] =
@@ -216,16 +231,18 @@ typedef struct
 
 static const ItemDef kItem[NUM_ITEM] =
 {
-    { "Fire Flask",   60, 0xFF7020UL },
-    { "Frost Flask",  70, 0x60D0FFUL },
-    { "Venom Flask", 110, 0x60E040UL },
-    { "Elixir",      600, 0xFF4068UL },
-    { "Haste Brew",  700, 0xFFE040UL },
-    { "Arcane Tome",  50, 0xC070FFUL },
-    { "Warp Rune",   120, 0x40FFC0UL },
-    { "Aegis Charm", 480, 0x70A0FFUL },
+    { "Fire Flask",   60, COLOR_TETRIS_L_ORANGE },
+    { "Frost Flask",  70, COLOR_SKY_BLUE },
+    { "Venom Flask", 110, COLOR_MINT },
+    { "Elixir",      600, COLOR_CRIMSON },
+    { "Haste Brew",  700, COLOR_GOLD },
+    { "Arcane Tome",  50, COLOR_VIOLET },
+    { "Warp Rune",   120, COLOR_TURQUOISE },
+    { "Aegis Charm", 480, COLOR_SKY_BLUE },
 };
 static const uint16_t kItemCost[NUM_ITEM] = { 90, 90, 110, 80, 100, 170, 120, 150 };
+// Mana per use, same order as kItem
+static const uint16_t kItemMana[NUM_ITEM] = { 8, 8, 10, 20, 25, 12, 6, 25 };
 
 // Potion kinds (also the order of the three flask palettes / puff palettes)
 enum { PK_FIRE, PK_FROST, PK_VENOM, PK_ARCANE };
@@ -590,50 +607,52 @@ static const char *const *const kArt[SH_COUNT] =
 typedef struct { char ch; uint32_t rgb; } PalEnt;      // list ends with ch = 0
 
 static const PalEnt kPalGoblin[] =
-    { {'d',0x40B030UL},{'b',0x206018UL},{'c',0xFFE020UL},{'h',0xFFFFFFUL},{'f',0x301010UL},
-      {'e',0x7A5A30UL},{'a',0x4A3018UL},{'g',0xC8D0D8UL},{0,0} };
+    { {'d',COLOR_OLIVE},{'b',COLOR_DARK_GRAY},{'c',COLOR_GOLD},{'h',COLOR_WHITE},{'f',COLOR_TETRIS_GRID},
+      {'e',COLOR_DARK_GRAY},{'a',COLOR_TETRIS_GRID},{'g',COLOR_LIGHT_GRAY},{0,0} };
 static const PalEnt kPalHobgob[] =
-    { {'d',0xC06030UL},{'b',0x703010UL},{'c',0xFF3020UL},{'h',0xFFFFFFUL},{'f',0x301010UL},
-      {'e',0x502020UL},{'a',0x301818UL},{'g',0xFFD060UL},{0,0} };
+    { {'d',COLOR_BROWN},{'b',COLOR_BROWN},{'c',COLOR_CRIMSON},{'h',COLOR_WHITE},{'f',COLOR_TETRIS_GRID},
+      {'e',COLOR_TETRIS_GRID},{'a',COLOR_TETRIS_GRID},{'g',COLOR_KHAKI},{0,0} };
 static const PalEnt kPalBat[]    =
-    { {'a',0x8848C8UL},{'b',0xFF4040UL},{'c',0x502888UL},{'d',0xFFFFFFUL},{0,0} };
+    { {'a',COLOR_GRAY},{'b',COLOR_CRIMSON},{'c',COLOR_DARK_PURPLE},{'d',COLOR_WHITE},{0,0} };
 static const PalEnt kPalSkel[]   =
-    { {'d',0xE8E4D0UL},{'a',0x706C58UL},{'b',0xFF3030UL},{'c',0xA0A8B8UL},{0,0} };
+    { {'d',COLOR_LIGHT_GRAY},{'a',COLOR_GRAY},{'b',COLOR_CRIMSON},{'c',COLOR_SILVER},{0,0} };
 static const PalEnt kPalLich[]   =
-    { {'a',0xFFD020UL},{'b',0xE8E8D8UL},{'c',0x40FFFFUL},{'d',0x34206CUL},
-      {'e',0x6038B0UL},{'f',0x101010UL},{0,0} };
+    { {'a',COLOR_GOLD},{'b',COLOR_LIGHT_GRAY},{'c',COLOR_CYAN},{'d',COLOR_DARK_PURPLE},
+      {'e',COLOR_DARK_PURPLE},{'f',COLOR_BLACK},{0,0} };
 static const PalEnt kPalBeholder[] =
-    { {'c',0x7A3C8CUL},{'f',0x4A1C5CUL},{'g',0xF0F0E8UL},{'d',0xD02020UL},{'a',0x101010UL},
-      {'h',0xFFD030UL},{'e',0xFFFFFFUL},{'b',0x200820UL},{0,0} };
+    { {'c',COLOR_PURPLE},{'f',COLOR_DARK_PURPLE},{'g',COLOR_WHITE},{'d',COLOR_CRIMSON},{'a',COLOR_BLACK},
+      {'h',COLOR_GOLD},{'e',COLOR_WHITE},{'b',COLOR_TETRIS_GRID},{0,0} };
 static const PalEnt kPalBeholderHot[] =
-    { {'c',0x9A4CAAUL},{'f',0x4A1C5CUL},{'g',0xFFD0D0UL},{'d',0xFFFF50UL},{'a',0xFF2020UL},
-      {'h',0xFF4040UL},{'e',0xFFFFFFUL},{'b',0x200820UL},{0,0} };
+    { {'c',COLOR_GRAY},{'f',COLOR_DARK_PURPLE},{'g',COLOR_PINK},{'d',COLOR_KHAKI},{'a',COLOR_CRIMSON},
+      {'h',COLOR_CRIMSON},{'e',COLOR_WHITE},{'b',COLOR_TETRIS_GRID},{0,0} };
 static const PalEnt kPalFlaskFire[] =
-    { {'a',0xFF6020UL},{'c',0xD8E8F0UL},{'d',0x9A6A30UL},{'b',0x182028UL},{0,0} };
+    { {'a',COLOR_TETRIS_L_ORANGE},{'c',COLOR_LIGHT_GRAY},{'d',COLOR_OLIVE},{'b',COLOR_TETRIS_GRID},{0,0} };
 static const PalEnt kPalFlaskFrost[] =
-    { {'a',0x60D8FFUL},{'c',0xD8E8F0UL},{'d',0x9A6A30UL},{'b',0x182028UL},{0,0} };
+    { {'a',COLOR_SKY_BLUE},{'c',COLOR_LIGHT_GRAY},{'d',COLOR_OLIVE},{'b',COLOR_TETRIS_GRID},{0,0} };
 static const PalEnt kPalFlaskVenom[] =
-    { {'a',0x50E040UL},{'c',0xD8E8F0UL},{'d',0x9A6A30UL},{'b',0x182028UL},{0,0} };
+    { {'a',COLOR_GREEN},{'c',COLOR_LIGHT_GRAY},{'d',COLOR_OLIVE},{'b',COLOR_TETRIS_GRID},{0,0} };
+static const PalEnt kPalFlaskMana[] =
+    { {'a',COLOR_BLUE},{'c',COLOR_WHITE},{'d',COLOR_GOLD},{'b',COLOR_NAVY},{0,0} };
 static const PalEnt kPalBolt[]   =
-    { {'a',0xFF2020UL},{'b',0xFFFFFFUL},{0,0} };
+    { {'a',COLOR_CRIMSON},{'b',COLOR_WHITE},{0,0} };
 static const PalEnt kPalPuffFire[] =
-    { {'a',0xC03010UL},{'b',0xFF8020UL},{'c',0xFFE060UL},{0,0} };
+    { {'a',COLOR_BROWN},{'b',COLOR_TETRIS_L_ORANGE},{'c',COLOR_KHAKI},{0,0} };
 static const PalEnt kPalPuffFrost[] =
-    { {'a',0x3080C0UL},{'b',0x80D0FFUL},{'c',0xFFFFFFUL},{0,0} };
+    { {'a',COLOR_TEAL},{'b',COLOR_SKY_BLUE},{'c',COLOR_WHITE},{0,0} };
 static const PalEnt kPalPuffVenom[] =
-    { {'a',0x207020UL},{'b',0x50C030UL},{'c',0xB0FF70UL},{0,0} };
+    { {'a',COLOR_DARK_GRAY},{'b',COLOR_OLIVE},{'c',COLOR_MINT},{0,0} };
 static const PalEnt kPalPuffArcane[] =
-    { {'a',0x7040C0UL},{'b',0xC090FFUL},{'c',0xFFFFFFUL},{0,0} };
+    { {'a',COLOR_GRAY},{'b',COLOR_VIOLET},{'c',COLOR_WHITE},{0,0} };
 
 static const PalEnt *const kPal[PT_COUNT] =
 {
     kPalGoblin, kPalBat, kPalHobgob, kPalSkel, kPalBeholder, kPalLich, kPalBeholderHot,
-    kPalFlaskFire, kPalFlaskFrost, kPalFlaskVenom, kPalBolt,
+    kPalFlaskFire, kPalFlaskFrost, kPalFlaskVenom, kPalFlaskMana, kPalBolt,
     kPalPuffFire, kPalPuffFrost, kPalPuffVenom, kPalPuffArcane
 };
 
 // Sprite tint: 0 none, 1 white (hit), 2 orange (burning), 3 ice blue (frozen)
-static const uint32_t kTint[4] = { 0, 0xFFFFFFUL, 0xFF8820UL, 0x70C8FFUL };
+static const uint32_t kTint[4] = { 0, COLOR_WHITE, COLOR_TETRIS_L_ORANGE, COLOR_SKY_BLUE };
 
 // Wall tiles: 0 unused, 1 stone, 2 pillar, 3 brick, 4 door (closed), 5 portal (open),
 // 6 = the portal's second pulse colour (only used for drawing, never in the map)
@@ -641,7 +660,7 @@ static const uint32_t kTint[4] = { 0, 0xFFFFFFUL, 0xFF8820UL, 0x70C8FFUL };
 #define TILE_PORTAL  5
 #define TILE_KINDS   7                  // tile 6 = portal second pulse colour (draw only)
 static const uint32_t kWallBase[TILE_KINDS] =
-    { 0, 0x8088A0UL, 0xB09060UL, 0xA05040UL, 0x7A4A24UL, 0x30E0B0UL, 0xA0FFE8UL };
+    { 0, COLOR_GRAY, COLOR_GRAY, COLOR_BROWN, COLOR_BROWN, COLOR_TURQUOISE, COLOR_SKY_BLUE };
 static const uint16_t kShadeMul[4] = { 256, 190, 130, 84 };
 //*****************************************************************************
 // First-person art (what Ray Caster holds in his LEFT hand). 20 x 18 cells,
@@ -655,7 +674,7 @@ static const uint16_t kShadeMul[4] = { 256, 190, 130, 84 };
 //*****************************************************************************
 #define WPN_W        20
 #define WPN_H        18
-#define WPN_SCALE    4                  // 80 x 72 pixels on screen
+#define WPN_SCALE    RC_COL_W           // one art cell = one strip (5 px): 100 x 90 on screen
 #define WPN_TIP_ROW  1                  // art row the beam leaves from
 #define WPN_MAXRUNS  12                 // vertical runs kept per art column
 #define WPN_Y0       (RC_VIEW_H - WPN_H * WPN_SCALE)   // top row of the art in the view
@@ -850,22 +869,22 @@ static const char *const kWpnArt[NUM_SLOT] =
 
 // k outline, s/q glove, c/d sleeve, w/x body, g gem, h highlight, f flash, y/r accents
 #define WPAL(K,C,D,W,X,G,H,F,Y,R) \
-    { {'k',K},{'s',0xE0B890UL},{'q',0x9C7450UL},{'c',C},{'d',D},\
+    { {'k',K},{'s',COLOR_KHAKI},{'q',COLOR_GRAY},{'c',C},{'d',D},\
       {'w',W},{'x',X},{'g',G},{'h',H},{'f',F},{'y',Y},{'r',R},{0,0} }
 
-static const PalEnt kWpnPalRay[]   = WPAL(0x0C1420UL,0x305078UL,0x203858UL,0xC8D8E8UL,0x7088A0UL,0x40E0FFUL,0xFFFFFFUL,0x80F0FFUL,0xFFD040UL,0xE04040UL);
-static const PalEnt kWpnPalPrism[] = WPAL(0x180C20UL,0x602870UL,0x401850UL,0xF0C048UL,0x946820UL,0xFF60FFUL,0xFFFFFFUL,0x60FFFFUL,0xFFFF60UL,0xFF5050UL);
-static const PalEnt kWpnPalLance[] = WPAL(0x201008UL,0x6C4C28UL,0x483018UL,0xB07C3CUL,0x6C4420UL,0xE0E040UL,0xFFFFFFUL,0xFFFF90UL,0xD8E0F0UL,0xE02828UL);
-static const PalEnt kWpnPalStorm[] = WPAL(0x101020UL,0x383868UL,0x282848UL,0xA8A8C8UL,0x606084UL,0xA0A0FFUL,0xFFFFFFUL,0x7088FFUL,0xFFFF80UL,0xFF6060UL);
-static const PalEnt kWpnPalSun[]   = WPAL(0x200808UL,0x882414UL,0x581008UL,0xE0A030UL,0x946010UL,0xFF9030UL,0xFFE880UL,0xFF5010UL,0xFFF0A0UL,0xFF4020UL);
-static const PalEnt kWpnPalFire[]  = WPAL(0x200808UL,0x882414UL,0x581008UL,0xD8E8F0UL,0x8898A8UL,0xFF6020UL,0xFFE080UL,0xFF9020UL,0xFFE040UL,0x9A6A30UL);
-static const PalEnt kWpnPalFrost[] = WPAL(0x081420UL,0x305878UL,0x203850UL,0xE0F0FFUL,0x90B0D0UL,0x60D8FFUL,0xFFFFFFUL,0xA0F0FFUL,0xFFFFFFUL,0x60D8FFUL);
-static const PalEnt kWpnPalVenom[] = WPAL(0x081008UL,0x285028UL,0x183018UL,0xD8E8F0UL,0x8898A8UL,0x50E040UL,0xB8FF80UL,0x80FF60UL,0xE8E4D0UL,0xFF3030UL);
-static const PalEnt kWpnPalElixir[]= WPAL(0x200810UL,0x703050UL,0x481830UL,0xD8E8F0UL,0x8898A8UL,0xE02050UL,0xFF90B0UL,0xFF60A0UL,0x9A6A30UL,0xFFD040UL);
-static const PalEnt kWpnPalHaste[] = WPAL(0x201808UL,0x887020UL,0x584810UL,0xD8E8F0UL,0x8898A8UL,0xFFD030UL,0xFFFFA0UL,0xFFFF60UL,0xFFFFFFUL,0xFFB020UL);
-static const PalEnt kWpnPalTome[]  = WPAL(0x100820UL,0x482878UL,0x301850UL,0x6038A8UL,0x402070UL,0xC070FFUL,0xE8E0C8UL,0xFFFFFFUL,0xFFD040UL,0xC070FFUL);
-static const PalEnt kWpnPalWarp[]  = WPAL(0x082018UL,0x1E5048UL,0x143830UL,0x30B090UL,0x1A6A58UL,0x40FFC0UL,0xFFFFFFUL,0x80FFE0UL,0xFFFFFFUL,0x40FFC0UL);
-static const PalEnt kWpnPalAegis[] = WPAL(0x101028UL,0x28407AUL,0x182850UL,0x4070D0UL,0x2A4890UL,0x70A0FFUL,0xFFFFFFUL,0xB0D0FFUL,0xFFD040UL,0xFFD040UL);
+static const PalEnt kWpnPalRay[]   = WPAL(COLOR_TETRIS_GRID,COLOR_CHARCOAL,COLOR_CHARCOAL,COLOR_LIGHT_GRAY,COLOR_GRAY,COLOR_TURQUOISE,COLOR_WHITE,COLOR_SKY_BLUE,COLOR_GOLD,COLOR_CRIMSON);
+static const PalEnt kWpnPalPrism[] = WPAL(COLOR_TETRIS_GRID,COLOR_DARK_PURPLE,COLOR_DARK_GRAY,COLOR_CORAL,COLOR_OLIVE,COLOR_VIOLET,COLOR_WHITE,COLOR_TURQUOISE,COLOR_KHAKI,COLOR_CORAL);
+static const PalEnt kWpnPalLance[] = WPAL(COLOR_TETRIS_GRID,COLOR_DARK_GRAY,COLOR_TETRIS_GRID,COLOR_CORAL,COLOR_DARK_GRAY,COLOR_GOLD,COLOR_WHITE,COLOR_KHAKI,COLOR_LIGHT_GRAY,COLOR_CRIMSON);
+static const PalEnt kWpnPalStorm[] = WPAL(COLOR_TETRIS_GRID,COLOR_CHARCOAL,COLOR_DARK_GRAY,COLOR_SILVER,COLOR_GRAY,COLOR_PLUM,COLOR_WHITE,COLOR_SKY_BLUE,COLOR_KHAKI,COLOR_CORAL);
+static const PalEnt kWpnPalSun[]   = WPAL(COLOR_BLACK,COLOR_BROWN,COLOR_MAROON,COLOR_ORANGE,COLOR_OLIVE,COLOR_CORAL,COLOR_KHAKI,COLOR_TETRIS_L_ORANGE,COLOR_KHAKI,COLOR_CRIMSON);
+static const PalEnt kWpnPalFire[]  = WPAL(COLOR_BLACK,COLOR_BROWN,COLOR_MAROON,COLOR_LIGHT_GRAY,COLOR_GRAY,COLOR_TETRIS_L_ORANGE,COLOR_KHAKI,COLOR_TETRIS_L_ORANGE,COLOR_GOLD,COLOR_OLIVE);
+static const PalEnt kWpnPalFrost[] = WPAL(COLOR_TETRIS_GRID,COLOR_CHARCOAL,COLOR_CHARCOAL,COLOR_WHITE,COLOR_SKY_BLUE,COLOR_SKY_BLUE,COLOR_WHITE,COLOR_SKY_BLUE,COLOR_WHITE,COLOR_SKY_BLUE);
+static const PalEnt kWpnPalVenom[] = WPAL(COLOR_BLACK,COLOR_DARK_GRAY,COLOR_TETRIS_GRID,COLOR_LIGHT_GRAY,COLOR_GRAY,COLOR_GREEN,COLOR_MINT,COLOR_MINT,COLOR_LIGHT_GRAY,COLOR_CRIMSON);
+static const PalEnt kWpnPalElixir[]= WPAL(COLOR_BLACK,COLOR_DARK_GRAY,COLOR_TETRIS_GRID,COLOR_LIGHT_GRAY,COLOR_GRAY,COLOR_CRIMSON,COLOR_PLUM,COLOR_CORAL,COLOR_OLIVE,COLOR_GOLD);
+static const PalEnt kWpnPalHaste[] = WPAL(COLOR_TETRIS_GRID,COLOR_OLIVE,COLOR_DARK_GRAY,COLOR_LIGHT_GRAY,COLOR_GRAY,COLOR_GOLD,COLOR_KHAKI,COLOR_KHAKI,COLOR_WHITE,COLOR_ORANGE);
+static const PalEnt kWpnPalTome[]  = WPAL(COLOR_TETRIS_GRID,COLOR_DARK_PURPLE,COLOR_DARK_GRAY,COLOR_DARK_PURPLE,COLOR_DARK_PURPLE,COLOR_VIOLET,COLOR_LIGHT_GRAY,COLOR_WHITE,COLOR_GOLD,COLOR_VIOLET);
+static const PalEnt kWpnPalWarp[]  = WPAL(COLOR_TETRIS_GRID,COLOR_CHARCOAL,COLOR_TETRIS_GRID,COLOR_TEAL,COLOR_CHARCOAL,COLOR_TURQUOISE,COLOR_WHITE,COLOR_SKY_BLUE,COLOR_WHITE,COLOR_TURQUOISE);
+static const PalEnt kWpnPalAegis[] = WPAL(COLOR_TETRIS_GRID,COLOR_CHARCOAL,COLOR_CHARCOAL,COLOR_GRAY,COLOR_CHARCOAL,COLOR_SKY_BLUE,COLOR_WHITE,COLOR_SKY_BLUE,COLOR_GOLD,COLOR_GOLD);
 
 static const PalEnt *const kWpnPal[NUM_SLOT] =
 {
@@ -913,6 +932,9 @@ static uint16_t s_traits, s_staffOwned, s_itemOwned, s_equip;
 static uint16_t s_cd[NUM_SLOT], s_cdMax[NUM_SLOT];  // per-slot cooldown (frames)
 static uint16_t s_haste, s_aegis;               // buff frames left
 static uint16_t s_xp, s_xpLv, s_lvPending;      // XP bar, player level, unspent level-ups
+static uint16_t s_mana, s_manaAcc, s_manaFlash; // mana, regen timer, "not enough" flash frames
+static int16_t  s_manaShown = -1;               // mana bar pixels on screen (-1 = repaint all)
+static bool     s_manaFlashShown;
 
 // Level
 static uint16_t s_level;                        // 0 = first room (endless)
@@ -935,7 +957,7 @@ typedef struct
     int16_t  z;             // sprite lift, Q4 fraction of wall height
     uint16_t kind, pal, sc, life, age, aux, alive;
 } Obj;
-enum { OB_FLASK, OB_BOLT, OB_CLOUD, OB_SPARK };
+enum { OB_FLASK, OB_BOLT, OB_CLOUD, OB_SPARK, OB_MANA };
 static Obj      s_obj[RC_MAX_OBJ];
 
 // Flow
@@ -947,7 +969,7 @@ static uint16_t s_fxTimer, s_fxN;
 static int16_t  s_fxX[5];
 static uint32_t s_fxColor;
 
-// Held item: one list of vertical colour runs per ART column (4 px wide),
+// Held item: one list of vertical colour runs per ART column (RC_COL_W px wide),
 // packed y0 | y1 << 5 | colour << 10 (rows are art cells).
 static uint16_t s_wRun[WPN_W][WPN_MAXRUNS];
 static uint16_t s_wRunN[WPN_W];
@@ -960,6 +982,9 @@ static int16_t  s_cdShown = -1;                 // cooldown strip pixels current
 #define WPN_C0   (((WPN_X0) - RC_VIEW_X0) / RC_COL_W)
 #define WPN_C1   (((WPN_X0 + WPN_W * WPN_SCALE - 1) - RC_VIEW_X0) / RC_COL_W)
 #define WPN_TIP_X (WPN_X0 + 10 * WPN_SCALE)     // shaft is columns 9-10
+#if (WPN_XOFF % RC_COL_W) != 0
+#error WPN_XOFF must be a multiple of RC_COL_W so the hand lines up with the strips
+#endif
 
 // Draw state
 static bool     s_dirtyFull, s_invalidate, s_bannerDraw;
@@ -970,12 +995,11 @@ static int16_t  s_prvT[RC_COLS], s_prvB[RC_COLS];       // overlay rows drawn la
 // What is on the LCD, per vertical STRIP, as a list of colour runs. Each frame
 // the new picture is built the same way and only the runs whose colour changed
 // are sent. A run is (last row << 8) | colour id; the list always covers all
-// RC_VIEW_H rows. Columns under the held item are split into two 4 px strips
-// so the art (4 px cells) fits the model exactly.
+// RC_VIEW_H rows. Hand cells are as wide as a strip,
+// so the art cells fit the model exactly.
 #define RC_MAXR      12                 // runs stored per strip
 #define RC_MAXN      32                 // runs allowed while a strip is being built
-#define RC_WPN_COLS  (((WPN_X0 + WPN_W * WPN_SCALE - 1 - RC_VIEW_X0) / RC_COL_W) - ((WPN_X0 - RC_VIEW_X0) / RC_COL_W) + 1)
-#define RC_STRIPS    (RC_COLS + RC_WPN_COLS)
+#define RC_STRIPS    RC_COLS            // hand cells are as wide as a strip: no splitting
 static uint16_t s_sl[RC_STRIPS][RC_MAXR];
 static uint16_t s_sn[RC_STRIPS];
 uint16_t g_rcOverflow;                          // diagnostics: paints dropped (should stay ~0)
@@ -1145,7 +1169,7 @@ static void SetPal(uint16_t type, const PalEnt *list)
 {
     uint16_t i;
 
-    for(i = 0; i < PAL_N; i++) s_pal[type][i] = 0xFF00FFUL;    // magenta = missing
+    for(i = 0; i < PAL_N; i++) s_pal[type][i] = COLOR_MAGENTA;    // magenta = missing
     for(i = 0; list[i].ch; i++)
         if((uint16_t)(list[i].ch - 'a') < PAL_N)
             s_pal[type][list[i].ch - 'a'] = list[i].rgb;
@@ -1386,6 +1410,13 @@ static uint32_t SlotColor(uint16_t slot)
     return (slot < NUM_STAFF) ? kStaff[slot].color : kItem[slot - NUM_STAFF].color;
 }
 
+static uint16_t SlotMana(uint16_t slot)
+{
+    return (slot < NUM_STAFF) ? kStaffMana[slot] : kItemMana[slot - NUM_STAFF];
+}
+
+static void DropMana(int16_t x, int16_t y);
+
 static uint16_t StaffCooldown(uint16_t st)
 {
     int16_t cd = (int16_t)((kStaff[st].cooldown * (100 - 9 * s_lvRate)) / 100);
@@ -1461,6 +1492,9 @@ static void KillEnemy(Enemy *e)
     }
 
     Sfx(&sfx_explosion);
+
+    if(!summoned && (e->type == ET_LICH || (Rand16() % 100u) < MANA_DROP_PCT))
+        DropMana(e->x, e->y);
 
     if(e->type == ET_LICH)
     {
@@ -1549,6 +1583,18 @@ static Obj *NewObj(uint16_t kind)
     o->aux  = 0;
     o->alive = 1;
     return o;
+}
+
+static void DropMana(int16_t x, int16_t y)
+{
+    Obj *o = NewObj(OB_MANA);
+
+    if(o == NULL) return;                       // object list full: no bottle this time
+    o->x    = x;
+    o->y    = y;
+    o->z    = 0;
+    o->pal  = PT_FLASK_MANA;
+    o->life = MANA_BOTTLE_LIFE;
 }
 
 static void AddSpark(int16_t x, int16_t y, int16_t z, uint16_t sc, uint16_t pal, uint16_t life)
@@ -1658,6 +1704,19 @@ static void UpdateObjects(void)
                         DamageEnemyEx(e, (uint16_t)(1u + s_lvDmg / 3u), 0, 0, true);
                         if(e->alive) e->slow = 30;
                     }
+                }
+                break;
+
+            case OB_MANA:                       // mana bottle on the floor
+                if(++o->age >= o->life) { o->alive = 0; break; }
+                o->z = (int16_t)((o->age >> 3) & 1u);                   // little bob
+                if(s_mana < MANA_MAX &&
+                   Dist10(s_px - o->x, s_py - o->y) < MANA_PICKUP_R)
+                {
+                    s_mana += MANA_BOTTLE;
+                    if(s_mana > MANA_MAX) s_mana = MANA_MAX;
+                    o->alive = 0;
+                    Sfx(&sfx_powerup);
                 }
                 break;
 
@@ -1929,18 +1988,30 @@ static void UseEquipped(void)
 {
     uint16_t slot = s_equip;
     uint16_t it;
+    uint16_t cost = SlotMana(slot);
 
     if(s_cd[slot]) return;
+
+    if(s_mana < cost)                                   // not enough mana
+    {
+        s_cdMax[slot] = 10;
+        s_cd[slot]    = 10;                             // retry delay (holding U won't spam)
+        s_manaFlash   = 12;
+        Sfx(&sfx_menu_bump);
+        return;
+    }
 
     if(slot < NUM_STAFF)
     {
         Fire();
+        s_mana -= cost;
         return;
     }
 
     it = slot - NUM_STAFF;
     if(UseItem(it))
     {
+        s_mana       -= cost;                           // only paid if the item was used
         s_cdMax[slot] = kItem[it].cooldown;
         s_cd[slot]    = kItem[it].cooldown;
     }
@@ -2253,7 +2324,7 @@ static void DrawHudFrame(void)
 static void DrawHint(void)
 {
     Graphics_FillRect(0, 217, SCREEN_W - 1, SCREEN_H - 1, C_BLACK);
-    if(s_aegis)      DrawText("SHIELD UP!", SCREEN_W / 2, 229, 0x70A0FFUL);
+    if(s_aegis)      DrawText("SHIELD UP!", SCREEN_W / 2, 229, COLOR_SKY_BLUE);
     else if(s_haste) DrawText("HASTE!", SCREEN_W / 2, 229, C_GOLD);
     else             DrawText("U:use  D:swap  L/R:turn", SCREEN_W / 2, 229, C_DKGRAY);
 }
@@ -2299,7 +2370,7 @@ static void DrawHud(void)
         DrawSmall(buf, 280, 8, C_GOLD, C_BLACK);
 
         Graphics_FillRect(XP_BAR_X0, XP_BAR_Y0, XP_BAR_X1, XP_BAR_Y1, C_DKGRAY);
-        Graphics_FillRect(XP_BAR_X0 + 1, XP_BAR_Y0 + 1, XP_BAR_X1 - 1, XP_BAR_Y1 - 1, 0x180830UL);
+        Graphics_FillRect(XP_BAR_X0 + 1, XP_BAR_Y0 + 1, XP_BAR_X1 - 1, XP_BAR_Y1 - 1, COLOR_TETRIS_GRID);
         w = (int16_t)(((int32_t)s_xp * (XP_BAR_X1 - XP_BAR_X0 - 1)) / XpNeed());
         if(w > 0)
             Graphics_FillRect(XP_BAR_X0 + 1, XP_BAR_Y0 + 1, XP_BAR_X0 + w,
@@ -2309,7 +2380,10 @@ static void DrawHud(void)
     if(s_hud & HUD_STAFF)
     {
         Graphics_FillRect(0, RC_VIEW_Y1 + 2, 189, 215, C_BLACK);
-        DrawText(SlotName(s_equip), 95, 203, SlotColor(s_equip));
+        DrawText(SlotName(s_equip), 85, 203, SlotColor(s_equip));
+        n  = Cat(buf, 0, "MP ", 3);
+        Itoa(buf + n, SlotMana(s_equip));
+        DrawSmall(buf, 165, 204, C_MANA, C_BLACK);
         s_cdShown = -1;                     // redraw the cooldown strip too
     }
 
@@ -2377,6 +2451,41 @@ static void DrawCdStrip(void)
     s_cdShown = w;
 }
 
+// Mana bar: vertical, in the free column left of the 3D view (x 1..8).
+// Only the pixels that changed since last frame are redrawn.
+#define MANA_X0   1
+#define MANA_X1   8
+static void DrawManaBar(void)
+{
+    int16_t  y0 = RC_VIEW_Y0, y1 = RC_VIEW_Y1;
+    int16_t  inB = (int16_t)(y1 - 1);                   // bottom inner row
+    int16_t  inH = (int16_t)(RC_VIEW_H - 2);
+    int16_t  h   = (int16_t)(((int32_t)s_mana * inH) / MANA_MAX);
+    bool     fl  = (s_manaFlash != 0);
+    uint32_t col = fl ? C_RED : C_MANA;
+
+    if(s_manaFlash) s_manaFlash--;
+
+    if(h == s_manaShown && fl == s_manaFlashShown) return;
+
+    if(s_manaShown < 0 || fl != s_manaFlashShown)       // full repaint
+    {
+        Graphics_FillRect(0, y0, MANA_X1 + 1, y1, C_BLACK);
+        Graphics_FillRect(MANA_X0, y0, MANA_X1, y1, C_DKGRAY);
+        Graphics_FillRect(MANA_X0 + 1, y0 + 1, MANA_X1 - 1, y1 - 1, COLOR_TETRIS_GRID);
+        if(h > 0)
+            Graphics_FillRect(MANA_X0 + 1, inB - h + 1, MANA_X1 - 1, inB, col);
+    }
+    else if(h > s_manaShown)                            // filled up
+        Graphics_FillRect(MANA_X0 + 1, inB - h + 1, MANA_X1 - 1, inB - s_manaShown, col);
+    else                                                // used some
+        Graphics_FillRect(MANA_X0 + 1, inB - s_manaShown + 1, MANA_X1 - 1, inB - h,
+                          COLOR_TETRIS_GRID);
+
+    s_manaShown      = h;
+    s_manaFlashShown = fl;
+}
+
 //*****************************************************************************
 // 3D view
 //*****************************************************************************
@@ -2386,8 +2495,8 @@ static void DrawCdStrip(void)
 #define ID_CEIL     0u
 #define ID_FLOOR    1u
 #define ID_SPR      64u                 // + palette * 8 + letter
-#define ID_TINT     184u                // + tint index (1..3)
-#define ID_WPN      192u                // + palette letter
+#define ID_TINT     192u                // + tint index (1..3)
+#define ID_WPN      200u                // + palette letter
 #define ID_UNKNOWN  255u                // "something else is on the LCD here"
 #define ID_WALL(tile, shade, side)  (2u + (tile) * 8u + (shade) * 2u + (side))
 
@@ -2408,9 +2517,8 @@ static uint32_t IdColor(uint16_t id)
 // Strip index of column c (half = 0/1 inside the weapon columns).
 static uint16_t StripIndex(uint16_t c, uint16_t half)
 {
-    if(c < WPN_C0)  return c;
-    if(c <= WPN_C1) return (uint16_t)(WPN_C0 + 2u * (c - WPN_C0) + half);
-    return (uint16_t)(c + (WPN_C1 - WPN_C0 + 1));
+    (void)half;                                 // strips are never split any more
+    return c;
 }
 
 static void InvalidateView(void)
@@ -2649,6 +2757,10 @@ static void ProjectSprites(void)
             case OB_BOLT:
                 ProjectOne(o->x, o->y, SH_BOLT, PT_BOLT, 3, (uint16_t)o->z, 0);
                 break;
+            case OB_MANA:
+                if(o->life - o->age < 90u && (o->age & 4u)) break;      // blink before it vanishes
+                ProjectOne(o->x, o->y, SH_FLASK, PT_FLASK_MANA, 5, (uint16_t)o->z, 0);
+                break;
             default:                                    // cloud / spark
                 ProjectOne(o->x, o->y, SH_PUFF, o->pal,
                            (uint16_t)(o->sc + ((o->age >> 1) & 3u)),
@@ -2717,7 +2829,7 @@ static void WpnBuild(uint16_t slot)
     char     ch;
     const char *art = kWpnArt[slot];
 
-    for(i = 0; i < 26; i++) s_wPal[i] = 0xFF00FFUL;
+    for(i = 0; i < 26; i++) s_wPal[i] = COLOR_MAGENTA;
     for(i = 0; kWpnPal[slot][i].ch; i++)
         s_wPal[kWpnPal[slot][i].ch - 'a'] = kWpnPal[slot][i].rgb;
 
@@ -2832,7 +2944,7 @@ static void RenderView(void)
     {
         WpnBuild(s_equip);          // new art AND palette: repaint the strips behind the hand
         for(c = WPN_C0; c <= WPN_C1; c++)
-            for(h = 0; h < 2; h++)
+            for(h = 0; h < 1; h++)
             {
                 si = StripIndex(c, h);
                 s_sl[si][0] = RUN_MAKE(RC_VIEW_H - 1, ID_UNKNOWN);
@@ -2867,8 +2979,8 @@ static void RenderView(void)
         if(tile == TILE_PORTAL && s_portalPhase) tile = TILE_PORTAL + 1u;   // pulse
         wallId = ID_WALL(tile, shade, side);
 
-        nStrips = ((int16_t)c >= WPN_C0 && (int16_t)c <= WPN_C1) ? 2u : 1u;
-        w       = (int16_t)(RC_COL_W / nStrips);
+        nStrips = 1u;
+        w       = RC_COL_W;
 
         for(h = 0; h < nStrips; h++)
         {
@@ -2889,9 +3001,9 @@ static void RenderView(void)
                     PaintSlice(nl, &nn, &s_spr[k], (int16_t)(sx + (w >> 1)));
 
             // held item on top of everything
-            if(nStrips == 2 && sx >= WPN_X0)
+            if((int16_t)c >= WPN_C0 && (int16_t)c <= WPN_C1)
             {
-                ak = (int16_t)((sx - WPN_X0) / WPN_SCALE);
+                ak = (int16_t)((int16_t)c - WPN_C0);        // art column == strip
                 if(ak < WPN_W) PaintWeapon(nl, &nn, (uint16_t)ak);
             }
 
@@ -2918,8 +3030,8 @@ static void RenderView(void)
 
     if(s_mode == MODE_PLAY)
     {
-        Graphics_FillRect(cxp - 5, cyp, cxp + 5, cyp, 0xC0C0C0UL);
-        Graphics_FillRect(cxp, cyp - 5, cxp, cyp + 5, 0xC0C0C0UL);
+        Graphics_FillRect(cxp - 5, cyp, cxp + 5, cyp, COLOR_SILVER);
+        Graphics_FillRect(cxp, cyp - 5, cxp, cyp + 5, COLOR_SILVER);
     }
 }
 
@@ -3089,7 +3201,7 @@ static void DrawCard(uint16_t i)
     int16_t  y1 = (int16_t)(y0 + CARD_H - 1);
     int16_t  cx = (int16_t)(x0 + CARD_W / 2);
     bool     sel = (s_cardSel == i);
-    uint32_t fill = sel ? 0x2A3458UL : 0x16161EUL;
+    uint32_t fill = sel ? COLOR_CHARCOAL : COLOR_TETRIS_GRID;
     uint32_t band;
     const Offer *of;
     const char *kindName;
@@ -3097,7 +3209,7 @@ static void DrawCard(uint16_t i)
     uint16_t st, cost, k, n;
     int16_t  y;
 
-    Graphics_FillRect(x0, y0, x1, y1, sel ? C_CYAN : 0x404050UL);       // border
+    Graphics_FillRect(x0, y0, x1, y1, sel ? C_CYAN : COLOR_CHARCOAL);       // border
     Graphics_FillRect(x0 + 2, y0 + 2, x1 - 2, y1 - 2, fill);
 
     if(s_card[i].off == CARD_NONE)
@@ -3109,10 +3221,10 @@ static void DrawCard(uint16_t i)
     of = &kOffer[s_card[i].off];
     switch(of->kind)
     {
-        case K_STAT:  kindName = "UPGRADE"; band = 0x2C7A34UL; break;
-        case K_TRAIT: kindName = "TRAIT";   band = 0x7A3A9CUL; break;
-        case K_STAFF: kindName = "STAFF";   band = 0xA06A18UL; break;
-        default:      kindName = "MAGIC";   band = 0x1C62A0UL; break;
+        case K_STAT:  kindName = "UPGRADE"; band = COLOR_CHARCOAL; break;
+        case K_TRAIT: kindName = "TRAIT";   band = COLOR_PURPLE; break;
+        case K_STAFF: kindName = "STAFF";   band = COLOR_OLIVE; break;
+        default:      kindName = "MAGIC";   band = COLOR_TEAL; break;
     }
 
     Graphics_FillRect(x0 + 2, y0 + 2, x1 - 2, y0 + 17, band);
@@ -3157,10 +3269,10 @@ static void DrawReroll(void)
     char     buf[16];
     int16_t  n;
     bool     sel = (s_cardSel == 3);
-    uint32_t fill = sel ? 0x2A3458UL : 0x16161EUL;
+    uint32_t fill = sel ? COLOR_CHARCOAL : COLOR_TETRIS_GRID;
     uint16_t cost = RerollCost();
 
-    Graphics_FillRect(RR_X0, RR_Y0, RR_X1, RR_Y1, sel ? C_CYAN : 0x404050UL);
+    Graphics_FillRect(RR_X0, RR_Y0, RR_X1, RR_Y1, sel ? C_CYAN : COLOR_CHARCOAL);
     Graphics_FillRect(RR_X0 + 2, RR_Y0 + 2, RR_X1 - 2, RR_Y1 - 2, fill);
 
     n  = Cat(buf, 0, "REROLL  ", 8);
@@ -3384,6 +3496,9 @@ static void ResetRun(void)
     s_xp = 0;
     s_xpLv = 1;
     s_lvPending = 0;
+    s_mana = MANA_MAX;
+    s_manaAcc = s_manaFlash = 0;
+    s_manaShown = -1;
     s_lastMap = 0xFFFFu;
     s_wLoaded = 0xFFFFu;
 }
@@ -3537,6 +3652,15 @@ static void UpdatePlay(void)
         s_stepAlt ^= 1u;
     }
 #endif
+
+    // Mana refills slowly while the stick is released (turning still counts as standing)
+    if(jx || jy)
+        s_manaAcc = 0;
+    else if(s_mana < MANA_MAX && ++s_manaAcc >= MANA_REGEN_FRAMES)
+    {
+        s_manaAcc = 0;
+        s_mana++;
+    }
 
     // Use the equipped staff / item (hold = auto-use)
     if(g_dpad.u) UseEquipped();
@@ -3709,6 +3833,7 @@ static void FullRepaint(void)
         s_invalidate = true;
         s_viewDirty  = 2;
         s_cdShown    = -1;
+        s_manaShown  = -1;
         s_bannerDraw = (s_mode == MODE_INTRO || s_mode == MODE_CLEAR);
     }
 }
@@ -3730,6 +3855,7 @@ static void RC_RenderInner(void)
     if(s_mode == MODE_OVER) return;
 
     if(s_hud) DrawHud();
+    DrawManaBar();
 
     if(s_viewDirty)
     {
@@ -3773,7 +3899,7 @@ const App g_raycasterApp =
 {
     "RAYCASTER",                            // name (first letter = menu tile icon)
     "Stick:move L/R:turn U:use D:swap",     // hint shown under the menu
-    0x7050FFUL,                             // menu tile color
+    COLOR_CRIMSON,                             // menu tile color
     RC_FRAME_US,
     RC_Init, RC_Update, RC_Render,
     RC_Exit,
