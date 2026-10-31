@@ -12,14 +12,14 @@
 //  * int is 16 bits on C28x: every product that can exceed 32767 is cast to
 //    int32_t first. There is no uint8_t on this compiler, so none is used.
 //  * Positions are Q10 (1024 = 1 tile) in int16_t. Ray distances are Q8.
-//  * Enemies, flying flasks, poison clouds and enemy laser bolts are all
+//  * Enemies, dragon flames, flying flasks, poison clouds and laser bolts are all
 //    16x16 pixel-art sprites turned into per-column colour runs at init, then
 //    drawn as a few FillRects per screen column, z-tested against the wall.
 //  * The beam / bolt animations are a few tiny rectangles per frame (no
 //    pixel-by-pixel lines), and only the rows they touched get repaired.
 //
 // GAME FLOW
-//  * One big ring-shaped map cut into 6 sections by doors (like COD zombies).
+//  * A 32x32 world: six distinct outer rooms around a central dragon arena.
 //    Rounds never stop: kill the wave, a short breather, the next wave starts.
 //    Doors are BOUGHT with gold (stick button while facing one). Enemies only
 //    spawn in sections you have opened and path-find through open doors.
@@ -41,7 +41,7 @@
 #define RC_COLS  60
 #define RC_COL_W 5
 #undef RC_MAX_SPAWNS
-#define RC_MAX_SPAWNS 12                /* 2 spawn markers in each of the 6 sections */
+#define RC_MAX_SPAWNS 13                /* 2 markers in each outer room + central arena */
 
 #define COL_CEIL    COLOR_BLACK
 #define COL_FLOOR   COLOR_TETRIS_GRID
@@ -64,7 +64,11 @@ extern const Song song_corridor_run;
 //*****************************************************************************
 #define RC_ANGLES       1024
 #define RC_ANGLE_MASK   1023
-#define RC_MAP_SHIFT    4
+#undef RC_MAP_W
+#undef RC_MAP_H
+#define RC_MAP_W        32
+#define RC_MAP_H        32
+#define RC_MAP_SHIFT    5
 #define RC_MAP_CELLS    (RC_MAP_W * RC_MAP_H)
 
 #define RC_VIEW_W   (RC_COLS * RC_COL_W)
@@ -119,14 +123,14 @@ extern const Song song_corridor_run;
 #define C_MANA              COLOR_BLUE
 
 //*****************************************************************************
-// Doors and rounds. Door k (1..6) joins section k-1 and section k % 6; the
-// sections form a ring, so with every door open you can run laps.
+// Doors and rounds. Doors 1..6 connect the six outer rooms in a ring; door 7
+// opens the central dragon arena automatically at the second boss milestone.
 //*****************************************************************************
-#define RC_NUM_DOORS        6
-#define RC_NUM_SECTIONS     6
+#define RC_NUM_DOORS        7
+#define RC_NUM_SECTIONS     7
 #define SEC_START           0           // you start in section A (top-left)
-#define DOOR_COST_BASE      100         // first door
-#define DOOR_COST_STEP      100         // each door bought makes the next one dearer
+#define DOOR_COST_BASE      10         // first door
+#define DOOR_COST_STEP      10         // each door bought makes the next one go up in price
 #define DOOR_USE_DIST       2600        // Q10: how close you must be to buy
 #define ROUND_GAP_FRAMES    150         // breather between rounds (5 s at 30 fps)
 #define SPAWN_MIN_DIST      2600        // Q10: never spawn closer than this to the player
@@ -142,18 +146,19 @@ extern const Song song_corridor_run;
 //   bat      : fast, flies                    skeleton  : melee, the Lich summons them
 //   beholder : floats at range, shoots dodgeable RED LASER bolts
 //   lich     : boss. Summons skeletons, charges when angry
+//   dragon   : central-arena boss. Breathes flame volleys and tail-whips
 //*****************************************************************************
-enum { ET_GOBLIN, ET_BAT, ET_HOBGOB, ET_SKELETON, ET_BEHOLDER, ET_LICH, ET_COUNT };
+enum { ET_GOBLIN, ET_BAT, ET_HOBGOB, ET_SKELETON, ET_BEHOLDER, ET_LICH, ET_DRAGON, ET_COUNT };
 
 // Sprite shapes (16x16 art) and palettes. Palette ids 0..5 match ET_*.
 enum { SH_GOBLIN, SH_BAT, SH_SKELETON, SH_LICH, SH_BEHOLDER,
-       SH_FLASK, SH_BOLT, SH_PUFF, SH_COUNT };
+       SH_FLASK, SH_BOLT, SH_PUFF, SH_DRAGON, SH_DRAGON_ATTACK, SH_COUNT };
 enum { PT_GOBLIN, PT_BAT, PT_HOBGOB, PT_SKELETON, PT_BEHOLDER, PT_LICH,
        PT_BEHOLDER_HOT,
        PT_FLASK_FIRE, PT_FLASK_FROST, PT_FLASK_VENOM, PT_FLASK_MANA,
        PT_BOLT,
        PT_PUFF_FIRE, PT_PUFF_FROST, PT_PUFF_VENOM, PT_PUFF_ARCANE,
-       PT_COUNT };
+       PT_DRAGON, PT_DRAGON_HOT, PT_COUNT };
 
 typedef struct
 {
@@ -177,6 +182,7 @@ static const EnemyDef kEnemy[ET_COUNT] =
     {    8,  30,  10,  5, 330,  540,  14,   0, SH_SKELETON },   // skeleton
     {   14,  12,  30, 14, 420,  520,  16,   4, SH_BEHOLDER },   // beholder
     { RC_BOSS_HP, 22, 200, 80, 620, 800, 26,  0, SH_LICH   },   // lich
+    { 260,         15, 500, 180, 820, 900, 38,  0, SH_DRAGON },   // dragon
 };
 
 typedef struct
@@ -330,7 +336,7 @@ typedef struct
 } LevelDef;
 
 //*****************************************************************************
-// The map (16 x 16): a ring of six sections around a solid centre block.
+// The map (32 x 32): six unique ring rooms around a central dragon arena.
 //   # stone   P pillar   B brick   . floor   @ player start
 //   1..6  door k (3 tiles wide, closed until bought)
 //   a..f  enemy spawn marker for section A..F (A top-left, then clockwise)
@@ -346,22 +352,38 @@ typedef struct
 static const char *const kMaps[RC_NUM_MAPS][RC_MAP_H] =
 {
     {
-        "################",
-        "#a..a#b..b#c...#",
-        "#....1....2....#",
-        "#.P..1.PP.2..P.#",
-        "#....1....2....#",
-        "#....#....#....#",
-        "#..@..####.....#",
-        "#.....####....c#",
-        "##666######333##",
-        "#.....####....d#",
-        "#....#....#....#",
-        "#....5....4....#",
-        "#.P..5....4.P..#",
-        "#....5....4....#",
-        "#f..f#e..e#...d#",
-        "################"
+        "################################",
+        "################################",
+        "##a......###.b......###.c.....##",
+        "##.P...B.#1..P...P..#2..B.....##",
+        "##.......#1..........2.....P.##",
+        "##..@....#1..........2........##",
+        "##....P..###...B....###.......##",
+        "##.....a.###......b.###..P..c.##",
+        "##.......###........###.......##",
+        "####6#########777##########3####",
+        "####6######..........######3####",
+        "####.######..........######.####",
+        "####.######..........######.####",
+        "####.######..P....P..######.####",
+        "####.######..........######.####",
+        "####.######....g.....######.####",
+        "####.######..........######.####",
+        "####.######..........######.####",
+        "####.######..B....B..######.####",
+        "####.######..........######.####",
+        "####.######..........######.####",
+        "####.######################.####",
+        "####.######################.####",
+        "##.......###........###.......##",
+        "##fP.....###.e......###.d...B.##",
+        "##.....B.#5.......P..4........##",
+        "##........5.........#4........##",
+        "##.......#5..........4........##",
+        "##...P.f.###...P..e.###...P.d.##",
+        "##.......###........###.......##",
+        "################################",
+        "################################",
     },
 };
 
@@ -531,10 +553,49 @@ static const char *const kArtPuff[SPR_N] =
     "................"
 };
 
+static const char *const kArtDragon[SPR_N] =
+{
+    "................",
+    ".......aa.......",
+    "......abca......",
+    ".....abbbca.....",
+    "....abbbbbca....",
+    "...abbbddbbca...",
+    "..abbbbdcbbbc...",
+    ".abbbbbbbbbbbba.",
+    ".abbbbbbbbbbbba.",
+    "..abbbbbbbbbba..",
+    "...abbbbbbba....",
+    "....abbbbbba....",
+    "...aa..bb..aa...",
+    "..aa...bb...aa..",
+    "................",
+    "................"
+};
+static const char *const kArtDragonAttack[SPR_N] =
+{
+    "................",
+    ".......aa.......",
+    "......abca......",
+    ".....abbbca.....",
+    "....abbbbbca....",
+    "...abbbddbbca...",
+    "..abbbbdcbbbc...",
+    ".abbbbbbbbbbbba.",
+    ".abbbbbbbbbbbba.",
+    "..abbbbbbbbcba..",
+    "...abbbbbeeea...",
+    "....abbbbeeea...",
+    ".....abbeeea....",
+    "......aeee......",
+    ".......ee.......",
+    "................"
+};
+
 static const char *const *const kArt[SH_COUNT] =
 {
     kArtGoblin, kArtBat, kArtSkeleton, kArtLich, kArtBeholder,
-    kArtFlask, kArtBolt, kArtPuff
+    kArtFlask, kArtBolt, kArtPuff, kArtDragon, kArtDragonAttack
 };
 
 typedef struct { char ch; uint32_t rgb; } PalEnt;      // list ends with ch = 0
@@ -577,11 +638,19 @@ static const PalEnt kPalPuffVenom[] =
 static const PalEnt kPalPuffArcane[] =
     { {'a',COLOR_GRAY},{'b',COLOR_VIOLET},{'c',COLOR_WHITE},{0,0} };
 
+static const PalEnt kPalDragon[] =
+    { {'a',COLOR_DARK_PURPLE},{'b',COLOR_PURPLE},{'c',COLOR_CRIMSON},{'d',COLOR_GOLD},
+      {'e',COLOR_TETRIS_L_ORANGE},{0,0} };
+static const PalEnt kPalDragonHot[] =
+    { {'a',COLOR_DARK_PURPLE},{'b',COLOR_CRIMSON},{'c',COLOR_TETRIS_L_ORANGE},{'d',COLOR_WHITE},
+      {'e',COLOR_GOLD},{0,0} };
+
 static const PalEnt *const kPal[PT_COUNT] =
 {
     kPalGoblin, kPalBat, kPalHobgob, kPalSkel, kPalBeholder, kPalLich, kPalBeholderHot,
     kPalFlaskFire, kPalFlaskFrost, kPalFlaskVenom, kPalFlaskMana, kPalBolt,
-    kPalPuffFire, kPalPuffFrost, kPalPuffVenom, kPalPuffArcane
+    kPalPuffFire, kPalPuffFrost, kPalPuffVenom, kPalPuffArcane,
+    kPalDragon, kPalDragonHot
 };
 
 // Sprite tint: 0 none, 1 white (hit), 2 orange (burning), 3 ice blue (frozen)
@@ -589,11 +658,12 @@ static const uint32_t kTint[4] = { 0, COLOR_WHITE, COLOR_TETRIS_L_ORANGE, COLOR_
 
 // Wall tiles: 0 unused, 1 stone, 2 pillar, 3 brick, 4 door (closed), 5 portal (open),
 // 6 = the portal's second pulse colour (only used for drawing, never in the map)
-#define TILE_DOOR    4
-#define TILE_PORTAL  5
-#define TILE_KINDS   7                  // tile 6 = portal second pulse colour (draw only)
+#define TILE_DOOR       4
+#define TILE_PORTAL     5
+#define TILE_METAL_DOOR 7
+#define TILE_KINDS      8                  // tile 6 = portal pulse colour; tile 7 = Dragon Den door
 static const uint32_t kWallBase[TILE_KINDS] =
-    { 0, COLOR_GRAY, COLOR_GRAY, COLOR_BROWN, COLOR_ORANGE, COLOR_TURQUOISE, COLOR_SKY_BLUE };
+    { 0, COLOR_GRAY, COLOR_GRAY, COLOR_BROWN, COLOR_ORANGE, COLOR_TURQUOISE, COLOR_SKY_BLUE, COLOR_GRAY };
 static const uint16_t kShadeMul[4] = { 256, 190, 130, 84 };
 //*****************************************************************************
 // First-person art (what Ray Caster holds in his LEFT hand). 20 x 18 cells,
@@ -907,6 +977,7 @@ static uint16_t s_doorNear;                     // door the player is facing (0 
 static uint16_t s_doorShown = 0xFFFFu;          // prompt state last drawn
 static uint16_t s_roundGap;                     // breather frames left (0 = round running)
 static uint16_t s_flow[RC_MAP_CELLS];           // steps to the player, 0xFFFF = unreachable
+static uint16_t s_flowQ[RC_MAP_CELLS];          // queue for O(map-cells) BFS
 static int16_t  s_flowTx = -1, s_flowTy = -1;   // player tile the flow field was built for
 static uint16_t s_portalTick, s_portalPhase;
 static Enemy    s_en[RC_MAX_ENEMIES];
@@ -1018,7 +1089,10 @@ static int16_t Dist10(int16_t dx, int16_t dy)
     int16_t b = Abs16(dy);
 
     if(a < b) { int16_t t = a; a = b; b = t; }
-    return a + (b >> 2) + (b >> 3);
+    {
+        int32_t d = (int32_t)a + (b >> 2) + (b >> 3);
+        return (d > 32767L) ? 32767 : (int16_t)d;
+    }
 }
 
 static int16_t StickEdge(int16_t v, int16_t *state)
@@ -1211,6 +1285,7 @@ static void BuildTables(void)
     s_tablesReady = true;
 }
 
+
 //*****************************************************************************
 // Map + collision
 //*****************************************************************************
@@ -1251,7 +1326,7 @@ static void LoadMap(void)
 
             t = 0;
 
-            if(ch >= 'a' && ch <= 'f')                  // spawn marker, letter = section
+            if(ch >= 'a' && ch <= 'g')                  // spawn marker, letter = section
             {
                 if(s_spCount < RC_MAX_SPAWNS)
                 {
@@ -1261,7 +1336,11 @@ static void LoadMap(void)
                     s_spCount++;
                 }
             }
-            else if(ch >= '1' && ch <= '6')             // door tile
+            else if(ch == '7')                         // special metal Dragon Den door
+            {
+                t = TILE_METAL_DOOR;
+            }
+            else if(ch >= '1' && ch <= '6')             // purchasable wooden door tile
             {
                 k = (uint16_t)(ch - '0');
                 t = TILE_DOOR;
@@ -1295,7 +1374,7 @@ static void LoadMap(void)
 }
 
 //*****************************************************************************
-// The ray caster: grid DDA, all integer.
+// The ray caster: grid DDA, all integer, over a 32 x 32 world.
 //   angle : 0..1023
 //   returns the distance ALONG the ray in Q8 (not yet fisheye-corrected)
 //   *tile = wall type hit (1..5), *side = 0 for a x-face, 1 for a y-face
@@ -1474,10 +1553,10 @@ static void KillEnemy(Enemy *e)
 
     Sfx(&sfx_explosion);
 
-    if(!summoned && (e->type == ET_LICH || (Rand16() % 100u) < MANA_DROP_PCT))
+    if(!summoned && (e->type == ET_LICH || e->type == ET_DRAGON || (Rand16() % 100u) < MANA_DROP_PCT))
         DropMana(e->x, e->y);
 
-    if(e->type == ET_LICH)
+    if(e->type == ET_LICH || e->type == ET_DRAGON)
     {
         s_bossAlive = 0;
         for(i = 0; i < RC_MAX_ENEMIES; i++)         // minions die with their master
@@ -1501,7 +1580,7 @@ static void DamageEnemyEx(Enemy *e, uint16_t dmg, int16_t c, int16_t s, bool qui
 
     if(quiet) return;
 
-    if((s_traits & (1u << TR_KNOCK)) && e->type != ET_LICH)
+    if((s_traits & (1u << TR_KNOCK)) && e->type != ET_LICH && e->type != ET_DRAGON)
     {
         int16_t nx = e->x + (int16_t)(((int32_t)c * 260L) >> 14);
         int16_t ny = e->y + (int16_t)(((int32_t)s * 260L) >> 14);
@@ -1655,13 +1734,13 @@ static void UpdateObjects(void)
                 if(o->kind == OB_FLASK && o->age >= o->life) Shatter(o);
                 break;
 
-            case OB_BOLT:                       // enemy red laser: dodge it
+            case OB_BOLT:                       // enemy laser or dragon flame: dodge it
                 nx = o->x + o->vx;
                 ny = o->y + o->vy;
                 if(Blocked(nx, ny, 80)) { o->alive = 0; break; }
                 o->x = nx;
                 o->y = ny;
-                if(Dist10(s_px - o->x, s_py - o->y) < 300)
+                if(Dist10(s_px - o->x, s_py - o->y) < (o->aux ? 360 : 300))
                 {
                     o->alive = 0;
                     HurtPlayer();               // (does nothing during invulnerability / Aegis)
@@ -2016,7 +2095,9 @@ static Enemy *SpawnEnemy(uint16_t type, int16_t x, int16_t y)
 
             if(type == ET_LICH)                         // each Lich is tougher than the last
                 hp = (int16_t)(hp + 50 * (int16_t)((s_level + 1u) / RC_BOSS_EVERY - 1u));
-            else                                        // later rooms are tougher
+            else if(type == ET_DRAGON)
+                hp = (int16_t)(hp + 100 * (int16_t)((s_level + 1u) / (RC_BOSS_EVERY * 2u) - 1u));
+            else                                        // later rounds are tougher
                 hp = (int16_t)(((int32_t)hp * (8 + s_level)) / 8);
 
             s_en[i].x = x;      s_en[i].y = y;
@@ -2057,6 +2138,7 @@ static void TrySpawn(void)
         idx = s_spawnIdx;
         s_spawnIdx = (s_spawnIdx + 1u) % s_spCount;
         if(!s_secOpen[s_spSec[idx]]) continue;
+        if(s_lv.boss && (s_level + 1u) >= (RC_BOSS_EVERY * 2u) && s_spSec[idx] != 6u) continue;
         if(Dist10(s_spX[idx] - s_px, s_spY[idx] - s_py) > SPAWN_MIN_DIST)
         {
             found = true;
@@ -2069,7 +2151,7 @@ static void TrySpawn(void)
 
     if(s_lv.boss)
     {
-        type = ET_LICH;                                 // the Lich, then only its skeletons
+        type = ((s_level + 1u) >= (RC_BOSS_EVERY * 2u)) ? ET_DRAGON : ET_LICH;
         s_bossSpawned = 1;
         s_bossAlive   = 1;
         s_toSpawn     = 1;                              // (decremented below -> 0)
@@ -2136,6 +2218,28 @@ static void BeholderShoot(const Enemy *e)
     SfxSoft(&sfx_laser);
 }
 
+static void DragonBreath(const Enemy *e)
+{
+    int16_t dx = s_px - e->x;
+    int16_t dy = s_py - e->y;
+    int16_t dist = Dist10(dx, dy);
+    int16_t vx, vy, k;
+
+    if(dist < 400) return;
+    vx = (int16_t)(((int32_t)dx * 68L) / dist);
+    vy = (int16_t)(((int32_t)dy * 68L) / dist);
+    for(k = -1; k <= 1; k++)
+    {
+        Obj *o = NewObj(OB_BOLT);
+        if(o == NULL) break;
+        o->x = e->x; o->y = e->y;
+        o->vx = (int16_t)(vx - (int16_t)(((int32_t)vy * k * 52L) >> 8));
+        o->vy = (int16_t)(vy + (int16_t)(((int32_t)vx * k * 52L) >> 8));
+        o->z = 4; o->life = 115; o->pal = PT_PUFF_FIRE; o->aux = 1;
+    }
+    SfxSoft(&sfx_laser);
+}
+
 static void LichSummon(const Enemy *lich, uint16_t n)
 {
     uint16_t k;
@@ -2167,42 +2271,37 @@ static const int16_t kNbDy[4] = { 0, 0, 1, -1 };
 
 static void BuildFlow(void)
 {
-    uint16_t i, d, cell, nb;
-    int16_t  tx = (int16_t)(s_px >> 10);
-    int16_t  ty = (int16_t)(s_py >> 10);
-    int16_t  x, y, nx, ny;
-    bool     any;
+    uint16_t i, head = 0, tail = 0, cell, nb;
+    int16_t tx = (int16_t)(s_px >> 10);
+    int16_t ty = (int16_t)(s_py >> 10);
+    int16_t x, y, nx, ny;
 
     for(i = 0; i < RC_MAP_CELLS; i++) s_flow[i] = 0xFFFFu;
     s_flowTx = tx;
     s_flowTy = ty;
     if((uint16_t)tx >= RC_MAP_W || (uint16_t)ty >= RC_MAP_H) return;
 
-    s_flow[((uint16_t)ty << RC_MAP_SHIFT) + (uint16_t)tx] = 0;
+    cell = (uint16_t)(((uint16_t)ty << RC_MAP_SHIFT) + (uint16_t)tx);
+    s_flow[cell] = 0;
+    s_flowQ[tail++] = cell;
 
-    // Wavefront: grow the distance one ring at a time (no queue array needed).
-    for(d = 0; d < 64u; d++)
+    /* Queue BFS avoids the old repeated full-map scans; important on 32x32. */
+    while(head < tail)
     {
-        any = false;
-        for(cell = 0; cell < RC_MAP_CELLS; cell++)
+        cell = s_flowQ[head++];
+        x = (int16_t)(cell & (RC_MAP_W - 1u));
+        y = (int16_t)(cell >> RC_MAP_SHIFT);
+        for(i = 0; i < 4; i++)
         {
-            if(s_flow[cell] != d) continue;
-            x = (int16_t)(cell & 15u);
-            y = (int16_t)(cell >> 4);
-
-            for(i = 0; i < 4; i++)
-            {
-                nx = (int16_t)(x + kNbDx[i]);
-                ny = (int16_t)(y + kNbDy[i]);
-                if((uint16_t)nx >= RC_MAP_W || (uint16_t)ny >= RC_MAP_H) continue;
-                if(Solid(nx, ny)) continue;
-                nb = (uint16_t)(((uint16_t)ny << RC_MAP_SHIFT) + (uint16_t)nx);
-                if(s_flow[nb] != 0xFFFFu) continue;
-                s_flow[nb] = (uint16_t)(d + 1u);
-                any = true;
-            }
+            nx = (int16_t)(x + kNbDx[i]);
+            ny = (int16_t)(y + kNbDy[i]);
+            if((uint16_t)nx >= RC_MAP_W || (uint16_t)ny >= RC_MAP_H) continue;
+            if(Solid(nx, ny)) continue;
+            nb = (uint16_t)(((uint16_t)ny << RC_MAP_SHIFT) + (uint16_t)nx);
+            if(s_flow[nb] != 0xFFFFu) continue;
+            s_flow[nb] = (uint16_t)(s_flow[cell] + 1u);
+            if(tail < RC_MAP_CELLS) s_flowQ[tail++] = nb;
         }
-        if(!any) break;
     }
 }
 
@@ -2315,6 +2414,13 @@ static void UpdateEnemies(void)
                 BeholderShoot(e);
             }
         }
+        else if(e->type == ET_DRAGON)
+        {
+            e->aux++;
+            if(e->aux >= 180u) e->aux = 0;
+            /* Two short breath volleys, then a telegraphed tail sweep. */
+            if(e->aux == 58u || e->aux == 72u) DragonBreath(e);
+        }
 
         dx   = s_px - e->x;
         dy   = s_py - e->y;
@@ -2370,7 +2476,11 @@ static void UpdateEnemies(void)
             if(!Blocked(e->x, ny, 230)) e->y = ny;
         }
 
-        if(dist < d->reach) HurtPlayer();
+        if(e->type == ET_DRAGON)
+        {
+            if(e->aux == 132u && dist < 2050) HurtPlayer();   // tail-whip impact frame
+        }
+        else if(dist < d->reach) HurtPlayer();
     }
 
     // Keep them from stacking into one blob.
@@ -2518,7 +2628,7 @@ static void DrawHud(void)
             {
                 int16_t hp = 0;
                 for(i = 0; i < RC_MAX_ENEMIES; i++)
-                    if(s_en[i].alive && s_en[i].type == ET_LICH) hp = s_en[i].hp;
+                    if(s_en[i].alive && (s_en[i].type == ET_LICH || s_en[i].type == ET_DRAGON)) hp = s_en[i].hp;
                 n  = Cat(buf, 0, "Boss HP ", 8);
                 Itoa(buf + n, (uint16_t)((hp > 0) ? hp : 0));
             }
@@ -2616,6 +2726,8 @@ static void DrawManaBar(void)
 #define ID_TINT     192u                // + tint index (1..3)
 #define ID_WPN      200u                // + palette letter
 #define ID_UNKNOWN  255u                // "something else is on the LCD here"
+#define ID_TEX_WOOD0 58u                // 58..60: wooden-door plank / grain colours
+#define ID_TEX_MET0  61u                // 61..63: Dragon Den steel-door colours
 #define ID_WALL(tile, shade, side)  (2u + (tile) * 8u + (shade) * 2u + (side))
 
 // One run entry: last row in the high byte, colour id in the low byte. The shift is
@@ -2626,6 +2738,17 @@ static uint32_t IdColor(uint16_t id)
 {
     if(id == ID_CEIL)  return COL_CEIL;
     if(id == ID_FLOOR) return COL_FLOOR;
+    /* Tiny procedural door textures: no bitmap assets or extra flash use. */
+    if(id >= ID_TEX_WOOD0 && id <= 60u)
+    {
+        static const uint32_t wood[3] = { 0x00734A25u, 0x00905B2Du, 0x004A2D19u };
+        return wood[id - ID_TEX_WOOD0];
+    }
+    if(id >= ID_TEX_MET0 && id <= 63u)
+    {
+        static const uint32_t steel[3] = { 0x006A747Cu, 0x0099A3AAu, 0x00343C43u };
+        return steel[id - ID_TEX_MET0];
+    }
     if(id < ID_SPR)  { id -= 2u;       return s_wallCol[id >> 3][(id >> 1) & 3u][id & 1u]; }
     if(id < ID_TINT) { id -= ID_SPR;   return s_pal[id >> 3][id & 7u]; }
     if(id < ID_WPN)  return kTint[id - ID_TINT];
@@ -2852,13 +2975,21 @@ static void ProjectSprites(void)
         if(!e->alive) continue;
         d = &kEnemy[e->type];
 
-        pal = e->type;                                  // PT_ order matches ET_ order
+        pal = e->type;                                  // first six types match palette ids
         if(e->type == ET_BEHOLDER && e->aux + 25u >= BeholderCadence())
             pal = PT_BEHOLDER_HOT;                      // eye glows just before it fires
+        if(e->type == ET_DRAGON)
+        {
+            pal = (e->aux >= 48u && e->aux <= 86u) ? PT_DRAGON_HOT : PT_DRAGON;
+            if(e->aux >= 112u && e->aux <= 150u)
+                d = &kEnemy[ET_DRAGON];
+        }
 
         tint = e->flash ? 1u : e->freeze ? 3u : (e->burn && (e->burn & 8u)) ? 2u : 0u;
 
-        ProjectOne(e->x, e->y, d->shape, pal, d->scale, d->zoff, tint);
+        ProjectOne(e->x, e->y,
+                   (e->type == ET_DRAGON && e->aux >= 112u && e->aux <= 150u) ? SH_DRAGON_ATTACK : d->shape,
+                   pal, d->scale, d->zoff, tint);
     }
 
     for(i = 0; i < RC_MAX_OBJ; i++)
@@ -2873,7 +3004,10 @@ static void ProjectSprites(void)
                 ProjectOne(o->x, o->y, SH_FLASK, o->pal, 4, (uint16_t)o->z, 0);
                 break;
             case OB_BOLT:
-                ProjectOne(o->x, o->y, SH_BOLT, PT_BOLT, 3, (uint16_t)o->z, 0);
+                if(o->aux)
+                    ProjectOne(o->x, o->y, SH_PUFF, PT_PUFF_FIRE, 4, (uint16_t)o->z, 0);
+                else
+                    ProjectOne(o->x, o->y, SH_BOLT, PT_BOLT, 3, (uint16_t)o->z, 0);
                 break;
             case OB_MANA:
                 if(o->life - o->age < 90u && (o->age & 4u)) break;      // blink before it vanishes
@@ -3095,7 +3229,24 @@ static void RenderView(void)
 
         shade  = (perp < 512) ? 0 : (perp < 1024) ? 1 : (perp < 1792) ? 2 : 3;
         if(tile == TILE_PORTAL && s_portalPhase) tile = TILE_PORTAL + 1u;   // pulse
-        wallId = ID_WALL(tile, shade, side);
+
+        /* Door faces use inexpensive column-pattern textures instead of flat fills.
+         * The three colours create plank seams/grain on wood and panel seams on steel.
+         * Keep the existing raycast, collision, and strip renderer unchanged. */
+        if(tile == TILE_DOOR)
+        {
+            uint16_t pattern = (uint16_t)c & 7u;
+            wallId = (uint16_t)(ID_TEX_WOOD0 + ((pattern == 0u || pattern == 1u) ? 2u :
+                                                 ((pattern == 4u) ? 0u : 1u)));
+        }
+        else if(tile == TILE_METAL_DOOR)
+        {
+            uint16_t pattern = (uint16_t)c & 15u;
+            wallId = (uint16_t)(ID_TEX_MET0 + ((pattern == 0u || pattern == 1u || pattern == 8u) ? 2u :
+                                                 ((pattern == 4u || pattern == 12u) ? 1u : 0u)));
+        }
+        else
+            wallId = ID_WALL(tile, shade, side);
 
         nStrips = 1u;
         w       = RC_COL_W;
@@ -3173,7 +3324,7 @@ static void DrawBanner(void)
     else if(s_lv.boss)
     {
         DrawText("BOSS ROUND", SCREEN_W / 2, 105, C_RED);
-        DrawText("The Lich awaits", SCREEN_W / 2, 126, C_GRAY);
+        DrawText(((s_level + 1u) >= (RC_BOSS_EVERY * 2u)) ? "FIND DRAGON DEN" : "The Lich awaits", SCREEN_W / 2, 126, C_GRAY);
     }
     else
     {
@@ -3652,6 +3803,17 @@ static void StartRound(uint16_t r)
     s_spawnTimer  = 45;
     s_bossSpawned = s_bossAlive = 0;
     s_roundGap    = 0;
+    if((r + 1u) >= (RC_BOSS_EVERY * 2u) && !s_doorBought[7])
+    {
+        uint16_t mi;
+        s_doorBought[7] = true;
+        s_secOpen[6] = true;
+        for(mi = 0; mi < RC_MAP_CELLS; mi++)
+            if(kMaps[0][mi >> RC_MAP_SHIFT][mi & (RC_MAP_W - 1u)] == '7') s_tile[mi] = 0;
+        s_flowTx = -1; s_flowTy = -1;
+        s_viewDirty = 2;
+        s_doorShown = 0xFFFFu;
+    }
     s_hud        |= HUD_TOPR | HUD_LEFT;
     if(r > 0u) Sfx(&sfx_level_up);
 }
@@ -3705,6 +3867,7 @@ static void UpdateDoorNear(void)
 
     for(k = 1; k <= RC_NUM_DOORS; k++)
     {
+        if(k == 7u) continue;                 // arena gate is opened by the second boss milestone
         if(s_doorBought[k]) continue;
         dx = (int16_t)(s_doorCx[k] - s_px);
         dy = (int16_t)(s_doorCy[k] - s_py);
@@ -3735,10 +3898,18 @@ static void BuyDoor(uint16_t k)
     s_doorsBought++;
     s_doorBought[k] = true;
     for(i = 0; i < RC_MAP_CELLS; i++)                   // the doorway is now open floor
-        if(kMaps[0][i >> RC_MAP_SHIFT][i & 15u] == (char)('0' + k)) s_tile[i] = 0;
+        if(kMaps[0][i >> RC_MAP_SHIFT][i & (RC_MAP_W - 1u)] == (char)('0' + k)) s_tile[i] = 0;
 
-    s_secOpen[k - 1u]                = true;            // both sides are unlocked
-    s_secOpen[k % RC_NUM_SECTIONS]   = true;
+    if(k <= 5u)
+    {
+        s_secOpen[k - 1u] = true;
+        s_secOpen[k] = true;
+    }
+    else if(k == 6u)
+    {
+        s_secOpen[5] = true;
+        s_secOpen[0] = true;
+    }
 
     s_flowTx    = -1;                                   // re-path through the new opening
     s_doorShown = 0xFFFFu;
