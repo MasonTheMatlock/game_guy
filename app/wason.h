@@ -6,12 +6,15 @@
 //   command. Do it (or survive it) before the fuse burns out. Lose a game and
 //   you lose a life; win and the pace picks up every WW_PER_LEVEL games.
 //
-//   Microgames (14), each a nod to a classic or a modern hit:
-//     DODGE!  Subway Surfers     FLY!     Jetpack Joyride   LAUNCH!  Angry Birds
-//     EAT!    Snake              OUTLAST! Tron              RETURN!  Pong
-//     FLAP!   Flappy Bird        JUMP!    Chrome Dino       CHOMP!   Pac-Man
-//     WHACK!  Whack-a-Mole       CROSS!   Frogger           SLICE!   Fruit Ninja
-//     SHOOT!  Space Invaders     FIT IT!  Tetris
+//   Microgames (22), each a nod to a game you know:
+//     CLIMB!  Donkey Kong      BATTLE!  Pokemon          FLIP!    Pokemon Pinball
+//     RUN!    Sonic            BLAST!   Metroid          SLICE!   Fruit Ninja
+//     RACE!   Hydro Thunder    TURN!    Temple Run       CALL IT! Helldivers 2
+//     BREAK!  Brick Breaker    FIT IT!  Tetris           CHOMP!   Pac-Man
+//     CROSS!  Frogger          FLAP!    Flappy Bird      JUMP!    Chrome Dino
+//     STOMP!  Super Mario      DASH!    Geometry Dash    LAUNCH!  Angry Birds
+//     BEAT!   Melatonin        SORT!    Recycler         RETURN!  Pong
+//     SHOOT!  Galaga
 //
 //   HOW TO ADD A MICROGAME (all inside app/wasonware.c)
 //     1. Write  static void XxInit(uint16_t spd)   reset state; spd = 0,1,2..
