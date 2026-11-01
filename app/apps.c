@@ -67,6 +67,7 @@ const App *const g_apps[] =
     &g_raycasterApp,        // app/raycaster.c
     &g_settingsApp,         // app/settings.c
     &g_testApp,             // app/test.c
+    &g_wasonwareApp,
 };
 
 

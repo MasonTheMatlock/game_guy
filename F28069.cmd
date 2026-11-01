@@ -75,8 +75,10 @@ PAGE 0 :   /* Program Memory */
    RAML0_4     : origin = 0x008000, length = 0x004000	 /* RAML0-4 combined for size of .text */
    OTP         : origin = 0x3D7800, length = 0x000400     /* on-chip OTP */
 
-   FLASHH      : origin = 0x3D8000, length = 0x004000     /* on-chip FLASH */
-   FLASHG      : origin = 0x3DC000, length = 0x004000     /* on-chip FLASH */
+   /* Flash sectors G (0x3DC000) and H (0x3D8000) are intentionally NOT listed,
+      so the linker can never place code or constants there: the save driver
+      (drivers/save.c) owns them for settings and high scores and erases them.
+      Same rule as 28069_RAM_lnk.cmd. */
    FLASHF      : origin = 0x3E0000, length = 0x004000     /* on-chip FLASH */
    FLASHE      : origin = 0x3E4000, length = 0x004000     /* on-chip FLASH */   
    FLASHD      : origin = 0x3E8000, length = 0x004000     /* on-chip FLASH */
@@ -127,7 +129,7 @@ SECTIONS
    /* Allocate program areas: */
    .cinit              : > FLASHD,     PAGE = 0
    .pinit              : > FLASHD,     PAGE = 0
-   .text               : { *(.text) } >> FLASHA | FLASHB | FLASHC | FLASHD | FLASHE | FLASHF | FLASHG | FLASHH, PAGE = 0
+   .text               : { *(.text) } >> FLASHA | FLASHB | FLASHC | FLASHD, PAGE = 0
    codestart           : > BEGIN,      PAGE = 0
 
 #ifdef __TI_COMPILER_VERSION__
@@ -164,10 +166,11 @@ SECTIONS
 
    /* Initalized sections to go in Flash */
 
-   .splash             : > FLASHH, PAGE = 0
+   .splash             : > FLASHF, PAGE = 0
 
    /* For SDFlash to program these, they must be allocated to page 0 */
-   .econst             : > FLASHG,     PAGE = 0
+   /* >> lets the constants (fonts, songs, art, strings) split across E and F. */
+   .econst             : >> FLASHE | FLASHF, PAGE = 0
    .switch             : > FLASHF,     PAGE = 0
 
    /* Allocate IQ math areas: */

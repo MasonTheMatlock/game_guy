@@ -119,6 +119,7 @@ void Sfx_PlayWait(const Song *sfx);     // short effect that survives the next B
 #include "main_menu.h"
 #include "tetris.h"
 #include "raycaster.h"
+#include "wason.h"
 #include "settings.h"
 #include "test.h"
 #include "songs.h"              // Buzzer_PlaySong(&song_tetris, 1), sfx_coin, ...
