@@ -16,6 +16,10 @@
 //     BEAT!   Melatonin        SORT!    Recycler         RETURN!  Pong
 //     SHOOT!  Galaga
 //
+//   MENU: title screen = PLAY (the marathon) or PRACTICE (pick any microgame from
+//   a scrolling list, L/R sets the speed level; no lives, no score, and after
+//   each try you land back on the list). New microgames appear in it automatically.
+//
 //   HOW TO ADD A MICROGAME (all inside app/wasonware.c)
 //     1. Write  static void XxInit(uint16_t spd)   reset state; spd = 0,1,2..
 //                                                  (grows every WW_PER_LEVEL games)

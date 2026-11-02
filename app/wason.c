@@ -28,7 +28,7 @@
 
 #define NUM_GAMES   ((uint16_t)(sizeof(kGames) / sizeof(kGames[0])))
 
-enum { PH_TITLE, PH_INTRO, PH_PLAY, PH_RESULT, PH_OVER };
+enum { PH_TITLE, PH_INTRO, PH_PLAY, PH_RESULT, PH_OVER, PH_PICK };
 enum { MG_PLAY = 0, MG_WIN = 1, MG_LOSE = 2 };
 
 typedef struct
@@ -2449,6 +2449,8 @@ static uint16_t s_phase, s_t, s_cur, s_lives, s_score, s_played, s_level;
 static uint16_t s_total, s_left, s_bag[32], s_bagPos, s_speedUp;
 static uint32_t s_best;
 static bool     s_dirty, s_won, s_newBest;
+static bool     s_practice;                         // practice mode: no lives, no score
+static int16_t  s_menu, s_sel, s_pLevel;            // title cursor, picker cursor, practice speed
 static int16_t  s_barPx;
 static bool     s_barRed;
 
@@ -2495,14 +2497,70 @@ static void DrawTitle(void)
     Graphics_FillRect(0, 0, FIELD_W - 1, 239, COLOR_BLACK);
 
     for(i = 0; i < 8; i++)
-        Graphics_FillRect(20 + i * 36, 30, 40 + i * 36, 44, kBanner[i % 6]);
-    BoldText("WASON WARE", FIELD_W / 2 + 2, 92, COLOR_MAGENTA);
-    BoldText("WASON WARE", FIELD_W / 2,     90, COLOR_YELLOW);
-    Text("22 microgames. 4 lives. Go!", FIELD_W / 2, 125, COLOR_WHITE);
+        Graphics_FillRect(20 + i * 36, 20, 40 + i * 36, 34, kBanner[i % 6]);
+    BoldText("WASON WARE", FIELD_W / 2 + 2, 72, COLOR_MAGENTA);
+    BoldText("WASON WARE", FIELD_W / 2,     70, COLOR_YELLOW);
+    Text("22 microgames. 4 lives. Go!", FIELD_W / 2, 105, COLOR_WHITE);
 
     Label(buf, "Best: ", s_best);
-    Text(buf, FIELD_W / 2, 165, COLOR_GOLD);
-    Text("D / button: start    R: back", FIELD_W / 2, 220, COLOR_GRAY);
+    Text(buf, FIELD_W / 2, 132, COLOR_GOLD);
+
+    if(s_menu == 0) Graphics_FillRect(80, 152, 239, 177, COLOR_YELLOW);
+    else            Graphics_FillRect(80, 182, 239, 207, COLOR_YELLOW);
+    Text("PLAY",     FIELD_W / 2, 165, s_menu == 0 ? COLOR_BLACK : COLOR_WHITE);
+    Text("PRACTICE", FIELD_W / 2, 195, s_menu == 1 ? COLOR_BLACK : COLOR_WHITE);
+    Text("U/D choose   button: go   R: back", FIELD_W / 2, 228, COLOR_GRAY);
+}
+
+// ---- practice: pick any microgame, in pages ---------------------------------
+//   8 rows per page. Moving inside a page only repaints the two rows whose
+//   highlight changed; the whole page is repainted only when the cursor crosses
+//   to another page (or after Settings). Row 0 is "< BACK".
+#define PICK_ROWS   8
+#define PICK_Y0     40
+#define PICK_RH     22
+
+static int16_t s_pickOld;                           // row to un-highlight on a cheap update
+static uint16_t s_pickPart;                         // 1 = rows changed, 2 = speed changed
+
+static int16_t PickRows(void) { return (int16_t)NUM_GAMES + 1; }
+static int16_t PickPages(void) { return (PickRows() + PICK_ROWS - 1) / PICK_ROWS; }
+
+static void DrawPickRow(int16_t i)
+{
+    int16_t y = PICK_Y0 + (i % PICK_ROWS) * PICK_RH;
+
+    if(i < 0 || i >= PickRows()) return;
+    Graphics_FillRect(20, y - 10, 299, y + 10, (i == s_sel) ? kBanner[i % 6] : COLOR_BLACK);
+    Text(i == 0 ? "< BACK" : kGames[i - 1].inspo, FIELD_W / 2, y,
+         (i == s_sel) ? COLOR_BLACK : COLOR_WHITE);
+}
+
+static void DrawPickSpeed(void)
+{
+    char buf[24];
+
+    Graphics_FillRect(0, 206, FIELD_W - 1, 226, COLOR_BLACK);
+    Label(buf, "Speed: ", (uint32_t)s_pLevel);
+    Text(buf, FIELD_W / 2, 218, COLOR_CYAN);
+}
+
+static void DrawPick(void)                          // whole page
+{
+    char    pg[8];
+    int16_t page = s_sel / PICK_ROWS, i;
+
+    Graphics_setFont(&g_sContext, &g_sFontCmss20b);
+    Graphics_FillRect(0, 0, FIELD_W - 1, 239, COLOR_BLACK);
+    BoldText("PRACTICE", FIELD_W / 2, 16, COLOR_GOLD);
+
+    pg[0] = (char)('1' + page);  pg[1] = '/';  pg[2] = (char)('0' + PickPages());  pg[3] = 0;
+    Text(pg, 292, 16, COLOR_GRAY);
+
+    for(i = page * PICK_ROWS; i < (page + 1) * PICK_ROWS; i++) DrawPickRow(i);
+
+    DrawPickSpeed();
+    Text("U/D pick   L/R speed   button: go", FIELD_W / 2, 234, COLOR_GRAY);
 }
 
 static void DrawIntro(void)
@@ -2514,15 +2572,24 @@ static void DrawIntro(void)
     Graphics_setFont(&g_sContext, &g_sFontCmss20b);
     Graphics_FillRect(0, 0, FIELD_W - 1, 239, COLOR_BLACK);
 
-    for(i = 0; i < WW_LIVES; i++)
-        Graphics_FillRect(110 + i * 24, 12, 125 + i * 24, 27,
-                          (uint16_t)i < s_lives ? COLOR_RED : COLOR_DARK_GRAY);
+    if(!s_practice)
+        for(i = 0; i < WW_LIVES; i++)
+            Graphics_FillRect(110 + i * 24, 12, 125 + i * 24, 27,
+                              (uint16_t)i < s_lives ? COLOR_RED : COLOR_DARK_GRAY);
 
-    Banner(g->cmd, kBanner[s_played % 6], COLOR_BLACK);
+    Banner(g->cmd, kBanner[s_cur % 6], COLOR_BLACK);
     Text(g->inspo, FIELD_W / 2, 165, COLOR_GRAY);
-    Label(buf, "Score: ", s_score);
+    if(s_practice)
+    {
+        BoldText("PRACTICE", FIELD_W / 2, 40, COLOR_GOLD);
+        Label(buf, "Speed: ", s_level);
+    }
+    else
+    {
+        Label(buf, "Score: ", s_score);
+        if(s_speedUp) BoldText("SPEED UP!", FIELD_W / 2, 55, COLOR_ORANGE);
+    }
     Text(buf, FIELD_W / 2, 205, COLOR_WHITE);
-    if(s_speedUp) BoldText("SPEED UP!", FIELD_W / 2, 55, COLOR_ORANGE);
 }
 
 static void DrawOver(void)
@@ -2571,11 +2638,23 @@ static void GoPhase(uint16_t phase)
 
 static void StartRun(void)
 {
+    s_practice = false;
     s_lives = WW_LIVES; s_score = 0; s_played = 0; s_level = 0;
     s_speedUp = 0; s_newBest = false;
     s_bag[NUM_GAMES - 1] = 0xFFFF; s_bagPos = NUM_GAMES;
     Rand_Seed(TimerNow() + 12345UL);
     PickGame();
+    Buzzer_PlaySfx(&sfx_menu_select);
+    GoPhase(PH_INTRO);
+}
+
+static void StartPractice(uint16_t game)
+{
+    s_practice = true;
+    s_cur      = game;
+    s_level    = (uint16_t)s_pLevel;
+    s_speedUp  = 0;
+    Rand_Seed(TimerNow() + 777UL);
     Buzzer_PlaySfx(&sfx_menu_select);
     GoPhase(PH_INTRO);
 }
@@ -2596,8 +2675,8 @@ static void EnterPlay(void)
 static void EndGame(bool won)
 {
     s_won = won;
-    if(won) { s_score++; Buzzer_PlaySfx(&sfx_powerup); }
-    else    { s_lives--; Buzzer_PlaySfx(&sfx_hit); }
+    if(won) { if(!s_practice) s_score++; Buzzer_PlaySfx(&sfx_powerup); }
+    else    { if(!s_practice) s_lives--; Buzzer_PlaySfx(&sfx_hit); }
     GoPhase(PH_RESULT);
 }
 
@@ -2619,6 +2698,8 @@ static void EnterOver(void)
 
 static void NextGame(void)
 {
+    if(s_practice) { GoPhase(PH_PICK); return; }     // back to the list, cursor stays on the game
+
     s_played++;
     if(s_lives == 0) { EnterOver(); return; }
 
@@ -2637,6 +2718,8 @@ static void WW_Init(void)
 
     s_best = Save_Read(SAVE_SLOT_WASONWARE, &sv, sizeof sv) ? sv.best : 0;
     Buzzer_Stop();
+    s_practice = false;
+    s_menu = 0; s_sel = 1; s_pLevel = 0;
     GoPhase(PH_TITLE);
 }
 
@@ -2650,7 +2733,30 @@ static AppStatus WW_Update(void)
     {
         case PH_TITLE:
             if(g_dpad.rPressed) return APP_QUIT;
-            if(g_joy.btnPressed || g_dpad.dPressed) StartRun();
+            if(EdgeU() || EdgeD()) { s_menu ^= 1; s_dirty = true; Buzzer_PlaySfx(&sfx_blip); }
+            if(g_joy.btnPressed)
+            {
+                if(s_menu == 0) StartRun();
+                else { Buzzer_PlaySfx(&sfx_menu_select); s_pickPart = 0; GoPhase(PH_PICK); }
+            }
+            break;
+
+        case PH_PICK:
+            if((EdgeU() && s_sel > 0) || (EdgeD() && s_sel < (int16_t)NUM_GAMES))
+            {
+                s_pickOld = s_sel;
+                s_sel += EdgeU() ? -1 : 1;
+                if(s_sel / PICK_ROWS != s_pickOld / PICK_ROWS) s_dirty = true;   // new page: full repaint
+                else s_pickPart |= 1;                                            // same page: 2 rows only
+                Buzzer_PlaySfx(&sfx_blip);
+            }
+            if(EdgeL() && s_pLevel > 0) { s_pLevel--; s_pickPart |= 2; }
+            if(EdgeR() && s_pLevel < 6) { s_pLevel++; s_pickPart |= 2; }
+            if(g_joy.btnPressed)
+            {
+                if(s_sel == 0) GoPhase(PH_TITLE);
+                else           StartPractice((uint16_t)(s_sel - 1));
+            }
             break;
 
         case PH_INTRO:
@@ -2690,6 +2796,17 @@ static void WW_Render(void)
 
         case PH_INTRO:
             if(s_dirty) { DrawIntro(); s_dirty = false; }
+            break;
+
+        case PH_PICK:
+            if(s_dirty) { DrawPick(); s_dirty = false; s_pickPart = 0; }
+            else if(s_pickPart)
+            {
+                Graphics_setFont(&g_sContext, &g_sFontCmss20b);
+                if(s_pickPart & 1) { DrawPickRow(s_pickOld); DrawPickRow(s_sel); }
+                if(s_pickPart & 2) DrawPickSpeed();
+                s_pickPart = 0;
+            }
             break;
 
         case PH_PLAY:
