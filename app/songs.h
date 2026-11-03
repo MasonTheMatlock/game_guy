@@ -48,6 +48,8 @@ extern const Song sfx_boot_gbc;         // Game Boy Color style rising sparkle +
 //og sounds
 extern const Song song_corridor_run;    // original dungeon-crawler theme (raycaster)
 extern const Song song_tetris;          // Korobeiniki, the traditional folk melody
+extern const Song song_melatonin;       // drum + bass groove for the Wason Ware BEAT! game (31 ms units, 248 ms beats)
+extern const Song sfx_talk;             // short low blip, played per letter of Wario's speech
 extern const Song sfx_coin;             // coin-collect pickup (one-shot)
 
 extern const Song *const songList[];    // every background song, in Settings order

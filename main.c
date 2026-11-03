@@ -121,7 +121,7 @@ void main(void)
     EINT;
     ERTM;
 
-    Buzzer_PlaySfx(&sfx_boot_gbc);
+    Buzzer_PlaySfx(&sfx_boot_dmg);
     Splash_Show();
 
     

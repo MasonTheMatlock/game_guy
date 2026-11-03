@@ -94,6 +94,132 @@ const Song song_tetris =
 };
 
 //*****************************************************************************
+// Melatonin Groove - Dream Funk Arcade Loop
+//
+// Original passive-buzzer soundtrack for the Melatonin microgame.
+//
+// Musical identity:
+//   - Bouncy, syncopated bass motif
+//   - Dreamy, playful melody
+//   - Short rests that give the groove room to breathe
+//   - No fake drum frequencies
+//   - No Corridor Run progression or arpeggio riff
+//
+// Arrangement:
+//   INTRO      4 bars
+//   GROOVE A   4 bars
+//   GROOVE B   4 bars
+//   MELODY     8 bars
+//   BREAK      4 bars
+//   GROOVE A   4 bars
+//
+// 28 bars, 8 eighth-note units per bar.
+// With D_E = 1 unit and eighthMs = 150 ms:
+// 28 * 8 * 150 ms = 33.6 seconds before event gaps.
+//*****************************************************************************
+
+#define MEL_INTRO \
+    /* C: establish the dreamy groove */ \
+    {N_C5,D_E},{N_REST,D_E},{N_E5,D_E},{N_G5,D_E}, \
+    {N_REST,D_E},{N_E5,D_E},{N_C5,D_E},{N_A4,D_E}, \
+    /* G: bass response */ \
+    {N_G4,D_E},{N_REST,D_E},{N_D5,D_E},{N_B4,D_E}, \
+    {N_REST,D_E},{N_G4,D_E},{N_B4,D_E},{N_D5,D_E}, \
+    /* Dm: darker color */ \
+    {N_D5,D_E},{N_REST,D_E},{N_A4,D_E},{N_F5,D_E}, \
+    {N_REST,D_E},{N_D5,D_E},{N_F5,D_E},{N_A4,D_E}, \
+    /* Em: float back into the hook */ \
+    {N_E4,D_E},{N_REST,D_E},{N_B4,D_E},{N_G5,D_E}, \
+    {N_REST,D_E},{N_E5,D_E},{N_G4,D_E},{N_B4,D_E}
+
+#define MEL_GROOVE_A \
+    /* Bass-like bouncing C hook */ \
+    {N_C5,D_E},{N_REST,D_E},{N_C5,D_E},{N_E5,D_E}, \
+    {N_REST,D_E},{N_G4,D_E},{N_C5,D_E},{N_E5,D_E}, \
+    /* G hook */ \
+    {N_G4,D_E},{N_REST,D_E},{N_G4,D_E},{N_D5,D_E}, \
+    {N_REST,D_E},{N_B4,D_E},{N_D5,D_E},{N_G4,D_E}, \
+    /* Dm hook */ \
+    {N_D5,D_E},{N_REST,D_E},{N_F5,D_E},{N_A4,D_E}, \
+    {N_REST,D_E},{N_F5,D_E},{N_D5,D_E},{N_A4,D_E}, \
+    /* Em hook */ \
+    {N_E4,D_E},{N_REST,D_E},{N_G4,D_E},{N_B4,D_E}, \
+    {N_REST,D_E},{N_E5,D_E},{N_B4,D_E},{N_G4,D_E}
+
+#define MEL_GROOVE_B \
+    /* Higher register, slightly cheekier */ \
+    {N_C5,D_E},{N_E5,D_E},{N_REST,D_E},{N_G5,D_E}, \
+    {N_E5,D_E},{N_REST,D_E},{N_C5,D_E},{N_G4,D_E}, \
+    /* G variation */ \
+    {N_D5,D_E},{N_REST,D_E},{N_B4,D_E},{N_G5,D_E}, \
+    {N_REST,D_E},{N_D5,D_E},{N_G4,D_E},{N_B4,D_E}, \
+    /* Dm variation */ \
+    {N_F5,D_E},{N_REST,D_E},{N_A4,D_E},{N_D5,D_E}, \
+    {N_F5,D_E},{N_REST,D_E},{N_A4,D_E},{N_F5,D_E}, \
+    /* Em turnaround */ \
+    {N_B4,D_E},{N_REST,D_E},{N_E5,D_E},{N_G5,D_E}, \
+    {N_E5,D_E},{N_REST,D_E},{N_B4,D_E},{N_G4,D_E}
+
+#define MEL_LEAD \
+    /* Bar 1: recognizable melodic hook */ \
+    {N_E5,D_E},{N_REST,D_E},{N_G5,D_E},{N_E5,D_E}, \
+    {N_C5,D_E},{N_REST,D_E},{N_A4,D_E},{N_C5,D_E}, \
+    /* Bar 2 */ \
+    {N_D5,D_E},{N_REST,D_E},{N_F5,D_E},{N_D5,D_E}, \
+    {N_B4,D_E},{N_REST,D_E},{N_G4,D_E},{N_B4,D_E}, \
+    /* Bar 3 */ \
+    {N_E5,D_E},{N_G5,D_E},{N_REST,D_E},{N_E5,D_E}, \
+    {N_B4,D_E},{N_REST,D_E},{N_G4,D_E},{N_B4,D_E}, \
+    /* Bar 4: playful descending answer */ \
+    {N_C5,D_E},{N_REST,D_E},{N_G4,D_E},{N_A4,D_E}, \
+    {N_C5,D_E},{N_E5,D_E},{N_REST,D_E},{N_C5,D_E}, \
+    /* Bar 5: lift the melody */ \
+    {N_G5,D_E},{N_REST,D_E},{N_E5,D_E},{N_G5,D_E}, \
+    {N_D5,D_E},{N_REST,D_E},{N_B4,D_E},{N_D5,D_E}, \
+    /* Bar 6 */ \
+    {N_F5,D_E},{N_REST,D_E},{N_A4,D_E},{N_C5,D_E}, \
+    {N_D5,D_E},{N_REST,D_E},{N_F5,D_E},{N_D5,D_E}, \
+    /* Bar 7: little run */ \
+    {N_E5,D_E},{N_G5,D_E},{N_REST,D_E},{N_B4,D_E}, \
+    {N_E5,D_E},{N_REST,D_E},{N_G4,D_E},{N_B4,D_E}, \
+    /* Bar 8: settle back into the groove */ \
+    {N_C5,D_E},{N_REST,D_E},{N_E5,D_E},{N_G5,D_E}, \
+    {N_E5,D_E},{N_REST,D_E},{N_C5,D_E},{N_A4,D_E}
+
+#define MEL_BREAK \
+    /* Strip back to a sparse, dreamy phrase */ \
+    {N_C5,D_Q},{N_REST,D_E},{N_G4,D_E},{N_E5,D_Q}, \
+    {N_REST,D_E},{N_C5,D_E}, \
+    /* Answer */ \
+    {N_G4,D_Q},{N_REST,D_E},{N_D5,D_E},{N_B4,D_Q}, \
+    {N_REST,D_E},{N_G4,D_E}, \
+    /* Suspended feeling */ \
+    {N_D5,D_Q},{N_REST,D_E},{N_A4,D_E},{N_F5,D_Q}, \
+    {N_REST,D_E},{N_D5,D_E}, \
+    /* Pickup into the final groove */ \
+    {N_E4,D_Q},{N_REST,D_E},{N_B4,D_E},{N_G4,D_Q}, \
+    {N_REST,D_E},{N_B4,D_E}
+
+static const Note s_melatoninNotes[] =
+{
+    MEL_INTRO,
+    MEL_GROOVE_A,
+    MEL_GROOVE_B,
+    MEL_LEAD,
+    MEL_BREAK,
+    MEL_GROOVE_A
+};
+
+const Song song_melatonin =
+{
+    s_melatoninNotes,
+    sizeof(s_melatoninNotes) / sizeof(s_melatoninNotes[0]),
+    150,                // eighth-note timing
+    25,                 // short gap between events
+    "Melatonin Groove"
+};
+
+//*****************************************************************************
 // Coin collect: two quick rising notes (60 ms, then 240 ms)
 //
 /******************************************************************************
@@ -204,6 +330,8 @@ SFX(sfx_staff_sun,   n_staffSun,   14, 0, "Sunfire");
 // ---- Footsteps (grass): very short low rustle, two variants for left/right foot
 static const Note n_stepA[] = { {N_E4,1},{N_F4,1},{N_E4,1} };
 static const Note n_stepB[] = { {N_F4,1},{N_E4,1},{N_G4,1} };
+static const Note n_talk[] = { {196,2} };                                       // Wario "voice": one 50 ms low blip per letter
+SFX(sfx_talk, n_talk, 25, 4, "Talk");
 SFX(sfx_step_a, n_stepA, 8, 0, "Step A");
 SFX(sfx_step_b, n_stepB, 8, 0, "Step B");
 
@@ -218,6 +346,7 @@ const Song *const songList[] =
 {
     &song_corridor_run,
     &song_tetris,
+    &song_melatonin,
 };
 
 const uint16_t numSongs = sizeof(songList) / sizeof(songList[0]);

@@ -75,7 +75,10 @@ static const Song *const kSfx[] =
 
     &sfx_tetris_say,
     &sfx_boot_dmg,
-    &sfx_boot_gbc
+    &sfx_boot_gbc,
+    &sfx_talk,
+    &sfx_step_a,
+    &sfx_step_b
 };
 
 #define NUM_SFX  (sizeof(kSfx) / sizeof(kSfx[0]))
