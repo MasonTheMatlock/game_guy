@@ -28,6 +28,9 @@
 void InitLCDInterfaceSPI(void)
 {
     EALLOW;
+    SysCtrlRegs.LOSPCP.all = 0x0000;       // LSPCLK = SYSCLKOUT/2 = 45 MHz
+    SpiaRegs.SPIBRR = 0x0003; // Sets SPI clock to 22.5 MHz (assuming LSPCLK is 90 MHz)
+
 
     // GPIO16 -> SPISIMOA (J2.15), GPIO18 -> SPICLKA (J1.7), mux = 1
     GpioCtrlRegs.GPAMUX2.bit.GPIO16 = 1;

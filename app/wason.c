@@ -37,6 +37,7 @@ typedef struct
     const char *inspo;                      // "inspired by" tag, shown small
     uint16_t    frames;                     // time limit (frames)
     uint32_t    bg;                         // background color
+    int16_t     wx, wy, ww, wh;             // render window (screen coords); smaller = cheaper to repaint
     uint16_t    winOnTimeout;               // 1 = "survive" game, 0 = "do it" game
     void      (*init)(uint16_t spd);
     int16_t   (*update)(void);
@@ -66,7 +67,13 @@ static int16_t Rnd(int16_t n)               // 0..n-1
     return (int16_t)(Rand16() % (uint16_t)n);
 }
 
-// Filled rectangle, clipped to the playfield (never touches the fuse bar).
+// Render window. While a microgame renders, (0,0) is the window's top-left
+// corner and everything is clipped to it, so a game that only needs a small
+// area (and a small area is far cheaper to repaint over this SPI link) just
+// declares one in kGames[]. Outside render the window is the whole playfield.
+static int16_t g_wx = 0, g_wy = 0, g_ww = FIELD_W, g_wh = FIELD_H;
+
+// Filled rectangle, window-relative and clipped (never touches the fuse bar).
 static void Box(int16_t x, int16_t y, int16_t w, int16_t h, uint32_t c)
 {
     int16_t x1 = x + w - 1;
@@ -74,10 +81,10 @@ static void Box(int16_t x, int16_t y, int16_t w, int16_t h, uint32_t c)
 
     if(x < 0) x = 0;
     if(y < 0) y = 0;
-    if(x1 > FIELD_W - 1) x1 = FIELD_W - 1;
-    if(y1 > FIELD_H - 1) y1 = FIELD_H - 1;
+    if(x1 > g_ww - 1) x1 = g_ww - 1;
+    if(y1 > g_wh - 1) y1 = g_wh - 1;
     if(x1 < x || y1 < y) return;
-    Graphics_FillRect(x, y, x1, y1, c);
+    Graphics_FillRect(g_wx + x, g_wy + y, g_wx + x1, g_wy + y1, c);
 }
 
 static bool Hit(int16_t ax, int16_t ay, int16_t aw, int16_t ah,
@@ -94,10 +101,10 @@ static void Disc(int16_t x, int16_t y, int16_t r, uint32_t c)
     int16_t a = (r * 3) / 4;
     int16_t b = r / 2;
 
-    if(x - r < 0 || y - r < 0 || x + r >= FIELD_W || y + r >= FIELD_H) return;
-    Graphics_FillRect(x - a, y - a, x + a, y + a, c);
-    Graphics_FillRect(x - r, y - b, x + r, y + b, c);
-    Graphics_FillRect(x - b, y - r, x + b, y + r, c);
+    if(x - r < 0 || y - r < 0 || x + r >= g_ww || y + r >= g_wh) return;
+    Box(x - a, y - a, 2 * a + 1, 2 * a + 1, c);
+    Box(x - r, y - b, 2 * r + 1, 2 * b + 1, c);
+    Box(x - b, y - r, 2 * b + 1, 2 * r + 1, c);
 }
 
 // Move a w x h block horizontally from x0 to x1 (same y) touching only the
@@ -186,7 +193,7 @@ static void Text(const char *s, int16_t x, int16_t y, uint32_t c)
 {
     Graphics_setForegroundColor(&g_sContext, c);
     Graphics_drawStringCentered(&g_sContext, (int16_t *)s, AUTO_STRING_LENGTH,
-                                x, y, TRANSPARENT_TEXT);
+                                g_wx + x, g_wy + y, TRANSPARENT_TEXT);
 }
 
 static void BoldText(const char *s, int16_t x, int16_t y, uint32_t c)
@@ -232,6 +239,540 @@ static void Arrow(int16_t cx, int16_t cy, int16_t dir, int16_t u, uint32_t c)
     else if(dir == 2) Box(cx, cy - sw / 2, 3 * u, sw, c);
     else              Box(cx - 3 * u, cy - sw / 2, 3 * u, sw, c);
 }
+
+// Erase "old rectangle minus new rectangle" (up to 4 bands). Draw the new
+// sprite FIRST, then call this: the sprite is never missing from the screen,
+// and only the pixels it actually vacated are repainted.
+static void EraseOutside(int16_t ox, int16_t oy, int16_t ow, int16_t oh,
+                         int16_t nx, int16_t ny, int16_t nw, int16_t nh, uint32_t bg)
+{
+    int16_t ix0 = Max16(ox, nx), iy0 = Max16(oy, ny);
+    int16_t ix1 = Min16(ox + ow, nx + nw), iy1 = Min16(oy + oh, ny + nh);
+
+    if(ix0 >= ix1 || iy0 >= iy1) { Box(ox, oy, ow, oh, bg); return; }
+    if(iy0 > oy)           Box(ox, oy, ow, iy0 - oy, bg);                       // band above
+    if(iy1 < oy + oh)      Box(ox, iy1, ow, oy + oh - iy1, bg);                 // band below
+    if(ix0 > ox)           Box(ox, iy0, ix0 - ox, iy1 - iy0, bg);               // band left
+    if(ix1 < ox + ow)      Box(ix1, iy0, ox + ow - ix1, iy1 - iy0, bg);         // band right
+}
+
+// ---- pixel art ----------------------------------------------------------------
+// A sprite is an array of strings, one char per pixel ('.' = background). Runs of
+// the same char (and identical rows) are merged into single rectangles, which is
+// what keeps an art sprite cheap on this display link.
+static uint32_t ArtColor(char ch, uint32_t bg)
+{
+    switch(ch)
+    {
+        case 'k': return 0x101018UL;  case 'w': return 0xFAFAFAUL;  case 'r': return 0xDC2828UL;
+        case 'o': return 0xF58C28UL;  case 'y': return 0xFADC5AUL;  case 'g': return 0x46AA46UL;
+        case 'd': return 0x1E6432UL;  case 'b': return 0x326EDCUL;  case 'c': return 0x78C8F0UL;
+        case 'n': return 0x825028UL;  case 'p': return 0xFAC8A0UL;  case 's': return 0xBEC3CDUL;
+        case 'm': return 0xC83CA0UL;  case 't': return 0x46AAA0UL;  case 'l': return 0x96DC50UL;
+        case 'e': return 0x50555FUL;  case 'z': return 0x82A06EUL;  case 'u': return 0x3C468CUL;
+        case 'a': return 0xFAFA78UL;  case 'h': return 0xC89646UL;  case 'f': return 0xEBAA5AUL;
+        default:  return bg;
+    }
+}
+
+static bool SameRow(const char *a, const char *b, int16_t w)
+{
+    int16_t i;
+    for(i = 0; i < w; i++) if(a[i] != b[i]) return false;
+    return true;
+}
+
+// Draw a w x h sprite scaled by sc. opaque=true also paints the '.' pixels with
+// bg, so the sprite fully replaces whatever was under it (no separate erase).
+static void DrawArt(int16_t x, int16_t y, const char *const *rows, int16_t w, int16_t h,
+                    int16_t sc, uint32_t bg, bool opaque)
+{
+    int16_t r, c, n, run;
+
+    for(r = 0; r < h; r += n)
+    {
+        for(n = 1; r + n < h && SameRow(rows[r], rows[r + n], w); n++) { }
+        for(c = 0; c < w; c += run)
+        {
+            for(run = 1; c + run < w && rows[r][c + run] == rows[r][c]; run++) { }
+            if(rows[r][c] == '.' && !opaque) continue;
+            Box(x + c * sc, y + r * sc, run * sc, n * sc, ArtColor(rows[r][c], bg));
+        }
+    }
+}
+
+// Move an opaque sprite: paint it at the new spot, then erase just what it left.
+static void MoveArt(int16_t ox, int16_t oy, int16_t nx, int16_t ny, const char *const *rows,
+                    int16_t w, int16_t h, int16_t sc, uint32_t bg)
+{
+    DrawArt(nx, ny, rows, w, h, sc, bg, true);
+    EraseOutside(ox, oy, w * sc, h * sc, nx, ny, w * sc, h * sc, bg);
+}
+
+//*****************************************************************************
+// Pixel art (generated). One string per row; '.' = background. See DrawArt().
+//*****************************************************************************
+
+
+static const char *const kArtFire[16] =
+{
+    ".......kk.......",
+    ".....kkookk.....",
+    "....kooooook....",
+    "...kooooooook...",
+    "...kooooooook...",
+    "..koowkoookwokk.",
+    "...kokoooookkrrk",
+    "...kooooooookrrk",
+    "....kookkookraar",
+    "....kooyyookkaak",
+    "...kooyyyyooorrk",
+    "...koyyyyyyooook",
+    "...koyyyyyyoook.",
+    "....koyyyyoook..",
+    "....kooyyookk...",
+    "....kookkook...."
+};
+
+
+static const char *const kArtWater[16] =
+{
+    "................",
+    ".....kkkkkk.....",
+    "....kbbbbbbk....",
+    "...kbbbbbbbbk...",
+    "...kbbbbbbbbk...",
+    "...kbwkbbbkwk...",
+    "...kbkbbbbbk.kk.",
+    "...kbbbbbbbbkbck",
+    "....kbbkkbbkbbbk",
+    "...knccccccnbbbk",
+    "..knnyyyyyynbbbk",
+    "..knnyyyyyynnbk.",
+    "..knnyyyyyynnk..",
+    "..knbbyyyybbnk..",
+    "...kbbnnnnbbk...",
+    "...kbbknnkbbk..."
+};
+
+
+static const char *const kArtGrass[16] =
+{
+    ".....kkdgkk.....",
+    "....kdllgldk....",
+    "...kdlllllldk...",
+    "...kdlllllldk...",
+    "...kdlllllldk...",
+    "...kddllllddk...",
+    "..kttddddddttk..",
+    ".kttttttttdtttk.",
+    ".kttwtttttddwtk.",
+    "ktttrrtttttrrtk.",
+    "ktttdtttttttttk.",
+    ".kkttttttttttk..",
+    "..kttkttttkttk..",
+    "..kttkkkkkkttk..",
+    "..kttk....kttk..",
+    "...kk......kk..."
+};
+
+
+static const char *const kArtSonic0[20] =
+{
+    "kk..............",
+    "bbkkk..kkkk.....",
+    "bbbbbkkbbbbk....",
+    "kbbbbbbbbwwwk...",
+    ".kkkbbbbbwwkbk..",
+    "kkbbbbbbbwwkkk..",
+    "bbbbbbbbbwwwppk.",
+    "bbbbkbbbbbppppk.",
+    "kkkbbbbbbbbpppk.",
+    ".kbbbbkbbbbkkk..",
+    "kbbbbkbbbbbk....",
+    "bbbbkkbbbppk....",
+    "bbkkkbbbppppk...",
+    "kk..kbbbpppppk..",
+    ".....kbbppppppk.",
+    "....kbbbbbbkppk.",
+    "....kbbkbbbbkk..",
+    "...kbbbkkkbbbkkk",
+    "..krwwrrk.krwwrr",
+    "..krrrrrk.krrrrr"
+};
+
+
+static const char *const kArtSonic1[20] =
+{
+    "kk..............",
+    "bbkkk..kkkk.....",
+    "bbbbbkkbbbbk....",
+    "kbbbbbbbbwwwk...",
+    ".kkkbbbbbwwkbk..",
+    "kkbbbbbbbwwkkk..",
+    "bbbbbbbbbwwwppk.",
+    "bbbbkbbbbbppppk.",
+    "kkkbbbbbbbbpppk.",
+    ".kbbbbkbbbbkkk..",
+    "kbbbbkbbbbbk....",
+    "bbbbkkbbbppk....",
+    "bbkkkbbbppppk...",
+    "kk..kbbbpppppk..",
+    ".....kbbppppppk.",
+    ".....kbbbbbkppk.",
+    "....kkkbbbbkkk..",
+    "...krrrrbbkk....",
+    "...krrrrwwrrk...",
+    "....kkkrrrrrk..."
+};
+
+
+static const char *const kArtSpin[16] =
+{
+    ".....kkkkkk.....",
+    "....kbbbbbbk....",
+    "...kbbbbbbbbk...",
+    "..kbbbbbbbbbbk..",
+    ".kbbbccccccbbbk.",
+    "kbbbccccccccbbbk",
+    "kbbbccccccccbbbk",
+    "kwwwwwwwwwwwwwwk",
+    "kwwwwwwwwwwwwwwk",
+    "kbbbccccccccbbbk",
+    "kbbbccccccccbbbk",
+    ".kbbbccccccbbbk.",
+    "..kbbbbbbbbbbk..",
+    "...kbbbbbbbbk...",
+    "....kbbbbbbk....",
+    ".....kkkkkk....."
+};
+
+
+static const char *const kArtMotobug[12] =
+{
+    "..............",
+    "....kkkkkk....",
+    "...krrrrrrk...",
+    "..krrrrrrkrk..",
+    ".krrkrrrrrrrk.",
+    "krrrrrrrrrrrrk",
+    "krrrrrrkrrrrrk",
+    "rrrrrrrrrwwrrr",
+    "rrrrrrrrrwwkrr",
+    "reeerrrrrrrrrr",
+    "keeerrrrrreeek",
+    ".kkkrrrrrreeek"
+};
+
+
+static const char *const kArtRing[10] =
+{
+    "..hhhhhh..",
+    ".hyyyyyyh.",
+    "hyyyyyyyyh",
+    "hyyhhhhyyh",
+    "hyyh..hyyh",
+    "hyyh..hyyh",
+    "hyyhhhhyyh",
+    "hyyyyyyyyh",
+    ".hyyyyyyh.",
+    "..hhhhhh.."
+};
+
+
+static const char *const kArtSpikes[10] =
+{
+    "kssskkssskksssk.",
+    "kssskkssskksssk.",
+    "kssk.kssk.kssk..",
+    "kssk.kssk.kssk..",
+    "kssk.kssk.kssk..",
+    "kssk.kssk.kssk..",
+    "ssskkssskksssk..",
+    "sskkksskkksskkkk",
+    "ssssssssssssssss",
+    "ssssssssssssssss"
+};
+
+
+static const char *const kArtSpring[10] =
+{
+    "..kkkkkkkkkk..",
+    ".kyyyyyyyyyyk.",
+    ".kyyyyyyyyyyk.",
+    "..kssssssssk..",
+    "...kkkkkkkk...",
+    ".kksssssssskk.",
+    "krrrrrrrrrrrrk",
+    "krrrrrrrrrrrrk",
+    "krrrrrrrrrrrrk",
+    "krrrrrrrrrrrrk"
+};
+
+
+static const char *const kArtOrange[16] =
+{
+    ".......kkkkkk...",
+    "......knnggggk..",
+    ".....kknggggggk.",
+    "...kkooooggggk..",
+    "..kooooooooook..",
+    "..kooooooooook..",
+    ".kooaaaaooooook.",
+    ".kooaaaaooooook.",
+    ".kooooooooooook.",
+    ".kooooooooooook.",
+    ".kooooooooooook.",
+    ".kooooooooooook.",
+    "..kooooooooook..",
+    "..kooooooooook..",
+    "...kkooooookk...",
+    ".....kkkkkk....."
+};
+
+
+static const char *const kArtApple[16] =
+{
+    "........kkkkk...",
+    ".......knggggk..",
+    "....kkkknggggk..",
+    "...krrrknrrrk...",
+    "..krrrrrrrrrrk..",
+    ".krrrrrrrrrrrrk.",
+    "krrrrwrrrrrrrrrk",
+    "krrrrwrrrrrrrrrk",
+    "krrrrrrrrrrrrrrk",
+    "krrrrrrrrrrrrrrk",
+    "krrrrrrrrrrrrrrk",
+    ".krrrrrrrrrrrrk.",
+    "..krrrrrrrrrrk..",
+    "...krrrrrrrrk...",
+    "....kkrrrrkk....",
+    "......kkkk......"
+};
+
+
+static const char *const kArtLime[16] =
+{
+    ".....kkkkkk.....",
+    "....kggggggk....",
+    "...kgglgllggk...",
+    "..kglllgllllgk..",
+    ".kglgllglllglgk.",
+    "kggllgaagagllggk",
+    "kglllagaggalllgk",
+    "kglllaaggaalllgk",
+    "kggggggggggggggk",
+    "kglllagaggalllgk",
+    "kggllgaagagllggk",
+    ".kglglllgllglgk.",
+    "..kgllllglllgk..",
+    "...kggllglggk...",
+    "....kggggggk....",
+    ".....kkkkkk....."
+};
+
+
+static const char *const kArtBomb[16] =
+{
+    ".......kkooorak.",
+    "......knnokkkk..",
+    ".....kknnkk.....",
+    "...kkeenneekk...",
+    "..keeeeeeeeeek..",
+    "..keeeeeeeeeek..",
+    ".keesssseeeeeek.",
+    ".keesssseeeeeek.",
+    ".keeeeeeeeeeeek.",
+    ".keeeeeeeeeeeek.",
+    ".keeeeeeeeeeeek.",
+    ".keeeeeeeeeeeek.",
+    "..keeeeeeeeeek..",
+    "..keeeeeeeeeek..",
+    "...kkeeeeeekk...",
+    ".....kkkkkk....."
+};
+
+
+static const char *const kArtPeashooter[16] =
+{
+    ".....kkk........",
+    "...kkgllk.......",
+    "..kggllllk......",
+    ".kggggllggkkkk..",
+    ".kggggggggggggk.",
+    "kgggwkgggggggddk",
+    "kgggkggggggggdk.",
+    ".kgggggggggggddk",
+    ".kggggggggggggk.",
+    "..kggggggkkkkk..",
+    "kkkkkddkk.......",
+    "dddddddkkkkkk...",
+    "dddddddddddddk..",
+    "kkkkkddddddddk..",
+    "....kddkkkkkk...",
+    ".....kk........."
+};
+
+
+static const char *const kArtZombie[22] =
+{
+    ".knnnkkkk...",
+    ".knnnzzzzk..",
+    "..kzzzzzzk..",
+    ".kzzwwzzzzk.",
+    ".kzkzzkzzzk.",
+    ".kzzzzzzzzk.",
+    "..kzzzzzzk..",
+    "...kkkkzzk..",
+    "...kkkkkkk..",
+    "kkknnrrnnnk.",
+    "zzzznrrnnnk.",
+    "zzzznrrnnnk.",
+    "zzknnrrnnnk.",
+    "kkknnrrnnnk.",
+    "..knnnnnnnk.",
+    "..knnnnnnnk.",
+    "...keeekeeek",
+    "...keeekeeek",
+    "...keeekeeek",
+    "...keeekeeek",
+    "...kkkk.kkkk",
+    "...kkkk.kkkk"
+};
+
+
+static const char *const kArtPea[6] =
+{
+    ".dlld.",
+    "dlllld",
+    "llwlll",
+    "llllll",
+    "dlllld",
+    ".dlld."
+};
+
+
+static const char *const kArtRun0[22] =
+{
+    "..khhhhhhhhk..",
+    "..khhhhhhhhk..",
+    ".khhhhhhhhhhk.",
+    "..knnnnnnnnk..",
+    "..knnnnnnnnk..",
+    "..kknnnnnnkk..",
+    ".knnnnnnnnnnk.",
+    ".knnnnnnnnnnk.",
+    ".kkrrrrrrrrkk.",
+    "kpprrrrrrrrppk",
+    "kpprrrrrrrrppk",
+    "kpprrrrrrrrppk",
+    "kpprrrrrrrrppk",
+    "kppnnnnnnnnppk",
+    "kppnnnnnnnnppk",
+    ".kkrrrrrrrrkk.",
+    "..kuuukkuuuk..",
+    "..kuuukkuuuk..",
+    "..kuuukkuuuk..",
+    "..kuuuk.kkk...",
+    "..kuuuk.......",
+    "..kkkk........"
+};
+
+
+static const char *const kArtRun1[22] =
+{
+    "..khhhhhhhhk..",
+    "..khhhhhhhhk..",
+    ".khhhhhhhhhhk.",
+    "..knnnnnnnnk..",
+    "..knnnnnnnnk..",
+    "..kknnnnnnkk..",
+    ".knnnnnnnnnnk.",
+    ".knnnnnnnnnnk.",
+    ".kkrrrrrrrrkk.",
+    "kpprrrrrrrrppk",
+    "kpprrrrrrrrppk",
+    "kpprrrrrrrrppk",
+    "kpprrrrrrrrppk",
+    "kppnnnnnnnnppk",
+    "kppnnnnnnnnppk",
+    ".kkrrrrrrrrkk.",
+    "..kuuukkuuuk..",
+    "..kuuukkuuuk..",
+    "..kuuukkuuuk..",
+    "...kkk.kuuuk..",
+    ".......kuuuk..",
+    "........kkkk.."
+};
+
+
+static const char *const kArtBall[12] =
+{
+    "...kkkkkk...",
+    "..krrrrrrk..",
+    ".krrrrrrrrk.",
+    "krrrrrrrrrrk",
+    "krrrrwwrrrrk",
+    ".kkkwwwwkkk.",
+    ".kkkwwkwkkk.",
+    "kwwwwwwwwwwk",
+    "kwwwwwwwwwwk",
+    ".kwwwwwwwwk.",
+    "..kwwwwwwk..",
+    "...kkkkkk..."
+};
+
+
+static const char *const kArtBallHit[12] =
+{
+    "...kkkkkk...",
+    "..kaaaaaak..",
+    ".kaaaaaaaak.",
+    "kaaaaaaaaaak",
+    "kaaaawwaaaak",
+    ".kkkwwwwkkk.",
+    ".kkkwwkwkkk.",
+    "kwwwwwwwwwwk",
+    "kwwwwwwwwwwk",
+    ".kwwwwwwwwk.",
+    "..kwwwwwwk..",
+    "...kkkkkk..."
+};
+
+
+static const char *const kArtGdSpike[12] =
+{
+    "......w......",
+    ".....wrw.....",
+    "....wrrrw....",
+    "....wrrrw....",
+    "...wrrrrrw...",
+    "...wrrrrrw...",
+    "..wrrrrrrrw..",
+    "..wrrrrrrrw..",
+    ".wrrrrrrrrrw.",
+    ".wrrrrrrrrrw.",
+    "wrrrrrrrrrrrw",
+    ".wwwwwwwwwww."
+};
+
+
+static const char *const kArtNote[12] =
+{
+    "...kkkkkk...",
+    "..kmmmmmmk..",
+    ".kmmmmmmmmk.",
+    "kmmmmwwmmmmk",
+    "kmmmwwwwmmmk",
+    "kmmwwwwwwmmk",
+    "kmmwwwwwwmmk",
+    "kmmmwwwwmmmk",
+    "kmmmmwwmmmmk",
+    ".kmmmmmmmmk.",
+    "..kmmmmmmk..",
+    "...kkkkkk..."
+};
 
 //*****************************************************************************
 // 2. MICROGAMES
@@ -369,7 +910,7 @@ static void DkRender(void)
 // ============================================================================
 #define PK_BG   0x203040UL
 
-static const uint32_t kPkCol[3]    = { COLOR_ORANGE, COLOR_BLUE, COLOR_GREEN };
+static const char *const *const kPkArt[3] = { kArtFire, kArtWater, kArtGrass };
 static const int16_t  kPkCounter[3] = { 1, 2, 0 };          // fire<-water, water<-grass, grass<-fire
 static const char    *kPkName[3]   = { "FIRE", "WATER", "GRASS" };
 
@@ -408,23 +949,16 @@ static void PkRender(void)
         Text("< WATER", 60, 195, COLOR_WHITE);
         Text("^ FIRE", 160, 195, COLOR_WHITE);
         Text("GRASS >", 260, 195, COLOR_WHITE);
+        Box(110, 126, 100, 6, 0x2E7D32UL);                      // grass patch under the sprite
         pk_shown = pk_drawn = -1;
     }
-
     if(pk_drawn != pk_t)
     {
-        Box(60, 36, 200, 124, PK_BG);
-        Disc(160, 100, 32, kPkCol[pk_t]);
-        Box(145, 92, 10, 10, COLOR_WHITE);  Box(165, 92, 10, 10, COLOR_WHITE);
-        Box(149, 96, 4, 4, COLOR_BLACK);    Box(169, 96, 4, 4, COLOR_BLACK);
-        Box(150, 112, 20, 4, COLOR_BLACK);
-        if(pk_t == 0)      { Box(152, 56, 16, 14, COLOR_YELLOW); Box(157, 46, 6, 10, COLOR_RED); }
-        else if(pk_t == 1) { Box(154, 50, 12, 20, COLOR_SKY_BLUE); }
-        else               { Box(146, 52, 28, 10, COLOR_LIME); Box(156, 44, 8, 10, COLOR_LIME); }
-        Text(kPkName[pk_t], 160, 148, COLOR_WHITE);
+        DrawArt(136, 70, kPkArt[pk_t], 16, 16, 3, PK_BG, true); // 48x48, opaque: no erase needed
+        Box(100, 132, 120, 24, PK_BG);
+        Text(kPkName[pk_t], 160, 144, COLOR_WHITE);
         pk_drawn = pk_t;
     }
-
     if(pk_shown != pk_hits)
     {
         Box(80, 12, 160, 10, COLOR_DARK_GRAY);
@@ -434,81 +968,155 @@ static void PkRender(void)
 }
 
 // ============================================================================
-// FLIP!  (Pokemon Pinball)  L / R (or stick, or button) work the flippers.
-//        Hit the bumpers 5 times, don't drain.
+// FLIP!  (Pokemon Pinball)  hold L / R (or the stick, or the button) to raise
+//        a flipper. Hit the Poke-ball bumpers and rollover lights: 8 points.
+//        200x200 window; only the ball, flippers and lit parts are redrawn.
 // ============================================================================
 #define PB_BG   0x14143CUL
-#define PB_FY   196
+#define PB_W    200
+#define PB_H    200
+#define PB_PX   40                          // flipper pivot x (left); right is mirrored
+#define PB_PY   160
+#define PB_TX   88                          // flipper tip x
 
-static const int16_t kPbBx[3] = { 100, 220, 160 };
-static const int16_t kPbBy[3] = {  70,  70, 120 };
+static const int16_t kPbBx[3] = {  62,  138, 100 };         // bumper centres
+static const int16_t kPbBy[3] = {  60,   60, 104 };
+static const int16_t kPbLx[3] = {  60,  100, 140 };         // rollover lights (y = 18)
 
-static int16_t pb_x4, pb_y4, pb_vx, pb_vy, pb_px, pb_py, pb_hits;
-static int16_t pb_flash[3];
-static bool    pb_lf, pb_rf;
+static int16_t pb_x4, pb_y4, pb_vx, pb_vy, pb_px, pb_py, pb_score;
+static int16_t pb_flash[3], pb_kick[2];
+static bool    pb_lf, pb_rf, pb_dlf, pb_drf, pb_lit[3], pb_litDr[3], pb_flDr[3];
+static bool    pb_nearLow;
+
+// Floor height under x for the left half (right half is mirrored).
+static int16_t PbFloorL(int16_t x, bool up)
+{
+    if(x < PB_PX) return 130 + ((x - 6) * 30) / (PB_PX - 6);                    // outlane guide
+    return PB_PY + ((x - PB_PX) * ((up ? 146 : 176) - PB_PY)) / (PB_TX - PB_PX); // flipper
+}
 
 static void PbInit(uint16_t spd)
 {
-    pb_x4 = (130 + Rnd(60)) * 4;
-    pb_y4 = 40 * 4;
-    pb_vx = Rnd(25) - 12;
+    pb_x4 = (80 + Rnd(40)) * 4;
+    pb_y4 = 36 * 4;
+    pb_vx = Rnd(17) - 8;
     pb_vy = 0;
     pb_px = pb_x4 / 4; pb_py = pb_y4 / 4;
-    pb_hits = 0;
+    pb_score = 0;
     pb_flash[0] = pb_flash[1] = pb_flash[2] = 0;
-    pb_lf = pb_rf = false;
+    pb_kick[0] = pb_kick[1] = 0;
+    pb_lf = pb_rf = pb_dlf = pb_drf = false;
+    pb_lit[0] = pb_lit[1] = pb_lit[2] = false;
+    pb_litDr[0] = pb_litDr[1] = pb_litDr[2] = false;
+    pb_flDr[0] = pb_flDr[1] = pb_flDr[2] = false;
 }
 
 static int16_t PbUpdate(void)
 {
-    int16_t i, x, y, dx, dy;
+    int16_t i, x, y, dx, dy, fy, sl;
+    bool    right;
 
     pb_lf = g_dpad.l || g_joy.dx < -50 || g_joy.btn;
     pb_rf = g_dpad.r || g_joy.dx >  50 || g_joy.btn;
+    if(pb_kick[0] > 0) pb_kick[0]--;
+    if(pb_kick[1] > 0) pb_kick[1]--;
 
-    pb_vy = Min16(pb_vy + 1, 40);
-    pb_x4 += pb_vx;
-    pb_y4 += pb_vy;
+    pb_vy = Min16(pb_vy + 1, 26);
+    pb_vx = Clamp16(pb_vx - pb_vx / 24, -28, 28);
+    pb_x4 += pb_vx;  pb_y4 += pb_vy;
     x = pb_x4 / 4;  y = pb_y4 / 4;
 
-    if(x < 25)  { pb_x4 = 100;  pb_vx =  Abs16(pb_vx); }
-    if(x > 295) { pb_x4 = 1180; pb_vx = -Abs16(pb_vx); }
-    if(y < 12)  { pb_y4 = 48;   pb_vy =  Abs16(pb_vy); }
+    if(x < 10)        { pb_x4 = 40;            pb_vx =  Abs16(pb_vx); }
+    if(x > PB_W - 10) { pb_x4 = (PB_W - 10) * 4; pb_vx = -Abs16(pb_vx); }
+    if(y < 10)        { pb_y4 = 40;            pb_vy =  Abs16(pb_vy); }
     x = pb_x4 / 4;  y = pb_y4 / 4;
 
-    for(i = 0; i < 3; i++)
+    for(i = 0; i < 3; i++)                                      // Poke-ball bumpers
     {
         if(pb_flash[i] > 0) pb_flash[i]--;
         dx = x - kPbBx[i];  dy = y - kPbBy[i];
-        if(dx * dx + dy * dy < 361)
+        if(dx * dx + dy * dy < 256)
         {
-            pb_vx = Clamp16(dx * 3, -36, 36);
-            pb_vy = Clamp16(dy * 3, -36, 36);
-            if(dx == 0 && dy == 0) pb_vy = -24;
-            pb_flash[i] = 6;
+            pb_vx = Clamp16(dx * 2 + (dx > 0 ? 6 : -6), -28, 28);
+            pb_vy = Clamp16(dy * 2 + (dy > 0 ? 6 : -6), -28, 28);
+            pb_flash[i] = 5;
             Buzzer_PlaySfx(&sfx_coin);
-            if(++pb_hits >= 5) return MG_WIN;
+            if(++pb_score >= 8) return MG_WIN;
         }
     }
+    if(y < 26)                                                  // rollover lights
+        for(i = 0; i < 3; i++)
+            if(!pb_lit[i] && Abs16(x - kPbLx[i]) < 14)
+            {
+                pb_lit[i] = true;
+                Buzzer_PlaySfx(&sfx_blip);
+                if(++pb_score >= 8) return MG_WIN;
+            }
 
-    if(pb_vy > 0 && y >= PB_FY - 12 && y <= PB_FY + 6)
+    // Slanted floors: guide + flipper on each side, a gap in the middle that drains
+    right = (x > PB_W / 2);
+    if(y + 4 >= 125)
     {
-        if(x >= 70 && x < 150)
+        int16_t xm = right ? (PB_W - 1 - x) : x;
+        if(xm >= 6 && xm < PB_TX)
         {
-            if(pb_lf) { pb_vy = -36; pb_vx = 6 + (x - 70) / 6; Buzzer_PlaySfx(&sfx_blip); }
-            else      { pb_vy = -Max16(pb_vy / 3, 4); pb_vx = 8; }
-        }
-        else if(x >= 170 && x < 250)
-        {
-            if(pb_rf) { pb_vy = -36; pb_vx = -(6 + (250 - x) / 6); Buzzer_PlaySfx(&sfx_blip); }
-            else      { pb_vy = -Max16(pb_vy / 3, 4); pb_vx = -8; }
+            bool up = right ? pb_rf : pb_lf;
+            fy = PbFloorL(xm, up);
+            if(y + 4 >= fy && pb_vy >= 0)
+            {
+                bool onFlip = (xm >= PB_PX);
+                int16_t side = right ? 1 : 0;
+                y = fy - 4;  pb_y4 = y * 4;
+                if(onFlip && up && pb_kick[side] == 0)                 // flip!
+                {
+                    pb_vy = -26;
+                    pb_vx = (6 + (xm - PB_PX) / 5) * (right ? -1 : 1);
+                    pb_kick[side] = 8;
+                    Buzzer_PlaySfx(&sfx_blip);
+                }
+                else
+                {
+                    sl = onFlip ? 1 : 3;                               // roll toward the gap
+                    pb_vy = (pb_vy > 8) ? -(pb_vy / 3) : 0;
+                    pb_vx += (right ? -sl : sl);
+                }
+            }
         }
     }
-    if(y >= 200 && x < 70)  { pb_y4 = 800; pb_vy = -Max16(Abs16(pb_vy) / 2, 4); pb_vx =  10; }
-    if(y >= 200 && x > 250) { pb_y4 = 800; pb_vy = -Max16(Abs16(pb_vy) / 2, 4); pb_vx = -10; }
-
-    if(y >= 224) return MG_LOSE;
+    pb_nearLow = (y >= 112);
+    if(y >= PB_H - 4) return MG_LOSE;                           // drained
     return MG_PLAY;
+}
+
+static void PbDrawFlip(int16_t side, bool up, uint32_t c)
+{
+    int16_t i, tip = up ? 146 : 176, x, yc;
+
+    for(i = 0; i < 4; i++)
+    {
+        x  = PB_PX + i * 12;
+        yc = PB_PY + ((tip - PB_PY) * (i * 12 + 6)) / (PB_TX - PB_PX);
+        Box(side ? PB_W - x - 12 : x, yc - 3, 12, 7, c);
+    }
+}
+
+static void PbDrawGuides(void)
+{
+    int16_t i, x, y;
+
+    for(i = 0; i < 6; i++)
+    {
+        x = 6 + i * ((PB_PX - 6) / 6);
+        y = 130 + (i * 30) / 6;
+        Box(x, y + 2, (PB_PX - 6) / 6 + 1, 6, COLOR_GRAY);
+        Box(PB_W - x - (PB_PX - 6) / 6 - 1, y + 2, (PB_PX - 6) / 6 + 1, 6, COLOR_GRAY);
+    }
+}
+
+static void PbDrawBumper(int16_t i)
+{
+    DrawArt(kPbBx[i] - 12, kPbBy[i] - 12, pb_flash[i] ? kArtBallHit : kArtBall, 12, 12, 2, PB_BG, true);
+    pb_flDr[i] = (pb_flash[i] > 0);
 }
 
 static void PbRender(void)
@@ -517,92 +1125,150 @@ static void PbRender(void)
 
     if(s_first)
     {
-        Box(14, 0, 6, FIELD_H, COLOR_GRAY);
-        Box(300, 0, 6, FIELD_H, COLOR_GRAY);
+        Box(0, 0, 6, PB_H, COLOR_GRAY);  Box(PB_W - 6, 0, 6, PB_H, COLOR_GRAY);
+        Box(0, 0, PB_W, 6, COLOR_GRAY);
+        Box(6, 22, 56, 3, 0x2A2A66UL);   Box(PB_W - 62, 22, 56, 3, 0x2A2A66UL);
+        PbDrawGuides();
+        for(i = 0; i < 3; i++) { PbDrawBumper(i); pb_litDr[i] = false; }
+        pb_dlf = pb_drf = false;
+        PbDrawFlip(0, false, COLOR_YELLOW);  PbDrawFlip(1, false, COLOR_YELLOW);
+        Text("POKE PINBALL", PB_W / 2, 150, 0x3C3C80UL);
     }
 
-    Box(pb_px - 6, pb_py - 6, 12, 12, PB_BG);
-
+    Box(pb_px - 5, pb_py - 5, 10, 10, PB_BG);                   // old ball
     for(i = 0; i < 3; i++)
     {
-        Disc(kPbBx[i], kPbBy[i], 14, pb_flash[i] ? COLOR_WHITE : COLOR_RED);
-        Box(kPbBx[i] - 14, kPbBy[i] - 1, 29, 3, COLOR_BLACK);
-        Box(kPbBx[i] - 4, kPbBy[i] - 4, 9, 9, COLOR_WHITE);
+        if(pb_flDr[i] != (pb_flash[i] > 0)) PbDrawBumper(i);
+        if(pb_lit[i] != pb_litDr[i] || s_first)
+        {
+            Box(kPbLx[i] - 8, 14, 16, 8, pb_lit[i] ? COLOR_YELLOW : 0x2A2A66UL);
+            pb_litDr[i] = pb_lit[i];
+        }
     }
-
-    Box(70, PB_FY - 16, 80, 30, PB_BG);
-    Box(170, PB_FY - 16, 80, 30, PB_BG);
-    Box(70,  pb_lf ? PB_FY - 8 : PB_FY + 2, 80, 6, COLOR_YELLOW);
-    Box(170, pb_rf ? PB_FY - 8 : PB_FY + 2, 80, 6, COLOR_YELLOW);
-
-    Disc(x, y, 5, COLOR_WHITE);
-    Box(x - 5, y - 1, 11, 2, COLOR_RED);
+    if(pb_lf != pb_dlf)                                         // flippers move only when toggled
+    {
+        PbDrawFlip(0, pb_dlf, PB_BG);  PbDrawFlip(0, pb_lf, COLOR_YELLOW);  pb_dlf = pb_lf;
+    }
+    if(pb_rf != pb_drf)
+    {
+        PbDrawFlip(1, pb_drf, PB_BG);  PbDrawFlip(1, pb_rf, COLOR_YELLOW);  pb_drf = pb_rf;
+    }
+    if(pb_nearLow || (pb_py >= 108))                            // ball touched the lower furniture: repair it
+    {
+        PbDrawGuides();
+        PbDrawFlip(0, pb_dlf, COLOR_YELLOW);  PbDrawFlip(1, pb_drf, COLOR_YELLOW);
+    }
+    Box(x - 3, y - 4, 6, 8, COLOR_WHITE);                       // ball (octagon from 2 rects)
+    Box(x - 4, y - 3, 8, 6, COLOR_WHITE);
+    Box(x - 4, y - 1, 8, 2, COLOR_RED);
     pb_px = x; pb_py = y;
 }
 
 // ============================================================================
-// RUN!  (Sonic)  auto-run: any button jumps. Grab 5 rings, dodge the spikes.
+// RUN!  (Sonic)  auto-run through Green Hill. Any button = spin jump.
+//        Grab 5 rings, squash the Motobugs from above, dodge the spikes,
+//        bounce off springs for the high rings.
 // ============================================================================
-#define SO_GY   200
+#define SO_GY   130                         // ground top (window-local)
 #define SO_X    60
 #define SO_BG   0x3A7BD5UL
+#define SO_N    4
 
-static int16_t so_y, so_vy, so_py, so_v, so_cd, so_rings;
-static int16_t so_x[3], so_px[3], so_top[3], so_t[3];
-static bool    so_on[3], so_dr[3];
+static int16_t so_y, so_vy, so_py, so_v, so_cd, so_rings, so_ph, so_pw, so_ph0, so_pend, so_pw1, so_ph1, so_chain, so_chr;
+static int16_t so_x[SO_N], so_px[SO_N], so_ty[SO_N], so_t[SO_N], so_h[SO_N], so_w[SO_N];
+static bool    so_on[SO_N], so_dr[SO_N];
+
+static const char *const *SoArt(int16_t t)
+{
+    if(t == 0) return kArtRing;
+    if(t == 1) return kArtMotobug;
+    if(t == 2) return kArtSpikes;
+    return kArtSpring;
+}
 
 static void SoInit(uint16_t spd)
 {
     uint16_t i;
 
-    so_y = so_py = SO_GY - 18;
+    so_y = so_py = SO_GY - 20;
     so_vy = 0;
-    so_v  = 6 + Min16((int16_t)spd / 2, 3);
-    so_cd = 10;
+    so_v  = 5 + Min16((int16_t)spd / 2, 3);
+    so_cd = 12;
     so_rings = 0;
-    for(i = 0; i < 3; i++) { so_on[i] = false; so_dr[i] = false; }
+    so_ph = 0;  so_pw = 16;  so_ph0 = 20;  so_pend = 0;  so_pw1 = 16;  so_ph1 = 20;  so_chain = 0;  so_chr = 0;
+    for(i = 0; i < SO_N; i++) { so_on[i] = false; so_dr[i] = false; }
 }
 
 static int16_t SoUpdate(void)
 {
-    uint16_t i;
-    int16_t  r;
+    uint16_t i, j;
+    int16_t  r, t = 0, hh, ww, t_last = 0;
+    bool     air;
 
-    if(so_y >= SO_GY - 18 && AnyPress()) { so_vy = -12; Buzzer_PlaySfx(&sfx_jump); }
+    air = (so_y < SO_GY - 20);
+    if(!air && AnyPress()) { so_vy = -11; Buzzer_PlaySfx(&sfx_jump); }
     so_vy++;
     so_y += so_vy;
-    if(so_y >= SO_GY - 18) { so_y = SO_GY - 18; so_vy = 0; }
+    if(so_y >= SO_GY - 20) { so_y = SO_GY - 20; so_vy = 0; }
+    air = (so_y < SO_GY - 20);
+    so_ph0 = air ? 16 : 20;  so_pw = 16;
+    if((s_frame & 3) == 0) so_ph ^= 1;
 
     if(--so_cd <= 0)
     {
-        for(i = 0; i < 3; i++)
+        for(i = 0; i < SO_N; i++)
             if(!so_on[i])
             {
-                r = Rnd(6);
-                so_on[i] = true;
-                so_t[i]  = (r < 2) ? 0 : ((r < 4) ? 1 : 2);
-                so_top[i] = (so_t[i] == 0) ? 178 : ((so_t[i] == 1) ? 120 : SO_GY - 14);
-                so_x[i] = so_px[i] = FIELD_W;
+                if(so_pend > 0)       { t = 0; so_pend--; r = 2; }                 // high rings after a spring
+                else if(so_chain > 0) { t = 0; so_chain--; r = so_chr; }           // rest of a ring chain
+                else
+                {
+                    r = Rnd(8);
+                    t = (r < 3) ? 0 : ((r < 5) ? 1 : ((r < 7) ? 2 : 3));
+                    if(t == 0) { so_chr = Rnd(2); r = so_chr; so_chain = 2; }       // a chain of 3 rings
+                    else r = 0;
+                }
+                hh = 10;
+                ww = (t == 0) ? 10 : ((t == 1) ? 14 : ((t == 2) ? 16 : 14));
+                so_on[i] = true; so_t[i] = t; so_h[i] = hh; so_w[i] = ww;
+                so_ty[i] = (t == 0) ? ((r == 2) ? SO_GY - 84 : ((r == 1) ? SO_GY - 50 : SO_GY - 24)) : SO_GY - ((t == 1) ? 12 : 10);
+                if(t == 1) so_h[i] = 12;
+                so_x[i] = so_px[i] = 322;
+                if(t == 3) so_pend = 2;
                 break;
             }
-        so_cd = 14 + Rnd(12);
+        so_cd = (so_pend > 0 || so_chain > 0) ? 5 : ((t == 0 || t == 3) ? 14 + Rnd(8) : 26 + Rnd(10));
     }
 
-    for(i = 0; i < 3; i++)
+    for(i = 0; i < SO_N; i++)
     {
         if(!so_on[i]) continue;
         so_x[i] -= so_v;
-        if(so_x[i] < -16) { so_on[i] = false; continue; }
+        if(so_x[i] < -20) { so_on[i] = false; continue; }
+        if(!Hit(SO_X + 2, so_y + 2, 12, so_ph0 - 4, so_x[i], so_ty[i], so_w[i], so_h[i])) continue;
 
-        if(so_t[i] == 2)
-        {
-            if(Hit(SO_X + 2, so_y + 2, 14, 16, so_x[i] + 2, so_top[i], 10, 14)) return MG_LOSE;
-        }
-        else if(Hit(SO_X, so_y, 18, 18, so_x[i], so_top[i], 14, 14))
+        if(so_t[i] == 0)
         {
             so_on[i] = false;
             Buzzer_PlaySfx(&sfx_coin);
             if(++so_rings >= 5) return MG_WIN;
+        }
+        else if(so_t[i] == 1)                                   // Motobug: spin on it from above
+        {
+            if(so_vy > 0 && so_y + so_ph0 - so_vy <= so_ty[i] + 4)
+            {
+                so_on[i] = false;  so_vy = -8;
+                Buzzer_PlaySfx(&sfx_explosion);
+                for(j = 0; j < SO_N; j++) if(so_on[j] && so_t[j] == 0 && so_x[j] > 200) { so_on[j] = false; }
+                if(++so_rings >= 5) return MG_WIN;
+            }
+            else return MG_LOSE;
+        }
+        else if(so_t[i] == 2) return MG_LOSE;                   // spikes
+        else if(so_vy >= 0)                                     // spring
+        {
+            so_vy = -15;  so_on[i] = false;
+            Buzzer_PlaySfx(&sfx_jump);
         }
     }
     return MG_PLAY;
@@ -611,126 +1277,129 @@ static int16_t SoUpdate(void)
 static void SoRender(void)
 {
     uint16_t i;
+    int16_t  y = so_y, w = so_pw, h = so_ph0;
+    const char *const *art;
 
     if(s_first)
     {
-        Box(0, SO_GY, FIELD_W, FIELD_H - SO_GY, 0xB5651DUL);
-        Box(0, SO_GY, FIELD_W, 4, COLOR_GREEN);
+        Box(0, SO_GY, 320, 6, COLOR_GREEN);
+        Box(0, SO_GY + 6, 320, 24, 0xB5651DUL);
+        for(i = 0; i < 16; i++) Box(i * 20, SO_GY + 6, 10, 12, 0x8B4A12UL);     // checkered dirt
+        so_py = SO_GY - 20;
     }
 
-    for(i = 0; i < 3; i++)
+    for(i = 0; i < SO_N; i++)
     {
-        if(so_dr[i]) Box(so_px[i], so_top[i], 14, 14, SO_BG);
         if(so_on[i])
         {
-            if(so_t[i] == 2)
-            {
-                Box(so_x[i] + 5, so_top[i],      4, 5, COLOR_SILVER);
-                Box(so_x[i] + 3, so_top[i] + 5,  8, 5, COLOR_SILVER);
-                Box(so_x[i],     so_top[i] + 10, 14, 4, COLOR_SILVER);
-            }
-            else
-            {
-                Disc(so_x[i] + 7, so_top[i] + 7, 6, COLOR_GOLD);
-                Box(so_x[i] + 5, so_top[i] + 5, 4, 4, SO_BG);
-            }
+            MoveArt(so_px[i], so_ty[i], so_x[i], so_ty[i], SoArt(so_t[i]), so_w[i], so_h[i], 1, SO_BG);
             so_px[i] = so_x[i];
             so_dr[i] = true;
         }
-        else so_dr[i] = false;
+        else if(so_dr[i]) { Box(so_px[i], so_ty[i], so_w[i], so_h[i], SO_BG); so_dr[i] = false; }
     }
 
-    Box(SO_X - 5, so_py - 1, 25, 21, SO_BG);
-    if(so_y < SO_GY - 18)                                       // spin ball
-    {
-        Disc(SO_X + 9, so_y + 9, 9, COLOR_BLUE);
-        Box(SO_X + 5, so_y + 7, 9, 4, COLOR_WHITE);
-    }
-    else
-    {
-        Box(SO_X, so_y, 16, 14, COLOR_BLUE);
-        Box(SO_X - 4, so_y + 3, 6, 5, COLOR_BLUE);              // quills
-        Box(SO_X + 9, so_y + 3, 5, 5, COLOR_WHITE);             // eye
-        Box(SO_X + 2, so_y + 14, 14, 4, COLOR_RED);             // shoes
-    }
-    so_py = so_y;
+    art = (so_y < SO_GY - 20) ? kArtSpin : (so_ph ? kArtSonic1 : kArtSonic0);
+    DrawArt(SO_X, y + (20 - h), art, w, h, 1, SO_BG, true);                    // new first...
+    EraseOutside(SO_X, so_py + (20 - so_ph1), so_pw1, so_ph1, SO_X, y + (20 - h), w, h, SO_BG);
+    so_pw1 = w;  so_ph1 = h;  so_py = y;
 }
 
 // ============================================================================
-// BLAST!  (Metroid)  UP/DOWN switch lanes, button (or L/R) fires.
-//         Freeze 3 Metroids (2 hits each) before they reach Samus.
+// PLANT!  (Plants vs Zombies)  UP/DOWN picks a lane, button plants a
+//         Peashooter at the house end of it. Stop 3 zombies before they reach
+//         the house. 3 plants max (one per lane).
 // ============================================================================
-#define MT_BG   0x14001EUL
+#define PZ_LH   56                          // lane height
+#define PZ_HX   26                          // house strip width
+#define PZ_N    3
+#define PZ_BG0  0x4CAF50UL
+#define PZ_BG1  0x3E9A42UL
 
-static const int16_t kMtL[3] = { 70, 130, 190 };
+static int16_t pz_lane, pz_dlane, pz_kills, pz_cd, pz_spd, pz_spw;
+static int16_t pz_zx[PZ_N], pz_zl[PZ_N], pz_zhp[PZ_N], pz_zpx[PZ_N], pz_zfl[PZ_N];
+static bool    pz_zon[PZ_N], pz_zdr[PZ_N];
+static bool    pz_plant[3], pz_pdr[3];
+static int16_t pz_fire[3];
+static int16_t pz_pxp[6], pz_pl[6], pz_ppx[6];
+static bool    pz_pon[6], pz_pdr2[6];
 
-static int16_t mt_lane, mt_dlane, mt_kills, mt_cd, mt_v;
-static int16_t mt_ex[2], mt_el[2], mt_hp[2], mt_pex[2], mt_fl[2];
-static int16_t mt_bx[2], mt_bl[2], mt_pbx[2];
-static bool    mt_eon[2], mt_edr[2], mt_bon[2], mt_bdr[2];
+static uint32_t PzBg(int16_t lane) { return (lane & 1) ? PZ_BG1 : PZ_BG0; }
 
-static void MtInit(uint16_t spd)
+static void PzInit(uint16_t spd)
 {
-    uint16_t i;
+    int16_t i;
 
-    mt_lane = 1; mt_dlane = -1;
-    mt_kills = 0;
-    mt_cd = 20;
-    mt_v = 1 + (spd >= 3 ? 1 : 0);
-    for(i = 0; i < 2; i++) { mt_eon[i] = mt_edr[i] = mt_bon[i] = mt_bdr[i] = false; mt_fl[i] = 0; }
+    pz_lane = 1; pz_dlane = -1; pz_kills = 0;
+    pz_cd = 20;
+    pz_spd = 3 + Min16((int16_t)spd / 3, 1);
+    pz_spw = Max16(30, 55 - 4 * (int16_t)spd);
+    for(i = 0; i < PZ_N; i++) { pz_zon[i] = pz_zdr[i] = false; pz_zfl[i] = 0; }
+    for(i = 0; i < 3; i++) { pz_plant[i] = pz_pdr[i] = false; pz_fire[i] = 20; }
+    for(i = 0; i < 6; i++) { pz_pon[i] = pz_pdr2[i] = false; }
 }
 
-static int16_t MtUpdate(void)
+static int16_t PzUpdate(void)
 {
-    uint16_t i, j;
+    int16_t i, j;
 
-    if(EdgeU() && mt_lane > 0) mt_lane--;
-    if(EdgeD() && mt_lane < 2) mt_lane++;
+    if(EdgeU() && pz_lane > 0) pz_lane--;
+    if(EdgeD() && pz_lane < 2) pz_lane++;
+    if(AnyPress() && !g_dpad.uPressed && !g_dpad.dPressed && !pz_plant[pz_lane])
+    {
+        pz_plant[pz_lane] = true;
+        pz_fire[pz_lane] = 10;
+        Buzzer_PlaySfx(&sfx_coin);
+    }
 
-    if(g_joy.btnPressed || g_dpad.lPressed || g_dpad.rPressed)
-        for(i = 0; i < 2; i++)
-            if(!mt_bon[i])
+    if(--pz_cd <= 0)
+    {
+        for(i = 0; i < PZ_N; i++)
+            if(!pz_zon[i])
             {
-                mt_bon[i] = true; mt_bx[i] = mt_pbx[i] = 44; mt_bl[i] = mt_lane;
+                pz_zon[i] = true; pz_zl[i] = Rnd(3); pz_zx[i] = pz_zpx[i] = 292; pz_zhp[i] = 3;
+                break;
+            }
+        pz_cd = pz_spw + Rnd(20);
+    }
+
+    for(i = 0; i < PZ_N; i++)                                   // zombies shamble every 3rd frame
+    {
+        if(!pz_zon[i]) continue;
+        if(pz_zfl[i] > 0) pz_zfl[i]--;
+        if((s_frame % 3) == 0) pz_zx[i] -= pz_spd;
+        if(pz_zx[i] <= PZ_HX) return MG_LOSE;
+    }
+
+    for(i = 0; i < 3; i++)                                      // plants shoot when a zombie is in the lane
+    {
+        if(!pz_plant[i]) continue;
+        if(--pz_fire[i] > 0) continue;
+        pz_fire[i] = 28;
+        for(j = 0; j < PZ_N; j++)
+            if(pz_zon[j] && pz_zl[j] == i)
+            {
+                for(j = 0; j < 6; j++)
+                    if(!pz_pon[j]) { pz_pon[j] = true; pz_pl[j] = i; pz_pxp[j] = pz_ppx[j] = PZ_HX + 34; break; }
                 Buzzer_PlaySfx(&sfx_laser);
                 break;
             }
-
-    if(--mt_cd <= 0)
-    {
-        for(i = 0; i < 2; i++)
-            if(!mt_eon[i])
-            {
-                mt_eon[i] = true; mt_ex[i] = mt_pex[i] = FIELD_W; mt_el[i] = Rnd(3);
-                mt_hp[i] = 2; mt_fl[i] = 0;
-                break;
-            }
-        mt_cd = 50 + Rnd(30);
     }
-
-    for(i = 0; i < 2; i++)
+    for(j = 0; j < 6; j++)                                      // peas
     {
-        if(!mt_eon[i]) continue;
-        mt_ex[i] -= mt_v;
-        if(mt_fl[i] > 0) mt_fl[i]--;
-        if(mt_ex[i] < 50) return MG_LOSE;
-    }
-
-    for(j = 0; j < 2; j++)
-    {
-        if(!mt_bon[j]) continue;
-        mt_bx[j] += 8;
-        if(mt_bx[j] > FIELD_W) { mt_bon[j] = false; continue; }
-        for(i = 0; i < 2; i++)
-            if(mt_eon[i] && mt_el[i] == mt_bl[j] && mt_bx[j] + 6 >= mt_ex[i] && mt_bx[j] <= mt_ex[i] + 28)
+        if(!pz_pon[j]) continue;
+        pz_pxp[j] += 7;
+        if(pz_pxp[j] > 320) { pz_pon[j] = false; continue; }
+        for(i = 0; i < PZ_N; i++)
+            if(pz_zon[i] && pz_zl[i] == pz_pl[j] && pz_pxp[j] + 6 >= pz_zx[i] && pz_pxp[j] <= pz_zx[i] + 24)
             {
-                mt_bon[j] = false;
-                mt_fl[i] = 4;
-                if(--mt_hp[i] <= 0)
+                pz_pon[j] = false;
+                pz_zfl[i] = 3;
+                if(--pz_zhp[i] <= 0)
                 {
-                    mt_eon[i] = false;
+                    pz_zon[i] = false;
                     Buzzer_PlaySfx(&sfx_explosion);
-                    if(++mt_kills >= 3) return MG_WIN;
+                    if(++pz_kills >= 3) return MG_WIN;
                 }
                 break;
             }
@@ -738,262 +1407,548 @@ static int16_t MtUpdate(void)
     return MG_PLAY;
 }
 
-static void MtRender(void)
+static void PzRender(void)
 {
-    uint16_t i;
-    int16_t  cy;
+    int16_t i, ly;
 
-    for(i = 0; i < 2; i++)                                      // erase old
+    if(s_first)
     {
-        if(mt_edr[i]) { Box(mt_pex[i] - 1, kMtL[mt_el[i]] - 18, 34, 36, MT_BG); mt_edr[i] = false; }
-        if(mt_bdr[i]) { Box(mt_pbx[i], kMtL[mt_bl[i]] - 2, 8, 4, MT_BG); mt_bdr[i] = false; }
+        for(i = 0; i < 3; i++) Box(PZ_HX, i * PZ_LH, 320 - PZ_HX, PZ_LH, PzBg(i));
+        Box(0, 0, PZ_HX, 3 * PZ_LH, 0x8D6E63UL);
+        for(i = 0; i < 3; i++) Box(4, i * PZ_LH + 14, 18, 28, 0x5D4037UL);       // doors
+        pz_dlane = -1;
+        for(i = 0; i < 3; i++) pz_pdr[i] = false;
     }
-    if(s_first || mt_lane != mt_dlane)
+
+    if(s_first || pz_lane != pz_dlane)                          // lane marker on the house wall
     {
-        if(mt_dlane >= 0) Box(8, kMtL[mt_dlane] - 20, 36, 40, MT_BG);
-        Box(10, kMtL[mt_lane] - 18, 20, 36, COLOR_ORANGE);      // suit
-        Box(20, kMtL[mt_lane] - 14, 8, 8, COLOR_LIME);          // visor
-        Box(28, kMtL[mt_lane] - 2, 14, 6, COLOR_GOLD);          // arm cannon
-        mt_dlane = mt_lane;
+        if(pz_dlane >= 0) Box(14, pz_dlane * PZ_LH + 4, 10, 8, 0x8D6E63UL);
+        Box(14, pz_lane * PZ_LH + 4, 10, 8, COLOR_YELLOW);
+        pz_dlane = pz_lane;
     }
-    for(i = 0; i < 2; i++)                                      // draw new
-    {
-        if(mt_eon[i])
+
+    for(i = 0; i < 3; i++)
+        if(pz_plant[i] && !pz_pdr[i])
         {
-            cy = kMtL[mt_el[i]];
-            Disc(mt_ex[i] + 14, cy - 4, 12, mt_fl[i] ? COLOR_WHITE : COLOR_GREEN);
-            Box(mt_ex[i] + 10, cy - 6, 8, 8, COLOR_RED);
-            Box(mt_ex[i] + 2,  cy + 8, 4, 8, COLOR_GREEN);
-            Box(mt_ex[i] + 12, cy + 8, 4, 10, COLOR_GREEN);
-            Box(mt_ex[i] + 22, cy + 8, 4, 8, COLOR_GREEN);
-            mt_pex[i] = mt_ex[i]; mt_edr[i] = true;
+            DrawArt(PZ_HX + 2, i * PZ_LH + 12, kArtPeashooter, 16, 16, 2, PzBg(i), true);
+            pz_pdr[i] = true;
         }
-        if(mt_bon[i])
-        {
-            Box(mt_bx[i], kMtL[mt_bl[i]] - 2, 6, 4, COLOR_CYAN);
-            mt_pbx[i] = mt_bx[i]; mt_bdr[i] = true;
-        }
-    }
-}
 
-// ============================================================================
-// RACE!  (Hydro Thunder)  steer the boat with the stick (it drifts!).
-//        Dodge rocks and buoys down the river.  Survive.
-// ============================================================================
-#define HY_BG   0x1976D2UL
-#define HY_Y    170
-
-static int16_t hy_x8, hy_vx, hy_px, hy_v, hy_cd;
-static int16_t hy_ox[4], hy_oy[4], hy_opy[4], hy_ot[4];
-static bool    hy_on[4], hy_dr[4];
-
-static int16_t HyW(int16_t t) { return t ? 14 : 24; }
-static int16_t HyH(int16_t t) { return t ? 20 : 24; }
-
-static void HyInit(uint16_t spd)
-{
-    uint16_t i;
-
-    hy_x8 = 151 * 8;  hy_vx = 0;  hy_px = 151;
-    hy_v  = 5 + Min16((int16_t)spd / 2, 3);
-    hy_cd = 10;
-    for(i = 0; i < 4; i++) { hy_on[i] = false; hy_dr[i] = false; }
-}
-
-static int16_t HyUpdate(void)
-{
-    uint16_t i;
-    int16_t  st = g_joy.dx, x;
-
-    if(g_dpad.l) st = -100;
-    if(g_dpad.r) st =  100;
-    hy_vx += st / 12;
-    hy_vx -= hy_vx / 8;
-    hy_vx  = Clamp16(hy_vx, -40, 40);
-    hy_x8 += hy_vx;
-    if(hy_x8 < 40 * 8)          { hy_x8 = 40 * 8;          hy_vx = 0; }
-    if(hy_x8 > (280 - 18) * 8)  { hy_x8 = (280 - 18) * 8;  hy_vx = 0; }
-    x = hy_x8 / 8;
-
-    if(--hy_cd <= 0)
+    for(i = 0; i < PZ_N; i++)
     {
-        for(i = 0; i < 4; i++)
-            if(!hy_on[i])
+        ly = pz_zl[i] * PZ_LH + 6;
+        if(pz_zon[i])
+        {
+            if(pz_zx[i] != pz_zpx[i] || pz_zfl[i] == 3 || pz_zfl[i] == 0 || !pz_zdr[i])
             {
-                hy_on[i] = true;
-                hy_ot[i] = Rnd(2);
-                hy_ox[i] = 42 + Rnd(236 - HyW(hy_ot[i]));
-                hy_oy[i] = hy_opy[i] = -HyH(hy_ot[i]);
+                if(pz_zdr[i]) MoveArt(pz_zpx[i], ly, pz_zx[i], ly, kArtZombie, 12, 22, 2, PzBg(pz_zl[i]));
+                else          DrawArt(pz_zx[i], ly, kArtZombie, 12, 22, 2, PzBg(pz_zl[i]), true);
+                pz_zpx[i] = pz_zx[i];  pz_zdr[i] = true;
+            }
+        }
+        else if(pz_zdr[i]) { Box(pz_zpx[i], ly, 24, 44, PzBg(pz_zl[i])); pz_zdr[i] = false; }
+    }
+
+    for(i = 0; i < 6; i++)
+    {
+        ly = pz_pl[i] * PZ_LH + 17;
+        if(pz_pon[i])
+        {
+            if(pz_pdr2[i]) MoveArt(pz_ppx[i], ly, pz_pxp[i], ly, kArtPea, 6, 6, 1, PzBg(pz_pl[i]));
+            else           DrawArt(pz_pxp[i], ly, kArtPea, 6, 6, 1, PzBg(pz_pl[i]), true);
+            pz_ppx[i] = pz_pxp[i];  pz_pdr2[i] = true;
+        }
+        else if(pz_pdr2[i]) { Box(pz_ppx[i], ly, 6, 6, PzBg(pz_pl[i])); pz_pdr2[i] = false; }
+    }
+}
+
+// ============================================================================
+// SLICE!  (Fruit Ninja)  swipe the cursor through 4 fruits. Avoid the bomb!
+//         Sprites are opaque art: draw the new frame first, then erase only the
+//         strips the fruit left behind, so nothing flickers.
+// ============================================================================
+#define FN_N    2
+#define FN_BG   0x1A1A2EUL
+
+static const char *const *const kFnArt[4] = { kArtOrange, kArtApple, kArtLime, kArtBomb };
+
+static int16_t fn_x[FN_N], fn_y4[FN_N], fn_vx[FN_N], fn_vy4[FN_N], fn_dx[FN_N], fn_dy[FN_N], fn_k[FN_N];
+static bool    fn_on[FN_N], fn_dr[FN_N];
+static int16_t fn_cx, fn_cy, fn_pcx, fn_pcy, fn_cd, fn_cnt, fn_shown, fn_rate;
+
+static void FnInit(uint16_t spd)
+{
+    uint16_t i;
+
+    for(i = 0; i < FN_N; i++) { fn_on[i] = false; fn_dr[i] = false; }
+    fn_cx = fn_pcx = 160;
+    fn_cy = fn_pcy = 115;
+    fn_cd = 10;
+    fn_cnt = 0; fn_shown = -1;
+    fn_rate = Max16(16, 30 - 2 * (int16_t)spd);
+}
+
+static int16_t FnUpdate(void)
+{
+    uint16_t i;
+    int16_t  mx, my;
+
+    mx = g_joy.dx / 9;
+    my = g_joy.dy / 9;
+    if(g_dpad.l) mx = -8;
+    if(g_dpad.r) mx =  8;
+    if(g_dpad.u) my = -8;
+    if(g_dpad.d) my =  8;
+    fn_cx = Clamp16(fn_cx + mx, 8, FIELD_W - 9);
+    fn_cy = Clamp16(fn_cy + my, 8, FIELD_H - 9);
+
+    if(--fn_cd <= 0)
+    {
+        for(i = 0; i < FN_N; i++)
+            if(!fn_on[i])
+            {
+                fn_on[i]   = true;
+                fn_k[i]    = (Rnd(6) == 0) ? 3 : Rnd(3);
+                fn_x[i]    = 50 + Rnd(220);
+                fn_y4[i]   = (FIELD_H + 20) * 4;
+                fn_vy4[i]  = -(46 + Rnd(14));
+                fn_vx[i]   = (fn_x[i] < 160) ? 1 + Rnd(3) : -(1 + Rnd(3));
                 break;
             }
-        hy_cd = Max16(9, 22 + Rnd(10) - hy_v);
+        fn_cd = fn_rate + Rnd(14);
     }
 
-    for(i = 0; i < 4; i++)
+    for(i = 0; i < FN_N; i++)
     {
-        if(!hy_on[i]) continue;
-        hy_oy[i] += hy_v;
-        if(hy_oy[i] >= FIELD_H) { hy_on[i] = false; continue; }
-        if(Hit(x + 1, HY_Y + 2, 16, 28, hy_ox[i], hy_oy[i], HyW(hy_ot[i]), HyH(hy_ot[i])))
-            return MG_LOSE;
+        if(!fn_on[i]) continue;
+        fn_x[i]   += fn_vx[i];
+        fn_vy4[i] += 2;
+        fn_y4[i]  += fn_vy4[i];
+        if(fn_vy4[i] > 0 && fn_y4[i] > (FIELD_H + 26) * 4) { fn_on[i] = false; continue; }
+
+        if(Abs16(fn_x[i] - fn_cx) <= 20 && Abs16(fn_y4[i] / 4 - fn_cy) <= 20)
+        {
+            fn_on[i] = false;
+            if(fn_k[i] == 3) { Buzzer_PlaySfx(&sfx_explosion); return MG_LOSE; }
+            Buzzer_PlaySfx(&sfx_laser);
+            if(++fn_cnt >= 4) return MG_WIN;
+        }
     }
     return MG_PLAY;
 }
 
-static void HyRender(void)
+static void FnRender(void)
 {
     uint16_t i;
-    int16_t  x = hy_x8 / 8;
+    int16_t  y;
+
+    for(i = 0; i < FN_N; i++)
+    {
+        if(fn_on[i])
+        {
+            y = fn_y4[i] / 4 - 16;
+            if(fn_dr[i])
+            {
+                DrawArt(fn_x[i] - 16, y, kFnArt[fn_k[i]], 16, 16, 2, FN_BG, true);          // new first...
+                EraseOutside(fn_dx[i] - 16, fn_dy[i], 32, 32, fn_x[i] - 16, y, 32, 32, FN_BG); // ...then the leftovers
+            }
+            else DrawArt(fn_x[i] - 16, y, kFnArt[fn_k[i]], 16, 16, 2, FN_BG, true);
+            fn_dx[i] = fn_x[i]; fn_dy[i] = y; fn_dr[i] = true;
+        }
+        else if(fn_dr[i]) { Box(fn_dx[i] - 16, fn_dy[i], 32, 32, FN_BG); fn_dr[i] = false; }
+    }
+
+    if(s_first || fn_cx != fn_pcx || fn_cy != fn_pcy)
+    {
+        Box(fn_cx - 7, fn_cy - 7, 14, 14, COLOR_WHITE);
+        Box(fn_cx - 4, fn_cy - 4, 8, 8, COLOR_CHARCOAL);
+        if(!s_first) EraseOutside(fn_pcx - 7, fn_pcy - 7, 14, 14, fn_cx - 7, fn_cy - 7, 14, 14, FN_BG);
+        fn_pcx = fn_cx; fn_pcy = fn_cy;
+    }
+
+    if(fn_shown != fn_cnt)
+    {
+        for(i = 0; i < 4; i++)
+            Box(10 + i * 22, 8, 16, 16, (int16_t)i < fn_cnt ? COLOR_GOLD : COLOR_DARK_GRAY);
+        fn_shown = fn_cnt;
+    }
+}
+
+// ============================================================================
+// Shared pseudo-3D "behind the car / behind the runner" view for RACE! and
+// ESCAPE!.  240x180 window, the road is drawn once; only small things move.
+// Depth is a step k = 0 (horizon) .. 23 (right at the camera); objects advance
+// in 1/16 steps (z16) and are redrawn only when k changes.
+// ============================================================================
+#define PS_W    240
+#define PS_H    180
+#define PS_HZ   62
+#define PS_K    24
+#define PS_CX   120
+
+static int16_t ps_y[PS_K], ps_hw[PS_K], ps_t[PS_K];
+
+static void PsInit(void)
+{
+    int16_t k;
+
+    for(k = 0; k < PS_K; k++)
+    {
+        ps_t[k]  = (int16_t)(((int32_t)k * k * 64) / ((PS_K - 1) * (PS_K - 1)));
+        ps_y[k]  = PS_HZ + (int16_t)(((int32_t)(PS_H - 1 - PS_HZ) * ps_t[k]) / 64);
+        ps_hw[k] = 12 + (int16_t)(((int32_t)106 * ps_t[k]) / 64);
+    }
+}
+
+static int16_t PsLaneX(int16_t lane, int16_t k) { return PS_CX + (lane - 1) * ((ps_hw[k] * 2) / 3); }
+
+static void PsDrawRoad(uint32_t sky, uint32_t side, uint32_t road, uint32_t edge)
+{
+    int16_t y, hw;
+
+    Box(0, 0, PS_W, PS_HZ, sky);
+    Box(0, PS_HZ, PS_W, PS_H - PS_HZ, side);
+    for(y = PS_HZ; y < PS_H; y += 3)
+    {
+        hw = 12 + (106 * (y - PS_HZ)) / (PS_H - 1 - PS_HZ);
+        Box(PS_CX - hw - 3, y, 3, 3, edge);
+        Box(PS_CX + hw,     y, 3, 3, edge);
+        Box(PS_CX - hw,     y, hw * 2, 3, road);
+    }
+}
+
+// ============================================================================
+// RACE!  (Cruis'n USA)  behind-the-car arcade racer. Stick/L/R steers, hold the
+//        button for nitro. Weave through traffic until the clock runs out.
+// ============================================================================
+#define RS_SKY   0x6EC6FFUL
+#define RS_GRASS 0x2E8B2EUL
+#define RS_ROAD  0x454B55UL
+#define RS_N     3
+#define RS_CY    (PS_H - 6)                 // player car bottom
+
+static int16_t rs_px, rs_ppx, rs_cd, rs_sp, rs_ds, rs_dk[10], rs_dl;
+static int16_t rs_z[RS_N], rs_l[RS_N], rs_pk[RS_N], rs_c[RS_N];
+static bool    rs_on[RS_N], rs_dr[RS_N], rs_nitro;
+
+static const uint32_t kRsCar[4] = { COLOR_YELLOW, COLOR_CYAN, COLOR_WHITE, COLOR_ORANGE };
+
+static void RsInit(uint16_t spd)
+{
+    int16_t i;
+
+    PsInit();
+    rs_px = rs_ppx = PS_CX;
+    rs_cd = 14;
+    rs_sp = 10 + Min16((int16_t)spd, 4);
+    rs_ds = 0;
+    rs_nitro = false;
+    for(i = 0; i < RS_N; i++) { rs_on[i] = rs_dr[i] = false; }
+    for(i = 0; i < 10; i++) rs_dk[i] = -1;
+}
+
+static int16_t RsUpdate(void)
+{
+    int16_t i, k, dxs, step;
+
+    dxs = (g_joy.dx * 5) / 100;
+    if(g_dpad.l) dxs = -5;
+    if(g_dpad.r) dxs =  5;
+    rs_px = Clamp16(rs_px + dxs, 24, PS_W - 24);
+    rs_nitro = g_joy.btn;
+    step = rs_nitro ? rs_sp + 6 : rs_sp;
+    rs_ds = (rs_ds + step) % (PS_K * 16);
+
+    if(--rs_cd <= 0)
+    {
+        for(i = 0; i < RS_N; i++)
+            if(!rs_on[i]) { rs_on[i] = true; rs_z[i] = 16; rs_l[i] = Rnd(3); rs_c[i] = Rnd(4); rs_pk[i] = -1; break; }
+        rs_cd = Max16(12, 26 + Rnd(14) - (rs_sp - 10) * 2);
+    }
+    for(i = 0; i < RS_N; i++)
+    {
+        if(!rs_on[i]) continue;
+        rs_z[i] += step - 5;                                    // traffic drives, but slower than you
+        k = rs_z[i] >> 4;
+        if(k >= PS_K - 1) { rs_on[i] = false; continue; }
+        if(k >= 20 && Abs16(PsLaneX(rs_l[i], k) - rs_px) < 30) return MG_LOSE;
+    }
+    return MG_PLAY;
+}
+
+static void RsCarRect(int16_t k, int16_t lane, int16_t *x, int16_t *y, int16_t *w, int16_t *h)
+{
+    *w = 4 + (ps_t[k] * 32) / 64;
+    *h = 3 + (ps_t[k] * 22) / 64;
+    *x = PsLaneX(lane, k) - *w / 2;
+    *y = ps_y[k] - *h;
+}
+
+static void RsRender(void)
+{
+    int16_t i, j, k, x, y, w, h, ox, oy, ow, oh, dw, dh;
+    bool    moved;
 
     if(s_first)
     {
-        Box(0, 0, 36, FIELD_H, COLOR_GREEN);
-        Box(284, 0, 36, FIELD_H, COLOR_GREEN);
-        Box(36, 0, 2, FIELD_H, COLOR_WHITE);
-        Box(282, 0, 2, FIELD_H, COLOR_WHITE);
+        PsDrawRoad(RS_SKY, RS_GRASS, RS_ROAD, COLOR_WHITE);
+        Box(30, 40, 40, 22, 0x4F7F5FUL);   Box(110, 30, 56, 32, 0x4F7F5FUL);  Box(170, 44, 50, 18, 0x4F7F5FUL);
+        Box(190, 14, 18, 18, COLOR_YELLOW);
+        for(i = 0; i < 10; i++) rs_dk[i] = -1;
+        for(i = 0; i < RS_N; i++) rs_pk[i] = -1;
+        rs_ppx = -1;
     }
 
-    for(i = 0; i < 4; i++)
+    // lane dashes: 5 per line, redrawn only when their depth step changes
+    for(j = 0; j < 5; j++)
     {
-        if(hy_on[i])
+        k = ((rs_ds + j * 80) % (PS_K * 16)) >> 4;
+        if(rs_dk[j] != k)
         {
-            SlideY(hy_ox[i], HyW(hy_ot[i]), hy_opy[i], hy_oy[i], HyH(hy_ot[i]),
-                   hy_ot[i] ? COLOR_RED : COLOR_GRAY, HY_BG);
-            hy_opy[i] = hy_oy[i];
-            hy_dr[i]  = true;
-        }
-        else if(hy_dr[i])
-        {
-            Box(hy_ox[i], hy_opy[i], HyW(hy_ot[i]), HyH(hy_ot[i]), HY_BG);
-            hy_dr[i] = false;
+            if(rs_dk[j] >= 1)
+            {
+                dw = 1 + ps_t[rs_dk[j]] / 20;  dh = 2 + ps_t[rs_dk[j]] / 6;
+                Box(PS_CX - ps_hw[rs_dk[j]] / 3 - dw / 2, ps_y[rs_dk[j]] - dh, dw, dh, RS_ROAD);
+                Box(PS_CX + ps_hw[rs_dk[j]] / 3 - dw / 2, ps_y[rs_dk[j]] - dh, dw, dh, RS_ROAD);
+            }
+            if(k >= 1)
+            {
+                dw = 1 + ps_t[k] / 20;  dh = 2 + ps_t[k] / 6;
+                Box(PS_CX - ps_hw[k] / 3 - dw / 2, ps_y[k] - dh, dw, dh, COLOR_WHITE);
+                Box(PS_CX + ps_hw[k] / 3 - dw / 2, ps_y[k] - dh, dw, dh, COLOR_WHITE);
+            }
+            rs_dk[j] = k;
         }
     }
 
-    Box(hy_px, HY_Y, 18, 30, HY_BG);
-    Box(x + 4, HY_Y, 10, 6, COLOR_RED);                         // bow
-    Box(x, HY_Y + 6, 18, 24, COLOR_WHITE);                      // hull
-    Box(x + 5, HY_Y + 11, 8, 8, COLOR_BLUE);                    // cockpit
-    hy_px = x;
+    for(i = 0; i < RS_N; i++)                                   // traffic
+    {
+        if(rs_on[i])
+        {
+            k = rs_z[i] >> 4;
+            if(k != rs_pk[i])
+            {
+                RsCarRect(k, rs_l[i], &x, &y, &w, &h);
+                Box(x, y, w, h, kRsCar[rs_c[i]]);
+                if(w >= 10) { Box(x + w / 6, y + h / 5, (w * 2) / 3, h / 4, 0x203040UL);
+                              Box(x + 1, y + h - h / 5, w / 5 + 1, h / 5 + 1, COLOR_RED);
+                              Box(x + w - w / 5 - 2, y + h - h / 5, w / 5 + 1, h / 5 + 1, COLOR_RED); }
+                if(rs_pk[i] >= 0)
+                {
+                    RsCarRect(rs_pk[i], rs_l[i], &ox, &oy, &ow, &oh);
+                    EraseOutside(ox, oy, ow, oh, x, y, w, h, RS_ROAD);
+                }
+                rs_pk[i] = k;
+                rs_dr[i] = true;
+            }
+        }
+        else if(rs_dr[i] && rs_pk[i] >= 0)
+        {
+            RsCarRect(rs_pk[i], rs_l[i], &ox, &oy, &ow, &oh);
+            Box(ox, oy, ow, oh, RS_ROAD);
+            rs_dr[i] = false;
+        }
+    }
+
+    moved = (rs_px != rs_ppx) || rs_nitro;                      // player car (rear view)
+    if(!moved)                                                  // a dash/car passing underneath dirties it
+        for(j = 0; j < 5; j++) if(rs_dk[j] >= 19) moved = true;
+    if(moved)
+    {
+        Box(rs_px - 20, RS_CY - 26, 40, 5, COLOR_RED);                      // spoiler
+        Box(rs_px - 18, RS_CY - 21, 36, 15, 0xE53935UL);                    // body
+        Box(rs_px - 12, RS_CY - 20, 24, 7, 0x203040UL);                     // rear glass
+        Box(rs_px - 20, RS_CY - 12, 7, 12, COLOR_BLACK);                    // wheels
+        Box(rs_px + 13, RS_CY - 12, 7, 12, COLOR_BLACK);
+        Box(rs_px - 16, RS_CY - 8, 6, 3, COLOR_ORANGE);                     // tail lights
+        Box(rs_px + 10, RS_CY - 8, 6, 3, COLOR_ORANGE);
+        if(rs_nitro) { Box(rs_px - 8, RS_CY, 5, 4, COLOR_ORANGE); Box(rs_px + 3, RS_CY, 5, 4, COLOR_ORANGE); }
+        if(rs_ppx >= 0 && rs_px != rs_ppx)
+            EraseOutside(rs_ppx - 20, RS_CY - 26, 40, 30, rs_px - 20, RS_CY - 26, 40, 30, RS_ROAD);
+        else if(!rs_nitro) Box(rs_px - 8, RS_CY, 16, 4, RS_ROAD);
+        rs_ppx = rs_px;
+    }
 }
 
 // ============================================================================
-// TURN!  (Temple Run, isometric)  run the winding path; press L or R as you
-//        reach each corner (the white arrow tells you which). Miss it and you fall.
+// ESCAPE!  (Temple Run)  3D behind-the-runner view. L/R change lane, UP jumps
+//          the roots and gaps, DOWN slides under branches, grab coins. When a
+//          big wall with an arrow comes at you, press that way to TURN.
 // ============================================================================
-#define TP_SEGS 5
-#define TP_N    (TP_SEGS * 3 + 1)
-#define TP_BG   0x0F2F1AUL
+#define TP_SKY   0x9BD4B0UL
+#define TP_SIDE  0x1F5A2AUL
+#define TP_ROAD  0x8B6B43UL
+#define TP_N     4
 
-static const int16_t kHx[4] = { 1, 0, -1,  0 };                 // grid headings: +x +y -x -y
-static const int16_t kHy[4] = { 0, 1,  0, -1 };                 // = SE SW NW NE on screen
+static int16_t tp_lane, tp_x, tp_px, tp_jy, tp_jvy, tp_slide, tp_cd, tp_sp, tp_turnCd, tp_pjy, tp_pslide, tp_pf;
+static int16_t tp_z[TP_N], tp_l[TP_N], tp_ty[TP_N], tp_pk[TP_N], tp_d[TP_N];
+static bool    tp_on[TP_N], tp_dr[TP_N];
 
-static int16_t tp_gx[TP_N], tp_gy[TP_N], tp_hd[TP_SEGS], tp_cd[TP_SEGS];
-static int16_t tp_p, tp_tf, tp_ci, tp_rx, tp_ry, tp_prx, tp_pry, tp_pi;
-
-static int16_t TpSx(int16_t i) { return 160 + (tp_gx[i] - tp_gy[i]) * 16; }
-static int16_t TpSy(int16_t i) { return 24 + (tp_gx[i] + tp_gy[i]) * 8; }
-
-static bool TpBuild(bool fixed)
-{
-    int16_t seg, step, j, idx, h, gx = 11, gy = 11, s, d;
-
-    h = 2 + Rnd(2);
-    tp_gx[0] = gx; tp_gy[0] = gy;
-    for(seg = 0; seg < TP_SEGS; seg++)
-    {
-        if(fixed)         h = (seg & 1) ? 2 : 3;
-        else if(seg > 0)  h = (h + (Rnd(2) ? 1 : 3)) & 3;
-        tp_hd[seg] = h;
-        for(step = 0; step < 3; step++)
-        {
-            gx += kHx[h];  gy += kHy[h];
-            idx = seg * 3 + step + 1;
-            s = gx + gy;  d = gx - gy;
-            if(s < 1 || s > 22 || d < -8 || d > 8) return false;
-            for(j = 0; j < idx; j++)
-                if(tp_gx[j] == gx && tp_gy[j] == gy) return false;
-            tp_gx[idx] = gx; tp_gy[idx] = gy;
-        }
-    }
-    return true;
-}
+static int16_t TpX(int16_t lane) { return PsLaneX(lane, PS_K - 1); }
 
 static void TpInit(uint16_t spd)
 {
-    int16_t tries, k, ax, ay, bx, by, a, b;
+    int16_t i;
 
-    for(tries = 0; tries < 80 && !TpBuild(false); tries++) { }
-    if(tries >= 80) TpBuild(true);
-
-    for(k = 0; k < TP_SEGS - 1; k++)                            // turn side at each corner
-    {
-        a = tp_hd[k];  b = tp_hd[k + 1];
-        ax = (kHx[a] - kHy[a]) * 16;  ay = (kHx[a] + kHy[a]) * 8;
-        bx = (kHx[b] - kHy[b]) * 16;  by = (kHx[b] + kHy[b]) * 8;
-        tp_cd[k] = ((ax * by - ay * bx) > 0) ? 1 : -1;          // +1 = right, -1 = left
-    }
-    tp_tf = 15 - Min16((int16_t)spd, 4);
-    tp_p = 0; tp_ci = 0; tp_pi = 0;
-    tp_rx = tp_prx = TpSx(0);
-    tp_ry = tp_pry = TpSy(0);
+    PsInit();
+    tp_lane = 1;  tp_x = tp_px = TpX(1);
+    tp_jy = tp_jvy = 0;  tp_slide = 0;
+    tp_pjy = 0;  tp_pslide = 0;  tp_pf = -1;
+    tp_cd = 12;
+    tp_turnCd = 3;
+    tp_sp = 11 + Min16((int16_t)spd, 4);
+    for(i = 0; i < TP_N; i++) { tp_on[i] = tp_dr[i] = false; }
 }
 
 static int16_t TpUpdate(void)
 {
-    int16_t i, f, tc, want;
+    int16_t i, k, t, want, wallK = -1;
 
-    tp_p++;
-    if(tp_ci < TP_SEGS - 1)
+    for(i = 0; i < TP_N; i++)
+        if(tp_on[i] && tp_ty[i] == 4) wallK = tp_z[i] >> 4;
+
+    if(wallK >= 17)                                             // a wall is coming: L/R means TURN
     {
-        tc = (tp_ci + 1) * 3 * tp_tf;
-        if(tp_p > tc + 4) return MG_LOSE;                       // missed the turn: fall
-        if(tp_p >= tc - 12 && (EdgeL() || EdgeR()))
+        want = EdgeL() ? -1 : (EdgeR() ? 1 : 0);
+        if(want != 0)
+            for(i = 0; i < TP_N; i++)
+                if(tp_on[i] && tp_ty[i] == 4)
+                {
+                    if(want != tp_d[i]) return MG_LOSE;
+                    tp_on[i] = false;  tp_dr[i] = true;         // wall gone: erase it in render
+                    Buzzer_PlaySfx(&sfx_powerup);
+                }
+    }
+    else
+    {
+        if(EdgeL() && tp_lane > 0) { tp_lane--; Buzzer_PlaySfx(&sfx_blip); }
+        if(EdgeR() && tp_lane < 2) { tp_lane++; Buzzer_PlaySfx(&sfx_blip); }
+    }
+    if(tp_jy == 0 && (EdgeU() || g_joy.btnPressed) && tp_slide == 0) { tp_jvy = 9; Buzzer_PlaySfx(&sfx_jump); }
+    if(tp_jy == 0 && EdgeD() && tp_jvy == 0) tp_slide = 18;
+
+    if(tp_jvy != 0 || tp_jy > 0)
+    {
+        tp_jy += tp_jvy;  tp_jvy--;
+        if(tp_jy <= 0) { tp_jy = 0; tp_jvy = 0; }
+    }
+    if(tp_slide > 0) tp_slide--;
+
+    tp_x += Clamp16(TpX(tp_lane) - tp_x, -9, 9);
+
+    if(--tp_cd <= 0)
+    {
+        for(i = 0; i < TP_N; i++)
+            if(!tp_on[i])
+            {
+                t = Rnd(10);
+                tp_ty[i] = (t < 3) ? 0 : ((t < 5) ? 1 : ((t < 6) ? 2 : 3));    // root, branch, gap, coin
+                if(--tp_turnCd <= 0) { tp_ty[i] = 4; tp_d[i] = Rnd(2) ? 1 : -1; tp_turnCd = 4 + Rnd(2); }
+                tp_on[i] = true; tp_l[i] = Rnd(3); tp_z[i] = 16; tp_pk[i] = -1; tp_dr[i] = false;
+                break;
+            }
+        tp_cd = 20 + Rnd(14);
+        if(wallK >= 0 || (tp_turnCd <= 0)) tp_cd += 8;
+    }
+
+    for(i = 0; i < TP_N; i++)
+    {
+        if(!tp_on[i]) continue;
+        tp_z[i] += tp_sp;
+        k = tp_z[i] >> 4;
+        if(k >= PS_K - 1)
         {
-            want = EdgeL() ? -1 : 1;
-            if(want != tp_cd[tp_ci]) return MG_LOSE;
-            tp_ci++;
-            Buzzer_PlaySfx(&sfx_blip);
+            if(tp_ty[i] == 4) return MG_LOSE;                   // ran into the wall
+            tp_on[i] = false;  continue;
+        }
+        if(k >= 21 && tp_ty[i] != 4 && tp_l[i] == tp_lane)
+        {
+            if(tp_ty[i] == 3)      { tp_on[i] = false; Buzzer_PlaySfx(&sfx_coin); }
+            else if(tp_ty[i] == 0 && tp_jy < 12) return MG_LOSE;
+            else if(tp_ty[i] == 2 && tp_jy < 10) return MG_LOSE;
+            else if(tp_ty[i] == 1 && tp_slide == 0) return MG_LOSE;
         }
     }
-    if(tp_p >= (TP_N - 1) * tp_tf) return MG_WIN;
-
-    i = tp_p / tp_tf;  f = tp_p % tp_tf;
-    tp_pi = i;
-    tp_rx = TpSx(i) + ((TpSx(i + 1) - TpSx(i)) * f) / tp_tf;
-    tp_ry = TpSy(i) + ((TpSy(i + 1) - TpSy(i)) * f) / tp_tf;
     return MG_PLAY;
 }
 
-static void TpTile(int16_t i)
+static void TpObjRect(int16_t i, int16_t k, int16_t *x, int16_t *y, int16_t *w, int16_t *h)
 {
-    int16_t  cx = TpSx(i), cy = TpSy(i);
-    uint32_t c = (i % 3 == 0 && i > 0 && i < TP_N - 1) ? 0xE0B040UL : ((i & 1) ? 0xC9A66BUL : 0xB08D57UL);
+    int16_t laneW = (ps_hw[k] * 2) / 3, t = ps_t[k], ty = tp_ty[i];
 
-    Box(cx - 6,  cy - 8, 12, 4, c);
-    Box(cx - 14, cy - 4, 28, 4, c);
-    Box(cx - 14, cy,     28, 4, c);
-    Box(cx - 6,  cy + 4, 12, 4, c);
-    if(i % 3 == 0 && i > 0 && i < TP_N - 1)
-        Arrow(cx, cy, (tp_cd[i / 3 - 1] < 0) ? 2 : 3, 2, COLOR_WHITE);
+    if(ty == 4) { *w = ps_hw[k] * 2; *h = 6 + (t * 64) / 64; *x = PS_CX - ps_hw[k]; *y = ps_y[k] - *h; return; }
+    *x = PsLaneX(tp_l[i], k);
+    if(ty == 0)      { *w = (laneW * 3) / 4; *h = 2 + (t * 18) / 64; *y = ps_y[k] - *h; }
+    else if(ty == 1) { *w = laneW;           *h = 2 + (t * 10) / 64; *y = ps_y[k] - (t * 40) / 64 - *h; }
+    else if(ty == 2) { *w = laneW;           *h = 2 + (t * 8) / 64;  *y = ps_y[k] - *h + 1; }
+    else             { *w = 2 + (t * 14) / 64; *h = *w;               *y = ps_y[k] - (t * 12) / 64 - *h; }
+    *x -= *w / 2;
 }
 
 static void TpRender(void)
 {
-    int16_t i;
+    int16_t i, k, x, y, w, h, ox, oy, ow, oh, fy, pose;
+    uint32_t c;
 
     if(s_first)
     {
-        for(i = 0; i < TP_N; i++) TpTile(i);
-        tp_prx = tp_rx; tp_pry = tp_ry;
+        PsDrawRoad(TP_SKY, TP_SIDE, TP_ROAD, 0x5A4630UL);
+        for(i = 0; i < 5; i++)                                  // jungle trunks (static)
+        {
+            k = 4 + i * 4;
+            Box(PS_CX - ps_hw[k] - 14 - ps_t[k] / 6, ps_y[k] - 10 - ps_t[k] / 2, 4 + ps_t[k] / 10, 10 + ps_t[k] / 2, 0x4A3320UL);
+            Box(PS_CX + ps_hw[k] + 10 + ps_t[k] / 6, ps_y[k] - 10 - ps_t[k] / 2, 4 + ps_t[k] / 10, 10 + ps_t[k] / 2, 0x4A3320UL);
+        }
+        Box(80, 20, 80, 40, 0x2F7A3FUL);  Box(150, 30, 70, 30, 0x2F7A3FUL);        // distant canopy
+        for(i = 0; i < TP_N; i++) tp_pk[i] = -1;
+        tp_pf = -1;
     }
-    else
+
+    for(i = 0; i < TP_N; i++)                                   // obstacles: new first, then the leftovers
     {
-        Box(tp_prx - 5, tp_pry - 22, 10, 24, TP_BG);
-        for(i = Max16(tp_pi - 1, 0); i <= Min16(tp_pi + 2, TP_N - 1); i++) TpTile(i);
+        if(tp_on[i])
+        {
+            k = tp_z[i] >> 4;
+            if(k != tp_pk[i])
+            {
+                TpObjRect(i, k, &x, &y, &w, &h);
+                c = (tp_ty[i] == 0) ? 0x5D3A1A : ((tp_ty[i] == 1) ? 0x2E7D32 : ((tp_ty[i] == 2) ? 0x15100A : ((tp_ty[i] == 3) ? 0xFFD700 : 0x3B2A1A)));
+                Box(x, y, w, h, c);
+                if(tp_ty[i] == 4 && k >= 6)
+                    Arrow(PS_CX, y + h / 2, tp_d[i] < 0 ? 2 : 3, 1 + ps_t[k] / 22, COLOR_YELLOW);
+                if(tp_pk[i] >= 0)
+                {
+                    TpObjRect(i, tp_pk[i], &ox, &oy, &ow, &oh);
+                    EraseOutside(ox, oy, ow, oh, x, y, w, h, TP_ROAD);
+                }
+                tp_pk[i] = k;  tp_dr[i] = true;
+            }
+        }
+        else if(tp_dr[i] && tp_pk[i] >= 0)
+        {
+            TpObjRect(i, tp_pk[i], &ox, &oy, &ow, &oh);
+            Box(ox, oy, ow, oh, TP_ROAD);
+            tp_dr[i] = false;
+        }
     }
-    Box(tp_rx - 4, tp_ry - 14, 8, 12, COLOR_ORANGE);
-    Box(tp_rx - 3, tp_ry - 20, 6, 6, 0xFFCC99UL);
-    tp_prx = tp_rx; tp_pry = tp_ry;
+
+    fy = PS_H - 4 - tp_jy;
+    pose = (s_frame >> 2) & 1;
+    if(s_first || tp_x != tp_px || tp_jy != tp_pjy || (tp_slide > 0) != (tp_pslide > 0) || pose != tp_pf)
+    {
+        int16_t oldFy = PS_H - 4 - tp_pjy;
+
+        if(tp_slide > 0)
+        {
+            Box(tp_x - 16, fy - 22, 32, 8, 0x8D5A2BUL);          // hat
+            Box(tp_x - 14, fy - 14, 28, 14, 0xD84315UL);         // crouched body
+            Box(tp_x - 12, fy - 4, 24, 4, 0x3949ABUL);
+        }
+        else DrawArt(tp_x - 14, fy - 44, pose ? kArtRun1 : kArtRun0, 14, 22, 2, TP_ROAD, true);
+        if(!s_first)
+            EraseOutside(tp_px - 16, oldFy - 44, 32, 44, tp_x - 16, fy - 44, 32, 44, TP_ROAD);
+        tp_px = tp_x;  tp_pjy = tp_jy;  tp_pslide = tp_slide;  tp_pf = pose;
+    }
 }
 
 // ============================================================================
@@ -1037,9 +1992,17 @@ static int16_t HdUpdate(void)
     return MG_PLAY;
 }
 
+static void HdArrow(int16_t i)
+{
+    int16_t x = 160 - (hd_n - 1) * 22 + i * 44;
+
+    Box(x - 14, 98, 28, 28, HD_BG);
+    Arrow(x, 110, hd_seq[i], 4, i < hd_k ? COLOR_GOLD : COLOR_WHITE);
+}
+
 static void HdRender(void)
 {
-    int16_t i, x;
+    int16_t i;
 
     if(s_first)
     {
@@ -1049,12 +2012,8 @@ static void HdRender(void)
     }
     if(hd_shown != hd_k)
     {
-        for(i = 0; i < hd_n; i++)
-        {
-            x = 160 - (hd_n - 1) * 22 + i * 44;
-            Box(x - 18, 92, 36, 36, HD_BG);
-            Arrow(x, 110, hd_seq[i], 4, i < hd_k ? COLOR_GOLD : COLOR_WHITE);
-        }
+        if(hd_shown < 0 || hd_shown > hd_k) { for(i = 0; i < hd_n; i++) HdArrow(i); }   // start / reset: all
+        else                                { for(i = hd_shown; i < hd_k; i++) HdArrow(i); }  // else just the new ones
         hd_shown = hd_k;
     }
 }
@@ -1151,621 +2110,6 @@ static void BkRender(void)
 }
 
 // ============================================================================
-// STOMP!  (Super Mario)  L/R run, button or UP jumps. Stomp 2 Goombas by
-//         landing on their heads.
-// ============================================================================
-#define MR_GY   204
-#define MR_BG   0x5C94FCUL
-
-static int16_t mr_x, mr_y, mr_vy, mr_px, mr_py, mr_stomp, mr_sp;
-static int16_t mr_gx[2], mr_gd[2], mr_pgx[2];
-static bool    mr_ga[2], mr_dr[2];
-
-static void MrInit(uint16_t spd)
-{
-    mr_x = mr_px = 24;
-    mr_y = mr_py = MR_GY - 18;
-    mr_vy = 0;
-    mr_stomp = 0;
-    mr_sp = 1 + Min16((int16_t)spd / 4, 1);
-    mr_gx[0] = mr_pgx[0] = 250;  mr_gd[0] = -1;  mr_ga[0] = true;
-    mr_gx[1] = mr_pgx[1] = 140;  mr_gd[1] = -1;  mr_ga[1] = true;
-    mr_dr[0] = mr_dr[1] = false;
-}
-
-static int16_t MrUpdate(void)
-{
-    uint16_t i;
-
-    mr_x = Clamp16(mr_x + HeldX() * 3, 0, 304);
-    if(mr_y >= MR_GY - 18 && (g_joy.btnPressed || g_dpad.uPressed))
-    {
-        mr_vy = -11;
-        Buzzer_PlaySfx(&sfx_jump);
-    }
-    mr_vy++;
-    mr_y += mr_vy;
-    if(mr_y >= MR_GY - 18) { mr_y = MR_GY - 18; mr_vy = 0; }
-
-    for(i = 0; i < 2; i++)
-    {
-        if(!mr_ga[i]) continue;
-        mr_gx[i] += mr_gd[i] * mr_sp;
-        if(mr_gx[i] < 10)  mr_gd[i] =  1;
-        if(mr_gx[i] > 290) mr_gd[i] = -1;
-
-        if(Hit(mr_x + 1, mr_y, 12, 18, mr_gx[i], MR_GY - 14, 16, 14))
-        {
-            if(mr_vy > 0 && (mr_y + 18 - mr_vy) <= (MR_GY - 14 + 3))
-            {
-                mr_ga[i] = false;
-                mr_vy = -8;
-                Buzzer_PlaySfx(&sfx_coin);
-                if(++mr_stomp >= 2) return MG_WIN;
-            }
-            else return MG_LOSE;
-        }
-    }
-    return MG_PLAY;
-}
-
-static void MrRender(void)
-{
-    uint16_t i;
-
-    if(s_first)
-    {
-        Box(0, MR_GY, FIELD_W, FIELD_H - MR_GY, 0xC84C0CUL);
-        Box(0, MR_GY, FIELD_W, 3, 0xFFB070UL);
-        Box(40, 40, 50, 14, COLOR_WHITE);   Box(50, 30, 30, 10, COLOR_WHITE);
-        Box(230, 60, 50, 14, COLOR_WHITE);  Box(240, 50, 30, 10, COLOR_WHITE);
-        Box(150, 80, 20, 20, COLOR_GOLD);   Box(155, 85, 10, 10, 0xB8860BUL);
-    }
-
-    Box(mr_px, mr_py, 14, 18, MR_BG);
-    for(i = 0; i < 2; i++)
-    {
-        if(mr_dr[i]) Box(mr_pgx[i], MR_GY - 14, 16, 14, MR_BG);
-        if(mr_ga[i])
-        {
-            Box(mr_gx[i] + 1, MR_GY - 14, 14, 8, COLOR_BROWN);
-            Box(mr_gx[i] + 3, MR_GY - 12, 3, 3, COLOR_WHITE);
-            Box(mr_gx[i] + 10, MR_GY - 12, 3, 3, COLOR_WHITE);
-            Box(mr_gx[i] + 2, MR_GY - 6, 12, 6, 0x222222UL);
-            mr_pgx[i] = mr_gx[i];
-            mr_dr[i]  = true;
-        }
-        else mr_dr[i] = false;
-    }
-    Box(mr_x + 1, mr_y, 12, 5, COLOR_RED);                      // cap
-    Box(mr_x + 2, mr_y + 5, 10, 5, 0xFFCC99UL);                 // face
-    Box(mr_x + 1, mr_y + 10, 12, 5, COLOR_BLUE);                // overalls
-    Box(mr_x, mr_y + 15, 14, 3, COLOR_BROWN);                   // boots
-    mr_px = mr_x; mr_py = mr_y;
-}
-
-// ============================================================================
-// DASH!  (Geometry Dash)  any button jumps. Dodge spikes, land on blocks.
-//        Survive.
-// ============================================================================
-#define GD_GY   206
-#define GD_X    70
-#define GD_BG   0x1A0B3BUL
-
-static int16_t gd_y, gd_vy, gd_py, gd_v, gd_cd;
-static int16_t gd_ox[3], gd_opx[3], gd_ot[3];                   // 0 spike, 1 double spike, 2 block
-static bool    gd_on[3], gd_dr[3], gd_gnd;
-
-static int16_t GdW(int16_t t) { return (t == 0) ? 20 : ((t == 1) ? 40 : 30); }
-static int16_t GdH(int16_t t) { return (t == 2) ? 24 : 20; }
-
-static void GdSpike(int16_t x)
-{
-    Box(x + 8, GD_GY - 20, 4, 5, COLOR_RED);
-    Box(x + 5, GD_GY - 15, 10, 5, COLOR_RED);
-    Box(x + 2, GD_GY - 10, 16, 5, COLOR_RED);
-    Box(x,     GD_GY - 5,  20, 5, COLOR_RED);
-}
-
-static void GdInit(uint16_t spd)
-{
-    uint16_t i;
-
-    gd_y = gd_py = GD_GY - 20;
-    gd_vy = 0;
-    gd_gnd = true;
-    gd_v  = 6 + Min16((int16_t)spd / 2, 2);
-    gd_cd = 25;
-    for(i = 0; i < 3; i++) { gd_on[i] = false; gd_dr[i] = false; }
-}
-
-static int16_t GdUpdate(void)
-{
-    uint16_t i;
-    int16_t  prevB, bottom, sup, top;
-
-    if(gd_gnd && (AnyPress() || g_joy.btn || g_dpad.u)) { gd_vy = -11; Buzzer_PlaySfx(&sfx_jump); }
-
-    if(--gd_cd <= 0)
-    {
-        for(i = 0; i < 3; i++)
-            if(!gd_on[i]) { gd_on[i] = true; gd_ot[i] = Rnd(3); gd_ox[i] = gd_opx[i] = FIELD_W; break; }
-        gd_cd = (130 + Rnd(90)) / gd_v;
-    }
-    for(i = 0; i < 3; i++)
-        if(gd_on[i])
-        {
-            gd_ox[i] -= gd_v;
-            if(gd_ox[i] < -45) gd_on[i] = false;
-        }
-
-    prevB = gd_y + 20;
-    gd_vy = Min16(gd_vy + 1, 12);
-    gd_y += gd_vy;
-    bottom = gd_y + 20;
-    sup = GD_GY;
-
-    for(i = 0; i < 3; i++)
-    {
-        if(!gd_on[i]) continue;
-        if(gd_ot[i] == 2)
-        {
-            if(gd_ox[i] < GD_X + 18 && GD_X + 2 < gd_ox[i] + 30)
-            {
-                top = GD_GY - 24;
-                if(prevB <= top && bottom >= top) sup = top;
-                else if(bottom > top + 2 && prevB > top) return MG_LOSE;     // hit the side
-            }
-        }
-        else if(Hit(GD_X + 3, gd_y + 4, 14, 14, gd_ox[i] + 4, GD_GY - 20 + 4, GdW(gd_ot[i]) - 8, 16))
-            return MG_LOSE;
-    }
-
-    if(bottom >= sup) { gd_y = sup - 20; gd_vy = 0; gd_gnd = true; }
-    else gd_gnd = false;
-    return MG_PLAY;
-}
-
-static void GdRender(void)
-{
-    uint16_t i;
-
-    if(s_first)
-    {
-        Box(0, GD_GY, FIELD_W, FIELD_H - GD_GY, 0x6A1B9AUL);
-        Box(0, GD_GY, FIELD_W, 3, 0xE040FBUL);
-    }
-
-    Box(GD_X, gd_py, 20, 20, GD_BG);
-    for(i = 0; i < 3; i++)
-    {
-        if(gd_dr[i]) Box(gd_opx[i], GD_GY - GdH(gd_ot[i]), GdW(gd_ot[i]), GdH(gd_ot[i]), GD_BG);
-        if(gd_on[i])
-        {
-            if(gd_ot[i] == 2)
-            {
-                Box(gd_ox[i], GD_GY - 24, 30, 24, COLOR_CYAN);
-                Box(gd_ox[i] + 3, GD_GY - 21, 24, 18, 0x003366UL);
-            }
-            else
-            {
-                GdSpike(gd_ox[i]);
-                if(gd_ot[i] == 1) GdSpike(gd_ox[i] + 20);
-            }
-            gd_opx[i] = gd_ox[i];
-            gd_dr[i]  = true;
-        }
-        else gd_dr[i] = false;
-    }
-
-    if(gd_gnd)
-    {
-        Box(GD_X, gd_y, 20, 20, COLOR_YELLOW);
-        Box(GD_X + 4, gd_y + 5, 4, 4, COLOR_BLACK);
-        Box(GD_X + 12, gd_y + 5, 4, 4, COLOR_BLACK);
-        Box(GD_X + 4, gd_y + 13, 12, 3, COLOR_BLACK);
-    }
-    else                                                        // spinning cube
-    {
-        Box(GD_X + 5, gd_y, 10, 20, COLOR_YELLOW);
-        Box(GD_X, gd_y + 5, 20, 10, COLOR_YELLOW);
-    }
-    gd_py = gd_y;
-}
-
-// ============================================================================
-// BEAT!  (Melatonin)  rhythm: press any button when each note hits the ring,
-//        on the click. Hit 5 notes; 3 misses and you wake up.
-// ============================================================================
-#define ML_BG   0x2B1B4DUL
-#define ML_Z    70
-#define ML_N    7
-
-static const int16_t kMlT[ML_N] = { 10, 38, 59, 94, 115, 150, 178 };
-
-static int16_t ml_res[ML_N], ml_px[ML_N], ml_hits, ml_miss, ml_flash, ml_v;
-
-static int16_t MlX(int16_t i)
-{
-    if(s_frame < kMlT[i]) return 340;
-    return 330 - (int16_t)(((int32_t)(s_frame - kMlT[i])) * ml_v);
-}
-
-static void MlInit(uint16_t spd)
-{
-    int16_t i;
-
-    ml_v = 5 + Min16((int16_t)spd / 3, 2);
-    ml_hits = ml_miss = ml_flash = 0;
-    for(i = 0; i < ML_N; i++) { ml_res[i] = 0; ml_px[i] = 340; }
-}
-
-static int16_t MlUpdate(void)
-{
-    int16_t i, x, best = -1, bd = 99;
-
-    if(ml_flash > 0) ml_flash--;
-
-    for(i = 0; i < ML_N; i++)
-    {
-        x = MlX(i);
-        if(ml_res[i] == 0 && x < ML_Z - 18)
-        {
-            ml_res[i] = 2;
-            Buzzer_PlaySfx(&sfx_thud);
-            if(++ml_miss >= 3) return MG_LOSE;
-        }
-        if(x <= ML_Z && x + ml_v > ML_Z) Buzzer_PlaySfx(&sfx_blip);     // the click
-    }
-
-    if(AnyPress())
-    {
-        for(i = 0; i < ML_N; i++)
-        {
-            x = MlX(i);
-            if(ml_res[i] == 0 && Abs16(x - ML_Z) <= 18 && Abs16(x - ML_Z) < bd)
-            { bd = Abs16(x - ML_Z); best = i; }
-        }
-        if(best >= 0)
-        {
-            ml_res[best] = 1;
-            ml_flash = 6;
-            Buzzer_PlaySfx(&sfx_coin);
-            if(++ml_hits >= 5) return MG_WIN;
-        }
-    }
-    return MG_PLAY;
-}
-
-static void MlRender(void)
-{
-    int16_t  i, x;
-    uint32_t zc = ml_flash ? COLOR_LIME : COLOR_WHITE;
-
-    if(s_first) Text("TAP ON THE BEAT", 160, 200, COLOR_GRAY);
-
-    for(i = 0; i < ML_N; i++)
-        if(ml_px[i] > -20 && ml_px[i] < 340) Box(ml_px[i] - 12, 98, 24, 36, ML_BG);
-
-    Box(0, 112, FIELD_W, 6, COLOR_GRAY);
-    Box(ML_Z - 20, 94, 40, 3, zc);   Box(ML_Z - 20, 133, 40, 3, zc);
-    Box(ML_Z - 20, 94, 3, 42, zc);   Box(ML_Z + 17, 94, 3, 42, zc);
-
-    for(i = 0; i < ML_N; i++)
-    {
-        x = MlX(i);
-        if(ml_res[i] == 0 && x < 330) Disc(x, 115, 10, COLOR_PINK);
-        ml_px[i] = x;
-    }
-}
-
-// ============================================================================
-// SORT!  (Machine Party recycler)  L = PAPER, UP = CAN, R = GLASS.
-//        Sort 5 items. Wrong bin and the machine jams.
-// ============================================================================
-#define RC_BG   0x203038UL
-
-static int16_t rc_t, rc_n, rc_shown;
-
-static void RcInit(uint16_t spd)
-{
-    rc_t = Rnd(3);
-    rc_n = 0;
-    rc_shown = -1;
-}
-
-static int16_t RcUpdate(void)
-{
-    int16_t p = -1;
-
-    if(EdgeL())      p = 0;
-    else if(EdgeU()) p = 1;
-    else if(EdgeR()) p = 2;
-    if(p < 0) return MG_PLAY;
-
-    if(p != rc_t) { Buzzer_PlaySfx(&sfx_hit); return MG_LOSE; }
-    Buzzer_PlaySfx(&sfx_coin);
-    if(++rc_n >= 5) return MG_WIN;
-    rc_t = Rnd(3);
-    return MG_PLAY;
-}
-
-static void RcRender(void)
-{
-    int16_t i;
-
-    if(s_first)
-    {
-        Box(20, 160, 80, 56, COLOR_BLUE);
-        Box(120, 160, 80, 56, COLOR_SILVER);
-        Box(220, 160, 80, 56, COLOR_GREEN);
-        Text("< PAPER", 60, 188, COLOR_WHITE);
-        Text("^ CAN", 160, 188, COLOR_BLACK);
-        Text("GLASS >", 260, 188, COLOR_WHITE);
-        Box(60, 134, 200, 8, COLOR_GRAY);                       // conveyor belt
-        rc_shown = -1;
-    }
-    if(rc_shown != rc_n)
-    {
-        Box(100, 40, 120, 90, RC_BG);
-        for(i = 0; i < 5; i++)
-            Box(100 + i * 24, 12, 16, 16, i < rc_n ? COLOR_LIME : COLOR_DARK_GRAY);
-        rc_shown = rc_n;
-    }
-    if(rc_shown >= 0)
-    {
-        Box(130, 56, 60, 74, RC_BG);
-        if(rc_t == 0)
-        {
-            Box(148, 76, 24, 32, COLOR_WHITE);
-            Box(152, 84, 16, 2, COLOR_GRAY);  Box(152, 90, 16, 2, COLOR_GRAY);  Box(152, 96, 16, 2, COLOR_GRAY);
-        }
-        else if(rc_t == 1)
-        {
-            Box(150, 76, 20, 34, COLOR_SILVER);
-            Box(150, 76, 20, 4, COLOR_GRAY);
-            Box(150, 88, 20, 8, COLOR_RED);
-        }
-        else
-        {
-            Box(150, 90, 20, 28, COLOR_GREEN);
-            Box(156, 76, 8, 16, COLOR_GREEN);
-            Box(155, 72, 10, 4, COLOR_GOLD);
-        }
-    }
-}
-
-// ============================================================================
-// SHOOT!  (Galaga)  move and fire. Bugs sway in formation and dive at you.
-//         Shoot 6.
-// ============================================================================
-#define GL_BG   COLOR_BLACK
-#define GL_SY   208
-
-static int16_t gl_ex[10], gl_ey[10], gl_px[10], gl_py[10], gl_dv[10];
-static int16_t gl_sx, gl_psx, gl_cd, gl_kills, gl_spd;
-static int16_t gl_bx[2], gl_by[2], gl_pbx[2], gl_pby[2];
-static bool    gl_al[10], gl_dr[10], gl_bon[2], gl_bdr[2];
-
-static int16_t Tri(int16_t t, int16_t period, int16_t amp)      // triangle wave -amp..amp
-{
-    int16_t p = t % period, half = period / 2;
-    int16_t v = (p < half) ? p : period - p;
-    return (int16_t)(((int32_t)v * 2 * amp) / half) - amp;
-}
-
-static void GlInit(uint16_t spd)
-{
-    int16_t i;
-
-    for(i = 0; i < 10; i++) { gl_al[i] = true; gl_dv[i] = 0; gl_dr[i] = false; }
-    gl_bon[0] = gl_bon[1] = false;
-    gl_bdr[0] = gl_bdr[1] = false;
-    gl_sx = gl_psx = 147;
-    gl_cd = 40;
-    gl_kills = 0;
-    gl_spd = 4 + Min16((int16_t)spd / 2, 2);
-}
-
-static int16_t GlUpdate(void)
-{
-    int16_t i, j, sway = Tri(s_frame, 90, 22);
-
-    gl_sx = Clamp16(gl_sx + HeldX() * 5, 0, FIELD_W - 26);
-
-    if(g_joy.btnPressed || g_dpad.uPressed)
-        for(i = 0; i < 2; i++)
-            if(!gl_bon[i])
-            {
-                gl_bon[i] = true; gl_bx[i] = gl_sx + 12; gl_by[i] = GL_SY - 6;
-                Buzzer_PlaySfx(&sfx_laser);
-                break;
-            }
-
-    if(--gl_cd <= 0)
-    {
-        for(j = 0; j < 6; j++)
-        {
-            i = Rnd(10);
-            if(gl_al[i] && !gl_dv[i]) { gl_dv[i] = 1; break; }
-        }
-        gl_cd = Max16(28, 60 - 6 * (gl_spd - 4)) + Rnd(20);
-    }
-
-    for(i = 0; i < 10; i++)
-    {
-        if(!gl_al[i]) continue;
-        if(!gl_dv[i])
-        {
-            gl_ex[i] = 62 + (i % 5) * 44 + sway;
-            gl_ey[i] = 36 + (i / 5) * 26;
-        }
-        else
-        {
-            if(gl_dv[i] == 1) { gl_dv[i] = 2; }
-            gl_ey[i] += gl_spd;
-            gl_ex[i] += Sgn16(gl_sx + 13 - gl_ex[i]) * 2;
-            if(gl_ey[i] > 236) gl_dv[i] = 0;                     // back to formation
-            if(gl_dv[i] && Hit(gl_ex[i], gl_ey[i], 18, 12, gl_sx, GL_SY, 26, 12)) return MG_LOSE;
-        }
-    }
-
-    for(j = 0; j < 2; j++)
-    {
-        if(!gl_bon[j]) continue;
-        gl_by[j] -= 9;
-        if(gl_by[j] < -8) { gl_bon[j] = false; continue; }
-        for(i = 0; i < 10; i++)
-            if(gl_al[i] && Hit(gl_bx[j], gl_by[j], 3, 8, gl_ex[i] - 3, gl_ey[i], 24, 12))
-            {
-                gl_al[i] = false;
-                gl_bon[j] = false;
-                Buzzer_PlaySfx(&sfx_explosion);
-                if(++gl_kills >= 6) return MG_WIN;
-                break;
-            }
-    }
-    return MG_PLAY;
-}
-
-static void GlRender(void)
-{
-    int16_t i;
-
-    for(i = 0; i < 10; i++)                                     // erase everything old first
-        if(gl_dr[i]) { Box(gl_px[i] - 4, gl_py[i], 26, 12, GL_BG); gl_dr[i] = false; }
-    for(i = 0; i < 2; i++)
-        if(gl_bdr[i]) { Box(gl_pbx[i], gl_pby[i], 3, 8, GL_BG); gl_bdr[i] = false; }
-
-    for(i = 0; i < 10; i++)
-        if(gl_al[i])
-        {
-            Box(gl_ex[i], gl_ey[i] + 2, 18, 8, (i < 5) ? COLOR_YELLOW : COLOR_CYAN);
-            Box(gl_ex[i] - 4, gl_ey[i], 5, 10, COLOR_RED);
-            Box(gl_ex[i] + 17, gl_ey[i], 5, 10, COLOR_RED);
-            Box(gl_ex[i] + 4, gl_ey[i] + 4, 3, 3, COLOR_BLACK);
-            Box(gl_ex[i] + 11, gl_ey[i] + 4, 3, 3, COLOR_BLACK);
-            gl_px[i] = gl_ex[i]; gl_py[i] = gl_ey[i]; gl_dr[i] = true;
-        }
-    for(i = 0; i < 2; i++)
-        if(gl_bon[i])
-        {
-            Box(gl_bx[i], gl_by[i], 3, 8, COLOR_WHITE);
-            gl_pbx[i] = gl_bx[i]; gl_pby[i] = gl_by[i]; gl_bdr[i] = true;
-        }
-
-    Box(gl_psx, GL_SY - 7, 26, 20, GL_BG);
-    Box(gl_sx, GL_SY, 26, 12, COLOR_WHITE);
-    Box(gl_sx + 11, GL_SY - 6, 4, 6, COLOR_WHITE);
-    Box(gl_sx, GL_SY + 4, 4, 8, COLOR_RED);  Box(gl_sx + 22, GL_SY + 4, 4, 8, COLOR_RED);
-    gl_psx = gl_sx;
-}
-
-// ============================================================================
-// SLICE!  (Fruit Ninja)  swipe the cursor through 4 fruits. Avoid the bomb!
-// ============================================================================
-#define FN_N    3
-#define FN_BG   0x1A1A2EUL
-
-static int16_t fn_x[FN_N], fn_y4[FN_N], fn_vx[FN_N], fn_vy4[FN_N], fn_dx[FN_N], fn_dy[FN_N];
-static bool    fn_on[FN_N], fn_bomb[FN_N], fn_dr[FN_N];
-static int16_t fn_cx, fn_cy, fn_pcx, fn_pcy, fn_cd, fn_cnt, fn_shown, fn_rate;
-
-static const uint32_t kFruit[3] = { COLOR_ORANGE, COLOR_RED, COLOR_LIME };
-
-static void FnInit(uint16_t spd)
-{
-    uint16_t i;
-
-    for(i = 0; i < FN_N; i++) { fn_on[i] = false; fn_dr[i] = false; }
-    fn_cx = fn_pcx = 160;
-    fn_cy = fn_pcy = 115;
-    fn_cd = 10;
-    fn_cnt = 0; fn_shown = -1;
-    fn_rate = Max16(14, 26 - 2 * (int16_t)spd);
-}
-
-static int16_t FnUpdate(void)
-{
-    uint16_t i;
-    int16_t  mx, my;
-
-    mx = g_joy.dx / 9;
-    my = g_joy.dy / 9;
-    if(g_dpad.l) mx = -8;
-    if(g_dpad.r) mx =  8;
-    if(g_dpad.u) my = -8;
-    if(g_dpad.d) my =  8;
-    fn_cx = Clamp16(fn_cx + mx, 8, FIELD_W - 9);
-    fn_cy = Clamp16(fn_cy + my, 8, FIELD_H - 9);
-
-    if(--fn_cd <= 0)
-    {
-        for(i = 0; i < FN_N; i++)
-            if(!fn_on[i])
-            {
-                fn_on[i]   = true;
-                fn_bomb[i] = (Rnd(6) == 0);
-                fn_x[i]    = 40 + Rnd(240);
-                fn_y4[i]   = (FIELD_H + 14) * 4;
-                fn_vy4[i]  = -(46 + Rnd(14));
-                fn_vx[i]   = (fn_x[i] < 160) ? 1 + Rnd(3) : -(1 + Rnd(3));
-                break;
-            }
-        fn_cd = fn_rate + Rnd(14);
-    }
-
-    for(i = 0; i < FN_N; i++)
-    {
-        if(!fn_on[i]) continue;
-        fn_x[i]   += fn_vx[i];
-        fn_vy4[i] += 2;
-        fn_y4[i]  += fn_vy4[i];
-        if(fn_vy4[i] > 0 && fn_y4[i] > (FIELD_H + 20) * 4) { fn_on[i] = false; continue; }
-
-        if(Abs16(fn_x[i] - fn_cx) <= 18 && Abs16(fn_y4[i] / 4 - fn_cy) <= 18)
-        {
-            fn_on[i] = false;
-            if(fn_bomb[i]) { Buzzer_PlaySfx(&sfx_explosion); return MG_LOSE; }
-            Buzzer_PlaySfx(&sfx_laser);
-            if(++fn_cnt >= 4) return MG_WIN;
-        }
-    }
-    return MG_PLAY;
-}
-
-static void FnRender(void)
-{
-    uint16_t i;
-    int16_t  y;
-
-    for(i = 0; i < FN_N; i++)                           // erase everything that moved
-        if(fn_dr[i]) { Box(fn_dx[i] - 14, fn_dy[i] - 14, 28, 28, FN_BG); fn_dr[i] = false; }
-    Box(fn_pcx - 8, fn_pcy - 8, 16, 16, FN_BG);
-
-    for(i = 0; i < FN_N; i++)
-    {
-        if(!fn_on[i]) continue;
-        y = fn_y4[i] / 4;
-        Disc(fn_x[i], y, 12, fn_bomb[i] ? COLOR_DARK_GRAY : kFruit[i % 3]);
-        if(fn_bomb[i]) Box(fn_x[i] - 2, y - 15, 4, 4, COLOR_RED);
-        else           Box(fn_x[i] - 2, y - 4, 4, 4, COLOR_WHITE);
-        fn_dx[i] = fn_x[i]; fn_dy[i] = y; fn_dr[i] = true;
-    }
-
-    Box(fn_cx - 7, fn_cy - 7, 14, 14, COLOR_WHITE);
-    Box(fn_cx - 4, fn_cy - 4, 8, 8, COLOR_CHARCOAL);
-    fn_pcx = fn_cx; fn_pcy = fn_cy;
-
-    if(fn_shown != fn_cnt)
-    {
-        for(i = 0; i < 4; i++)
-            Box(10 + i * 22, 8, 16, 16, (int16_t)i < fn_cnt ? COLOR_GOLD : COLOR_DARK_GRAY);
-        fn_shown = fn_cnt;
-    }
-}
-
-// ============================================================================
 // FIT IT!  (Tetris)  slide the I-piece over the gap and drop it in.
 // ============================================================================
 #define TT_X0   80
@@ -1836,148 +2180,165 @@ static void TtRender(void)
 }
 
 // ============================================================================
-// CHOMP!  (Pac-Man)  eat 4 pellets, don't touch the ghost.
+// CHOMP!  (Pac-Man)  a real maze. Steer (it keeps going, and turns when it can).
+//         Eat 15 dots or a power pellet then catch the ghost.  Don't get caught.
+//         210x182 window, 14 px cells; only changed cells are redrawn.
 // ============================================================================
-#define CH_C    16
-#define CH_GW   20
-#define CH_GH   14
-#define CH_BG   0x000010UL
+#define PM_C    14
+#define PM_GW   15
+#define PM_GH   13
+#define PM_BG   COLOR_BLACK
 
-static int16_t ch_px, ch_py, ch_dx, ch_dy, ch_gx, ch_gy, ch_pm, ch_gm, ch_pc, ch_gc;
-static int16_t ch_ox, ch_oy, ch_ogx, ch_ogy, ch_left;
-static int16_t ch_lx[4], ch_ly[4];
-static bool    ch_on[4], ch_moved;
-
-static bool ChBlocked(int16_t x, int16_t y)
+static const char *const kPmMap[PM_GH] =
 {
-    return x < 0 || x >= CH_GW || y < 0 || y >= CH_GH || ((x % 6) == 3 && (y % 4) == 1);
+    "###############",
+    "#o.....#.....o#",
+    "#.###.#.#.###.#",
+    "#.............#",
+    "#.###.#.#.###.#",
+    "#.....#.#.....#",
+    "#####.....#####",
+    "#.....#.#.....#",
+    "#.###.#.#.###.#",
+    "#.............#",
+    "#.###.#.#.###.#",
+    "#o...........o#",
+    "###############"
+};
+
+static uint16_t pm_d[PM_GH][PM_GW];                             // 0 none, 1 dot, 2 power pellet
+static int16_t  pm_x, pm_y, pm_dx, pm_dy, pm_ndx, pm_ndy, pm_ox, pm_oy, pm_pc, pm_eaten, pm_fr, pm_gm, pm_gc;
+static int16_t  pm_g[2][6];                                     // x, y, dx, dy, ox, oy
+static int16_t  pm_ng;
+static bool     pm_moved;
+
+static bool PmWall(int16_t x, int16_t y)
+{
+    return x < 0 || x >= PM_GW || y < 0 || y >= PM_GH || kPmMap[y][x] == '#';
 }
 
-static bool ChPellet(int16_t x, int16_t y)
+static void PmInit(uint16_t spd)
 {
-    uint16_t i;
-    for(i = 0; i < 4; i++)
-        if(ch_on[i] && ch_lx[i] == x && ch_ly[i] == y) return true;
-    return false;
+    int16_t x, y;
+
+    for(y = 0; y < PM_GH; y++)
+        for(x = 0; x < PM_GW; x++)
+            pm_d[y][x] = (kPmMap[y][x] == '.') ? 1 : ((kPmMap[y][x] == 'o') ? 2 : 0);
+    pm_x = pm_ox = 1;  pm_y = pm_oy = 9;
+    pm_dx = 1; pm_dy = 0; pm_ndx = 1; pm_ndy = 0;
+    pm_pc = 3;  pm_eaten = 0;  pm_fr = 0;
+    pm_gm = 6 - Min16((int16_t)spd / 3, 2);
+    pm_gc = pm_gm;
+    pm_ng = (spd >= 3) ? 2 : 1;
+    pm_g[0][0] = 13; pm_g[0][1] = 3; pm_g[0][2] = -1; pm_g[0][3] = 0; pm_g[0][4] = 13; pm_g[0][5] = 3;
+    pm_g[1][0] = 7;  pm_g[1][1] = 3; pm_g[1][2] = 1;  pm_g[1][3] = 0; pm_g[1][4] = 7;  pm_g[1][5] = 3;
+    pm_moved = false;
 }
 
-static void ChInit(uint16_t spd)
+static void PmGhostStep(int16_t gi)
 {
-    uint16_t i;
-    int16_t  x, y;
+    static const int16_t dxs[4] = { 0, -1, 0, 1 };
+    static const int16_t dys[4] = { -1, 0, 1, 0 };
+    int16_t k, bk = -1, bd = 32000, d, tx, ty, nx, ny, *g = pm_g[gi];
 
-    ch_px = ch_ox = 0;  ch_py = ch_oy = 0;
-    ch_dx = 1; ch_dy = 0;
-    ch_gx = ch_ogx = CH_GW - 1;  ch_gy = ch_ogy = CH_GH - 1;
-    ch_pm = 3;
-    ch_gm = 8 - Min16((int16_t)spd, 3);
-    ch_pc = ch_pm; ch_gc = ch_gm;
-    ch_left = 4;
-    ch_moved = false;
-
-    for(i = 0; i < 4; i++)
+    tx = pm_x;  ty = pm_y;
+    if(gi == 1) { tx += pm_dx * 3;  ty += pm_dy * 3; }          // the pink one aims ahead of you
+    for(k = 0; k < 4; k++)
     {
-        do
-        {
-            x = Rnd(CH_GW); y = Rnd(CH_GH);
-        } while(ChBlocked(x, y) || ChPellet(x, y) || Abs16(x - ch_px) + Abs16(y - ch_py) < 6);
-        ch_lx[i] = x; ch_ly[i] = y; ch_on[i] = true;
+        nx = g[0] + dxs[k];  ny = g[1] + dys[k];
+        if(PmWall(nx, ny)) continue;
+        if(dxs[k] == -g[2] && dys[k] == -g[3] && (g[2] || g[3])) continue;     // no U-turns
+        d = (pm_fr > 0) ? Rnd(100) : ((nx - tx) * (nx - tx) + (ny - ty) * (ny - ty));
+        if(d < bd) { bd = d; bk = k; }
     }
+    if(bk < 0)                                                  // dead end: turn around
+    { g[2] = -g[2]; g[3] = -g[3]; bk = -1; }
+    else { g[2] = dxs[bk]; g[3] = dys[bk]; }
+    g[4] = g[0]; g[5] = g[1];
+    g[0] += g[2]; g[1] += g[3];
 }
 
-static void ChTryGhost(int16_t dx, int16_t dy, bool *moved)
+static int16_t PmUpdate(void)
 {
-    if(*moved || (dx == 0 && dy == 0)) return;
-    if(!ChBlocked(ch_gx + dx, ch_gy + dy)) { ch_gx += dx; ch_gy += dy; *moved = true; }
-}
+    int16_t hx = HeldX(), hy = HeldY(), gi;
 
-static int16_t ChUpdate(void)
-{
-    int16_t hx = HeldX(), hy = HeldY();
-    int16_t ddx, ddy;
-    uint16_t i;
-    bool    gm = false;
+    if(hx != 0)      { pm_ndx = hx; pm_ndy = 0; }
+    else if(hy != 0) { pm_ndx = 0;  pm_ndy = hy; }
 
-    ch_moved = false;
+    pm_moved = false;
+    if(pm_fr > 0) pm_fr--;
 
-    if(hx != 0)      { if(!ChBlocked(ch_px + hx, ch_py)) { ch_dx = hx; ch_dy = 0; } }
-    else if(hy != 0) { if(!ChBlocked(ch_px, ch_py + hy)) { ch_dx = 0; ch_dy = hy; } }
-
-    if(--ch_pc <= 0)
+    if(--pm_pc <= 0)
     {
-        ch_pc = ch_pm;
-        if(!ChBlocked(ch_px + ch_dx, ch_py + ch_dy))
+        pm_pc = 3;
+        if(!PmWall(pm_x + pm_ndx, pm_y + pm_ndy)) { pm_dx = pm_ndx; pm_dy = pm_ndy; }
+        if(!PmWall(pm_x + pm_dx, pm_y + pm_dy))
         {
-            ch_ox = ch_px; ch_oy = ch_py;
-            ch_px += ch_dx; ch_py += ch_dy;
-            ch_moved = true;
+            pm_ox = pm_x; pm_oy = pm_y;
+            pm_x += pm_dx; pm_y += pm_dy;
+            pm_moved = true;
+            if(pm_d[pm_y][pm_x] == 1) { pm_d[pm_y][pm_x] = 0; pm_eaten++; Buzzer_PlaySfx(&sfx_blip); }
+            else if(pm_d[pm_y][pm_x] == 2) { pm_d[pm_y][pm_x] = 0; pm_fr = 90; Buzzer_PlaySfx(&sfx_powerup); }
+            if(pm_eaten >= 15) return MG_WIN;
         }
-        for(i = 0; i < 4; i++)
-            if(ch_on[i] && ch_lx[i] == ch_px && ch_ly[i] == ch_py)
-            {
-                ch_on[i] = false;
-                Buzzer_PlaySfx(&sfx_coin);
-                if(--ch_left == 0) return MG_WIN;
-            }
     }
-
-    if(--ch_gc <= 0)
+    if(--pm_gc <= 0)
     {
-        ch_gc = ch_gm;
-        ddx = Sgn16(ch_px - ch_gx);
-        ddy = Sgn16(ch_py - ch_gy);
-        ch_ogx = ch_gx; ch_ogy = ch_gy;
-        if(Abs16(ch_px - ch_gx) >= Abs16(ch_py - ch_gy))
-        { ChTryGhost(ddx, 0, &gm); ChTryGhost(0, ddy, &gm); }
-        else
-        { ChTryGhost(0, ddy, &gm); ChTryGhost(ddx, 0, &gm); }
-        if(gm) ch_moved = true;
+        pm_gc = (pm_fr > 0) ? pm_gm + 3 : pm_gm;
+        for(gi = 0; gi < pm_ng; gi++) PmGhostStep(gi);
+        pm_moved = true;
     }
-
-    if(ch_px == ch_gx && ch_py == ch_gy) return MG_LOSE;
+    for(gi = 0; gi < pm_ng; gi++)
+        if(pm_g[gi][0] == pm_x && pm_g[gi][1] == pm_y)
+            return (pm_fr > 0) ? MG_WIN : MG_LOSE;
     return MG_PLAY;
 }
 
-static void ChCell(int16_t x, int16_t y)
+static void PmCell(int16_t x, int16_t y)
 {
-    Box(x * CH_C, y * CH_C, CH_C, CH_C, CH_BG);
-    if(ChBlocked(x, y))
+    int16_t px = x * PM_C, py = y * PM_C;
+
+    if(kPmMap[y][x] == '#')
     {
-        Box(x * CH_C + 1, y * CH_C + 1, CH_C - 2, CH_C - 2, COLOR_NAVY);
-        Box(x * CH_C + 3, y * CH_C + 3, CH_C - 6, CH_C - 6, COLOR_BLUE);
+        Box(px, py, PM_C, PM_C, COLOR_NAVY);
+        Box(px + 2, py + 2, PM_C - 4, PM_C - 4, COLOR_BLUE);
+        return;
     }
-    else if(ChPellet(x, y))
-        Box(x * CH_C + 6, y * CH_C + 6, 4, 4, COLOR_WHITE);
+    Box(px, py, PM_C, PM_C, PM_BG);
+    if(pm_d[y][x] == 1)      Box(px + 6, py + 6, 3, 3, COLOR_WHITE);
+    else if(pm_d[y][x] == 2) { Box(px + 4, py + 4, 7, 7, COLOR_WHITE); }
 }
 
-static void ChRender(void)
+static void PmRender(void)
 {
-    int16_t x, y, cx, cy;
+    int16_t x, y, gi, cx, cy;
 
     if(s_first)
     {
-        for(y = 0; y < CH_GH; y++)
-            for(x = 0; x < CH_GW; x++)
-                if(ChBlocked(x, y) || ChPellet(x, y)) ChCell(x, y);
+        for(y = 0; y < PM_GH; y++) for(x = 0; x < PM_GW; x++) PmCell(x, y);
     }
-    else if(ch_moved)
+    else if(pm_moved)
     {
-        ChCell(ch_ox, ch_oy);
-        ChCell(ch_ogx, ch_ogy);
+        PmCell(pm_ox, pm_oy);
+        for(gi = 0; gi < pm_ng; gi++) PmCell(pm_g[gi][4], pm_g[gi][5]);
     }
     else return;
 
-    cx = ch_px * CH_C + 8;  cy = ch_py * CH_C + 8;
-    Disc(cx, cy, 6, COLOR_YELLOW);
-    if(s_frame & 4)                                     // mouth
-        Box(cx + (ch_dx > 0 ? 1 : (ch_dx < 0 ? -7 : -2)),
-            cy + (ch_dy > 0 ? 1 : (ch_dy < 0 ? -7 : -2)),
-            ch_dx ? 7 : 4, ch_dy ? 7 : 4, CH_BG);
+    cx = pm_x * PM_C + 7;  cy = pm_y * PM_C + 7;                // Pac-Man: octagon + mouth
+    Box(cx - 4, cy - 6, 8, 12, COLOR_YELLOW);
+    Box(cx - 6, cy - 4, 12, 8, COLOR_YELLOW);
+    if(s_frame & 4)
+        Box(cx + (pm_dx > 0 ? 0 : (pm_dx < 0 ? -6 : -2)), cy + (pm_dy > 0 ? 0 : (pm_dy < 0 ? -6 : -2)),
+            pm_dx ? 6 : 4, pm_dy ? 6 : 4, PM_BG);
 
-    cx = ch_gx * CH_C + 2;  cy = ch_gy * CH_C + 2;
-    Box(cx, cy, 12, 12, COLOR_RED);
-    Box(cx + 2, cy + 3, 3, 3, COLOR_WHITE);
-    Box(cx + 7, cy + 3, 3, 3, COLOR_WHITE);
+    for(gi = 0; gi < pm_ng; gi++)
+    {
+        cx = pm_g[gi][0] * PM_C + 1;  cy = pm_g[gi][1] * PM_C + 1;
+        Box(cx + 1, cy, 10, 3, (pm_fr > 0) ? COLOR_BLUE : (gi ? COLOR_PINK : COLOR_RED));
+        Box(cx, cy + 3, 12, 9, (pm_fr > 0) ? COLOR_BLUE : (gi ? COLOR_PINK : COLOR_RED));
+        Box(cx + 2, cy + 4, 3, 3, COLOR_WHITE);  Box(cx + 7, cy + 4, 3, 3, COLOR_WHITE);
+        Box(cx + 3, cy + 5, 1, 2, COLOR_BLACK);  Box(cx + 8, cy + 5, 1, 2, COLOR_BLACK);
+    }
 }
 
 // ============================================================================
@@ -2211,61 +2572,269 @@ static void DnRender(void)
 }
 
 // ============================================================================
-// LAUNCH!  (Angry Birds)  stick up/down = angle, button = fire at the pig.
-//          A power meter swings by itself: time your shot.
+// STOMP!  (Super Mario)  L/R run, button or UP jumps. Stomp 2 Goombas by
+//         landing on their heads.
+// ============================================================================
+#define MR_GY   204
+#define MR_BG   0x5C94FCUL
+
+static int16_t mr_x, mr_y, mr_vy, mr_px, mr_py, mr_stomp, mr_sp;
+static int16_t mr_gx[2], mr_gd[2], mr_pgx[2];
+static bool    mr_ga[2], mr_dr[2];
+
+static void MrInit(uint16_t spd)
+{
+    mr_x = mr_px = 24;
+    mr_y = mr_py = MR_GY - 18;
+    mr_vy = 0;
+    mr_stomp = 0;
+    mr_sp = 1 + Min16((int16_t)spd / 4, 1);
+    mr_gx[0] = mr_pgx[0] = 250;  mr_gd[0] = -1;  mr_ga[0] = true;
+    mr_gx[1] = mr_pgx[1] = 140;  mr_gd[1] = -1;  mr_ga[1] = true;
+    mr_dr[0] = mr_dr[1] = false;
+}
+
+static int16_t MrUpdate(void)
+{
+    uint16_t i;
+
+    mr_x = Clamp16(mr_x + HeldX() * 3, 0, 304);
+    if(mr_y >= MR_GY - 18 && (g_joy.btnPressed || g_dpad.uPressed))
+    {
+        mr_vy = -11;
+        Buzzer_PlaySfx(&sfx_jump);
+    }
+    mr_vy++;
+    mr_y += mr_vy;
+    if(mr_y >= MR_GY - 18) { mr_y = MR_GY - 18; mr_vy = 0; }
+
+    for(i = 0; i < 2; i++)
+    {
+        if(!mr_ga[i]) continue;
+        mr_gx[i] += mr_gd[i] * mr_sp;
+        if(mr_gx[i] < 10)  mr_gd[i] =  1;
+        if(mr_gx[i] > 290) mr_gd[i] = -1;
+
+        if(Hit(mr_x + 1, mr_y, 12, 18, mr_gx[i], MR_GY - 14, 16, 14))
+        {
+            if(mr_vy > 0 && (mr_y + 18 - mr_vy) <= (MR_GY - 14 + 3))
+            {
+                mr_ga[i] = false;
+                mr_vy = -8;
+                Buzzer_PlaySfx(&sfx_coin);
+                if(++mr_stomp >= 2) return MG_WIN;
+            }
+            else return MG_LOSE;
+        }
+    }
+    return MG_PLAY;
+}
+
+static void MrRender(void)
+{
+    uint16_t i;
+
+    if(s_first)
+    {
+        Box(0, MR_GY, FIELD_W, FIELD_H - MR_GY, 0xC84C0CUL);
+        Box(0, MR_GY, FIELD_W, 3, 0xFFB070UL);
+        Box(40, 40, 50, 14, COLOR_WHITE);   Box(50, 30, 30, 10, COLOR_WHITE);
+        Box(230, 60, 50, 14, COLOR_WHITE);  Box(240, 50, 30, 10, COLOR_WHITE);
+        Box(150, 80, 20, 20, COLOR_GOLD);   Box(155, 85, 10, 10, 0xB8860BUL);
+    }
+
+    Box(mr_px, mr_py, 14, 18, MR_BG);
+    for(i = 0; i < 2; i++)
+    {
+        if(mr_dr[i]) Box(mr_pgx[i], MR_GY - 14, 16, 14, MR_BG);
+        if(mr_ga[i])
+        {
+            Box(mr_gx[i] + 1, MR_GY - 14, 14, 8, COLOR_BROWN);
+            Box(mr_gx[i] + 3, MR_GY - 12, 3, 3, COLOR_WHITE);
+            Box(mr_gx[i] + 10, MR_GY - 12, 3, 3, COLOR_WHITE);
+            Box(mr_gx[i] + 2, MR_GY - 6, 12, 6, 0x222222UL);
+            mr_pgx[i] = mr_gx[i];
+            mr_dr[i]  = true;
+        }
+        else mr_dr[i] = false;
+    }
+    Box(mr_x + 1, mr_y, 12, 5, COLOR_RED);                      // cap
+    Box(mr_x + 2, mr_y + 5, 10, 5, 0xFFCC99UL);                 // face
+    Box(mr_x + 1, mr_y + 10, 12, 5, COLOR_BLUE);                // overalls
+    Box(mr_x, mr_y + 15, 14, 3, COLOR_BROWN);                   // boots
+    mr_px = mr_x; mr_py = mr_y;
+}
+
+// ============================================================================
+// DASH!  (Geometry Dash)  any button jumps. Dodge spikes, land on blocks.
+//        Survive.  Cube and spikes are drawn "new first, then erase the
+//        leftovers" so nothing blinks.
+// ============================================================================
+#define GD_GY   206
+#define GD_X    70
+#define GD_BG   0x1A0B3BUL
+
+static int16_t gd_y, gd_vy, gd_py, gd_v, gd_cd;
+static int16_t gd_ox[3], gd_opx[3], gd_ot[3];                   // 0 spike, 1 double spike, 2 block
+static bool    gd_on[3], gd_dr[3], gd_gnd;
+
+static int16_t GdW(int16_t t) { return (t == 0) ? 26 : ((t == 1) ? 52 : 30); }
+static int16_t GdH(int16_t t) { return 24; }
+
+static void GdInit(uint16_t spd)
+{
+    uint16_t i;
+
+    gd_y = gd_py = GD_GY - 20;
+    gd_vy = 0;
+    gd_gnd = true;
+    gd_v  = 6 + Min16((int16_t)spd / 2, 2);
+    gd_cd = 25;
+    for(i = 0; i < 3; i++) { gd_on[i] = false; gd_dr[i] = false; }
+}
+
+static int16_t GdUpdate(void)
+{
+    uint16_t i;
+    int16_t  prevB, bottom, sup, top;
+
+    if(gd_gnd && (AnyPress() || g_joy.btn || g_dpad.u)) { gd_vy = -11; Buzzer_PlaySfx(&sfx_jump); }
+
+    if(--gd_cd <= 0)
+    {
+        for(i = 0; i < 3; i++)
+            if(!gd_on[i]) { gd_on[i] = true; gd_ot[i] = Rnd(3); gd_ox[i] = gd_opx[i] = FIELD_W; break; }
+        gd_cd = (140 + Rnd(90)) / gd_v;
+    }
+    for(i = 0; i < 3; i++)
+        if(gd_on[i])
+        {
+            gd_ox[i] -= gd_v;
+            if(gd_ox[i] < -60) gd_on[i] = false;
+        }
+
+    prevB = gd_y + 20;
+    gd_vy = Min16(gd_vy + 1, 12);
+    gd_y += gd_vy;
+    bottom = gd_y + 20;
+    sup = GD_GY;
+
+    for(i = 0; i < 3; i++)
+    {
+        if(!gd_on[i]) continue;
+        if(gd_ot[i] == 2)
+        {
+            if(gd_ox[i] < GD_X + 18 && GD_X + 2 < gd_ox[i] + 30)
+            {
+                top = GD_GY - 24;
+                if(prevB <= top && bottom >= top) sup = top;
+                else if(bottom > top + 2 && prevB > top) return MG_LOSE;     // hit the side
+            }
+        }
+        else if(Hit(GD_X + 3, gd_y + 4, 14, 14, gd_ox[i] + 7, GD_GY - 16, GdW(gd_ot[i]) - 14, 14))
+            return MG_LOSE;
+    }
+
+    if(bottom >= sup) { gd_y = sup - 20; gd_vy = 0; gd_gnd = true; }
+    else gd_gnd = false;
+    return MG_PLAY;
+}
+
+static void GdDrawCube(int16_t y)
+{
+    Box(GD_X, y, 20, 20, COLOR_YELLOW);
+    Box(GD_X + 4, y + 5, 4, 4, COLOR_BLACK);
+    Box(GD_X + 12, y + 5, 4, 4, COLOR_BLACK);
+    Box(GD_X + 4, y + 13, 12, 3, COLOR_BLACK);
+}
+
+static void GdRender(void)
+{
+    uint16_t i;
+    int16_t  y = GD_GY - 24;
+
+    if(s_first)
+    {
+        Box(0, GD_GY, FIELD_W, FIELD_H - GD_GY, 0x6A1B9AUL);
+        Box(0, GD_GY, FIELD_W, 3, 0xE040FBUL);
+        gd_py = gd_y;
+        GdDrawCube(gd_y);
+    }
+
+    for(i = 0; i < 3; i++)
+    {
+        if(gd_on[i])
+        {
+            if(gd_ot[i] == 2)
+            {
+                SlideX(y, 24, gd_opx[i], gd_ox[i], 30, COLOR_CYAN, GD_BG);
+                if(s_first || gd_ox[i] != gd_opx[i]) Box(gd_ox[i], y, 30, 3, 0xB2EBF2UL);   // lit top edge
+            }
+            else
+            {
+                if(gd_ox[i] != gd_opx[i] || !gd_dr[i] || s_first)
+                {
+                    DrawArt(gd_ox[i], y, kArtGdSpike, 13, 12, 2, GD_BG, true);
+                    if(gd_ot[i] == 1) DrawArt(gd_ox[i] + 26, y, kArtGdSpike, 13, 12, 2, GD_BG, true);
+                    if(gd_dr[i] && !s_first)
+                        EraseOutside(gd_opx[i], y, GdW(gd_ot[i]), 24, gd_ox[i], y, GdW(gd_ot[i]), 24, GD_BG);
+                }
+            }
+            gd_opx[i] = gd_ox[i];
+            gd_dr[i]  = true;
+        }
+        else if(gd_dr[i]) { Box(gd_opx[i], y, GdW(gd_ot[i]), 24, GD_BG); gd_dr[i] = false; }
+    }
+
+    if(gd_y != gd_py)                                           // cube: new first, then the strip it left
+    {
+        GdDrawCube(gd_y);
+        EraseOutside(GD_X, gd_py, 20, 20, GD_X, gd_y, 20, 20, GD_BG);
+        gd_py = gd_y;
+    }
+}
+
+// ============================================================================
+// LAUNCH!  (Angry Birds)  pull the STICK back like a slingshot: the direction
+//          is the angle, how far you pull is the power. A dotted preview shows
+//          the shot. Press D-pad DOWN (or click the stick) to let go.
 // ============================================================================
 #define BD_GY       200
 #define BD_SX       44
-#define BD_SY       170
+#define BD_SY       168
 #define BD_BG       0x87CEEBUL
+#define BD_DOTS     8
 
-// angle idx 0..12 = 15..75 degrees, x100
-static const int16_t kCos[13] = { 97, 94, 91, 87, 82, 77, 71, 64, 57, 50, 42, 34, 26 };
-static const int16_t kSin[13] = { 26, 34, 42, 50, 57, 64, 71, 77, 82, 87, 91, 94, 97 };
-
-static int16_t bd_ang, bd_pw, bd_pwd, bd_pig, bd_dx, bd_dy;
-static bool    bd_fly, bd_aimDirty, bd_pigAlive, bd_clear;
+static int16_t bd_ax, bd_ay, bd_pig, bd_dx, bd_dy, bd_bx, bd_by;
+static int16_t bd_dotx[BD_DOTS], bd_doty[BD_DOTS];
+static bool    bd_fly, bd_aimDirty, bd_pigAlive, bd_dotsDr;
 static int32_t bd_x, bd_y, bd_vx, bd_vy;
 
 static void BdInit(uint16_t spd)
 {
-    bd_ang = 6;
-    bd_pw  = 0;
-    bd_pwd = 3 + Min16((int16_t)spd, 3);
+    bd_ax = bd_ay = 0;
     bd_pig = 190 + Rnd(90);
     bd_fly = false;
     bd_aimDirty = true;
-    bd_clear = false;
     bd_pigAlive = true;
-    bd_dx = BD_SX;
-    bd_dy = BD_SY;
+    bd_dotsDr = false;
+    bd_dx = bd_bx = BD_SX;
+    bd_dy = bd_by = BD_SY;
 }
 
 static int16_t BdUpdate(void)
 {
-    int32_t v100;
-
     if(!bd_fly)
     {
-        bd_pw += bd_pwd;
-        if(bd_pw >= 99) { bd_pw = 99; bd_pwd = -Abs16(bd_pwd); }
-        if(bd_pw <= 0)  { bd_pw = 0;  bd_pwd =  Abs16(bd_pwd); }
+        if(g_joy.dx != bd_ax || g_joy.dy != bd_ay) { bd_ax = g_joy.dx; bd_ay = g_joy.dy; bd_aimDirty = true; }
 
-        if((s_frame % 3) == 0)
+        if((g_dpad.dPressed || g_joy.btnPressed) && (Abs16(bd_ax) + Abs16(bd_ay)) >= 15)
         {
-            if(HeldY() < 0 && bd_ang < 12) { bd_ang++; bd_aimDirty = true; }
-            if(HeldY() > 0 && bd_ang > 0)  { bd_ang--; bd_aimDirty = true; }
-        }
-
-        if(AnyPress())
-        {
-            v100  = 500 + (int32_t)bd_pw * 4;
-            bd_vx = (v100 * kCos[bd_ang]) / 100;
-            bd_vy = -(v100 * kSin[bd_ang]) / 100;
-            bd_x  = (int32_t)BD_SX * 100;
-            bd_y  = (int32_t)BD_SY * 100;
+            bd_vx = -(int32_t)bd_ax * 9;                        // pull left/down -> fly right/up
+            bd_vy = -(int32_t)bd_ay * 9;
+            bd_x  = (int32_t)(BD_SX + bd_ax / 4) * 100;
+            bd_y  = (int32_t)(BD_SY + bd_ay / 4) * 100;
             bd_fly = true;
-            bd_clear = true;
             Buzzer_PlaySfx(&sfx_jump);
         }
         return MG_PLAY;
@@ -2297,47 +2866,240 @@ static void BdDrawPig(void)
     Box(bd_pig + 7,  BD_GY - 9, 10, 6, 0x7FBF00UL);
 }
 
+static void BdDrawBird(int16_t x, int16_t y)                    // 12x12, plain rects so moves are exact
+{
+    Box(x - 6, y - 6, 12, 12, COLOR_RED);
+    Box(x + 1, y - 3, 4, 4, COLOR_WHITE);
+    Box(x + 3, y - 2, 2, 2, COLOR_BLACK);
+    Box(x + 5, y + 1, 3, 3, COLOR_YELLOW);
+    Box(x - 1, y - 5, 6, 2, COLOR_BLACK);
+}
+
 static void BdRender(void)
 {
-    static int16_t lastX = BD_SX, lastY = BD_SY;
+    int16_t i, t, nx, ny;
 
     if(s_first)
     {
         Box(0, BD_GY, FIELD_W, FIELD_H - BD_GY, 0x2E7D32UL);
-        Box(BD_SX - 4, BD_SY + 8, 6, BD_GY - BD_SY - 8, COLOR_BROWN);       // slingshot
-        lastX = BD_SX; lastY = BD_SY;
+        Box(BD_SX - 4, BD_SY + 14, 6, BD_GY - BD_SY - 14, COLOR_BROWN);          // slingshot post
+        bd_dotsDr = false;
         bd_aimDirty = true;
+        if(bd_pigAlive) BdDrawPig();
     }
 
     if(!bd_fly)
     {
-        // power meter (redrawn every frame while aiming)
-        Box(10, 10, bd_pw, 10, COLOR_ORANGE);
-        Box(10 + bd_pw, 10, 100 - bd_pw + 1, 10, COLOR_DARK_GRAY);
-
         if(bd_aimDirty)
         {
-            Box(BD_SX - 10, BD_SY - 36, 60, 44, BD_BG);
-            Graphics_setForegroundColor(&g_sContext, COLOR_WHITE);
-            Graphics_drawLine(&g_sContext, BD_SX, BD_SY,
-                              BD_SX + (kCos[bd_ang] * 28) / 100,
-                              BD_SY - (kSin[bd_ang] * 28) / 100);
-            Disc(BD_SX, BD_SY, 6, COLOR_RED);
+            if(bd_dotsDr)                                       // erase old preview dots
+                for(i = 0; i < BD_DOTS; i++) Box(bd_dotx[i], bd_doty[i], 3, 3, BD_BG);
+            nx = BD_SX + bd_ax / 4;  ny = BD_SY + bd_ay / 4;
+            BdDrawBird(nx, ny);
+            if(!s_first) EraseOutside(bd_bx - 6, bd_by - 6, 12, 12, nx - 6, ny - 6, 12, 12, BD_BG);
+            bd_bx = nx; bd_by = ny;
+
+            for(i = 0; i < BD_DOTS; i++)                        // new preview: where the bird will be
+            {
+                t = (i + 1) * 5;
+                bd_dotx[i] = nx + (int16_t)(((int32_t)(-bd_ax) * 9 * t) / 100);
+                bd_doty[i] = ny + (int16_t)(((int32_t)(-bd_ay) * 9 * t) / 100 + (int32_t)12 * t * (t + 1) / 100);
+                if(bd_doty[i] > BD_GY - 4 || bd_dotx[i] < 0 || bd_dotx[i] > FIELD_W - 3) bd_doty[i] = -10;
+                else Box(bd_dotx[i], bd_doty[i], 3, 3, COLOR_WHITE);
+            }
+            bd_dotsDr = true;
             bd_aimDirty = false;
         }
     }
     else
     {
-        if(bd_clear) { Box(BD_SX - 10, BD_SY - 36, 60, 44, BD_BG); bd_clear = false; }
-        Box(lastX - 8, lastY - 8, 16, Min16(16, BD_GY - (lastY - 8)), BD_BG);
+        if(bd_dotsDr)
+        {
+            for(i = 0; i < BD_DOTS; i++) Box(bd_dotx[i], bd_doty[i], 3, 3, BD_BG);
+            bd_dotsDr = false;
+        }
         if(bd_pigAlive) BdDrawPig();
-        Disc(bd_dx, Min16(bd_dy, BD_GY - 8), 6, COLOR_RED);
-        lastX = bd_dx;
-        lastY = Min16(bd_dy, BD_GY - 8);
+        nx = bd_dx;  ny = Min16(bd_dy, BD_GY - 8);
+        BdDrawBird(nx, ny);
+        EraseOutside(bd_bx - 6, bd_by - 6, 12, 12, nx - 6, ny - 6, 12, 12, BD_BG);
+        bd_bx = nx;  bd_by = ny;
     }
 
-    if(s_first && bd_pigAlive) BdDrawPig();
     if(!bd_pigAlive) Box(bd_pig, BD_GY - 24, 24, 24, BD_BG);
+}
+
+// ============================================================================
+// BEAT!  (Melatonin)  rhythm: press any button when each note reaches the ring.
+//        The Tetris tune plays for now. Hit 5 notes; 3 misses and you wake up.
+// ============================================================================
+#define ML_BG   0x2B1B4DUL
+#define ML_Z    70
+#define ML_N    7
+
+static const int16_t kMlT[ML_N] = { 10, 38, 59, 94, 115, 150, 178 };
+
+static int16_t ml_res[ML_N], ml_px[ML_N], ml_hits, ml_miss, ml_flash, ml_v;
+static bool    ml_dr[ML_N];
+
+static int16_t MlX(int16_t i)
+{
+    if(s_frame < kMlT[i]) return 340;
+    return 330 - (int16_t)(((int32_t)(s_frame - kMlT[i])) * ml_v);
+}
+
+static void MlInit(uint16_t spd)
+{
+    int16_t i;
+
+    ml_v = 5 + Min16((int16_t)spd / 3, 2);
+    ml_hits = ml_miss = ml_flash = 0;
+    for(i = 0; i < ML_N; i++) { ml_res[i] = 0; ml_px[i] = 340; ml_dr[i] = false; }
+    Buzzer_PlaySong(&song_tetris, 1);
+}
+
+static int16_t MlUpdate(void)
+{
+    int16_t i, x, best = -1, bd = 99;
+
+    if(ml_flash > 0) ml_flash--;
+
+    for(i = 0; i < ML_N; i++)
+    {
+        x = MlX(i);
+        if(ml_res[i] == 0 && x < ML_Z - 18)
+        {
+            ml_res[i] = 2;
+            if(++ml_miss >= 3) return MG_LOSE;
+        }
+    }
+
+    if(AnyPress())
+    {
+        for(i = 0; i < ML_N; i++)
+        {
+            x = MlX(i);
+            if(ml_res[i] == 0 && Abs16(x - ML_Z) <= 18 && Abs16(x - ML_Z) < bd)
+            { bd = Abs16(x - ML_Z); best = i; }
+        }
+        if(best >= 0)
+        {
+            ml_res[best] = 1;
+            ml_flash = 6;
+            Buzzer_PlaySfx(&sfx_coin);
+            if(++ml_hits >= 5) return MG_WIN;
+        }
+    }
+    return MG_PLAY;
+}
+
+static void MlRing(uint32_t c)
+{
+    Box(ML_Z - 22, 93, 44, 3, c);   Box(ML_Z - 22, 134, 44, 3, c);
+    Box(ML_Z - 22, 93, 3, 44, c);   Box(ML_Z + 19, 93, 3, 44, c);
+}
+
+static void MlRender(void)
+{
+    int16_t  i, x;
+    bool     nearRing = false;
+    static bool flashDr = false;
+
+    if(s_first) { Text("TAP ON THE BEAT", 160, 200, COLOR_GRAY); MlRing(COLOR_WHITE); flashDr = false; }
+
+    for(i = 0; i < ML_N; i++)
+    {
+        x = MlX(i);
+        if(ml_res[i] == 0 && x < 340)
+        {
+            if(ml_dr[i]) MoveArt(ml_px[i] - 12, 103, x - 12, 103, kArtNote, 12, 12, 2, ML_BG);
+            else         DrawArt(x - 12, 103, kArtNote, 12, 12, 2, ML_BG, true);
+            ml_px[i] = x;  ml_dr[i] = true;
+            if(Abs16(x - ML_Z) < 40) nearRing = true;
+        }
+        else if(ml_dr[i])
+        {
+            Box(ml_px[i] - 12, 103, 24, 24, ML_BG);
+            ml_dr[i] = false;
+            nearRing = true;
+        }
+    }
+    if(nearRing || (ml_flash > 0) != flashDr)                       // ring only when a note touched it / flash changed
+    {
+        MlRing(ml_flash ? COLOR_LIME : COLOR_WHITE);
+        flashDr = (ml_flash > 0);
+    }
+}
+
+// ============================================================================
+// SORT!  (Machine Party recycler)  L = PAPER, UP = CAN, R = GLASS.
+//        Sort 5 items. Wrong bin and the machine jams.
+// ============================================================================
+#define RC_BG   0x203038UL
+
+static int16_t rc_t, rc_n, rc_shown;
+
+static void RcInit(uint16_t spd)
+{
+    rc_t = Rnd(3);
+    rc_n = 0;
+    rc_shown = -1;
+}
+
+static int16_t RcUpdate(void)
+{
+    int16_t p = -1;
+
+    if(EdgeL())      p = 0;
+    else if(EdgeU()) p = 1;
+    else if(EdgeR()) p = 2;
+    if(p < 0) return MG_PLAY;
+
+    if(p != rc_t) { Buzzer_PlaySfx(&sfx_hit); return MG_LOSE; }
+    Buzzer_PlaySfx(&sfx_coin);
+    if(++rc_n >= 5) return MG_WIN;
+    rc_t = Rnd(3);
+    return MG_PLAY;
+}
+
+static void RcRender(void)
+{
+    int16_t i;
+
+    if(s_first)
+    {
+        Box(20, 160, 80, 56, COLOR_BLUE);
+        Box(120, 160, 80, 56, COLOR_SILVER);
+        Box(220, 160, 80, 56, COLOR_GREEN);
+        Text("< PAPER", 60, 188, COLOR_WHITE);
+        Text("^ CAN", 160, 188, COLOR_BLACK);
+        Text("GLASS >", 260, 188, COLOR_WHITE);
+        Box(60, 134, 200, 8, COLOR_GRAY);                       // conveyor belt
+        rc_shown = -1;
+    }
+    if(rc_shown != rc_n)
+    {
+        for(i = 0; i < 5; i++)
+            Box(100 + i * 24, 12, 16, 16, i < rc_n ? COLOR_LIME : COLOR_DARK_GRAY);
+        rc_shown = rc_n;
+        Box(130, 56, 60, 74, RC_BG);
+        if(rc_t == 0)
+        {
+            Box(148, 76, 24, 32, COLOR_WHITE);
+            Box(152, 84, 16, 2, COLOR_GRAY);  Box(152, 90, 16, 2, COLOR_GRAY);  Box(152, 96, 16, 2, COLOR_GRAY);
+        }
+        else if(rc_t == 1)
+        {
+            Box(150, 76, 20, 34, COLOR_SILVER);
+            Box(150, 76, 20, 4, COLOR_GRAY);
+            Box(150, 88, 20, 8, COLOR_RED);
+        }
+        else
+        {
+            Box(150, 90, 20, 28, COLOR_GREEN);
+            Box(156, 76, 8, 16, COLOR_GREEN);
+            Box(155, 72, 10, 4, COLOR_GOLD);
+        }
+    }
 }
 
 // ============================================================================
@@ -2409,34 +3171,167 @@ static void PgRender(void)
     }
 }
 
+// ============================================================================
+// SHOOT!  (Galaga)  move and fire. Bugs sway in formation and dive at you.
+//         Shoot 6.
+// ============================================================================
+#define GL_BG   COLOR_BLACK
+#define GL_SY   208
+
+static int16_t gl_ex[10], gl_ey[10], gl_px[10], gl_py[10], gl_dv[10];
+static int16_t gl_sx, gl_psx, gl_cd, gl_kills, gl_spd;
+static int16_t gl_bx[2], gl_by[2], gl_pbx[2], gl_pby[2];
+static bool    gl_al[10], gl_dr[10], gl_bon[2], gl_bdr[2];
+
+static int16_t Tri(int16_t t, int16_t period, int16_t amp)      // triangle wave -amp..amp
+{
+    int16_t p = t % period, half = period / 2;
+    int16_t v = (p < half) ? p : period - p;
+    return (int16_t)(((int32_t)v * 2 * amp) / half) - amp;
+}
+
+static void GlInit(uint16_t spd)
+{
+    int16_t i;
+
+    for(i = 0; i < 10; i++) { gl_al[i] = true; gl_dv[i] = 0; gl_dr[i] = false; }
+    gl_bon[0] = gl_bon[1] = false;
+    gl_bdr[0] = gl_bdr[1] = false;
+    gl_sx = gl_psx = 147;
+    gl_cd = 40;
+    gl_kills = 0;
+    gl_spd = 4 + Min16((int16_t)spd / 2, 2);
+}
+
+static int16_t GlUpdate(void)
+{
+    int16_t i, j, sway = (Tri(s_frame, 90, 22) >> 1) << 1;
+
+    gl_sx = Clamp16(gl_sx + HeldX() * 5, 0, FIELD_W - 26);
+
+    if(g_joy.btnPressed || g_dpad.uPressed)
+        for(i = 0; i < 2; i++)
+            if(!gl_bon[i])
+            {
+                gl_bon[i] = true; gl_bx[i] = gl_sx + 12; gl_by[i] = GL_SY - 6;
+                Buzzer_PlaySfx(&sfx_laser);
+                break;
+            }
+
+    if(--gl_cd <= 0)
+    {
+        for(j = 0; j < 6; j++)
+        {
+            i = Rnd(10);
+            if(gl_al[i] && !gl_dv[i]) { gl_dv[i] = 1; break; }
+        }
+        gl_cd = Max16(28, 60 - 6 * (gl_spd - 4)) + Rnd(20);
+    }
+
+    for(i = 0; i < 10; i++)
+    {
+        if(!gl_al[i]) continue;
+        if(!gl_dv[i])
+        {
+            gl_ex[i] = 62 + (i % 5) * 44 + sway;
+            gl_ey[i] = 36 + (i / 5) * 26;
+        }
+        else
+        {
+            if(gl_dv[i] == 1) { gl_dv[i] = 2; }
+            gl_ey[i] += gl_spd;
+            gl_ex[i] += Sgn16(gl_sx + 13 - gl_ex[i]) * 2;
+            if(gl_ey[i] > 236) gl_dv[i] = 0;                     // back to formation
+            if(gl_dv[i] && Hit(gl_ex[i], gl_ey[i], 18, 12, gl_sx, GL_SY, 26, 12)) return MG_LOSE;
+        }
+    }
+
+    for(j = 0; j < 2; j++)
+    {
+        if(!gl_bon[j]) continue;
+        gl_by[j] -= 9;
+        if(gl_by[j] < -8) { gl_bon[j] = false; continue; }
+        for(i = 0; i < 10; i++)
+            if(gl_al[i] && Hit(gl_bx[j], gl_by[j], 3, 8, gl_ex[i] - 3, gl_ey[i], 24, 12))
+            {
+                gl_al[i] = false;
+                gl_bon[j] = false;
+                Buzzer_PlaySfx(&sfx_explosion);
+                if(++gl_kills >= 6) return MG_WIN;
+                break;
+            }
+    }
+    return MG_PLAY;
+}
+
+static void GlRender(void)
+{
+    int16_t i;
+
+    for(i = 0; i < 10; i++)
+    {
+        if(!gl_al[i])
+        {
+            if(gl_dr[i]) { Box(gl_px[i] - 4, gl_py[i], 26, 12, GL_BG); gl_dr[i] = false; }
+            continue;
+        }
+        if(gl_dr[i] && gl_px[i] == gl_ex[i] && gl_py[i] == gl_ey[i]) continue;        // hasn't moved
+        if(gl_dr[i]) Box(gl_px[i] - 4, gl_py[i], 26, 12, GL_BG);                       // erase+draw back to back
+        Box(gl_ex[i], gl_ey[i] + 2, 18, 8, (i < 5) ? COLOR_YELLOW : COLOR_CYAN);
+        Box(gl_ex[i] - 4, gl_ey[i], 5, 10, COLOR_RED);
+        Box(gl_ex[i] + 17, gl_ey[i], 5, 10, COLOR_RED);
+        Box(gl_ex[i] + 4, gl_ey[i] + 4, 3, 3, COLOR_BLACK);
+        Box(gl_ex[i] + 11, gl_ey[i] + 4, 3, 3, COLOR_BLACK);
+        gl_px[i] = gl_ex[i]; gl_py[i] = gl_ey[i]; gl_dr[i] = true;
+    }
+    for(i = 0; i < 2; i++)
+    {
+        if(gl_bdr[i]) { Box(gl_pbx[i], gl_pby[i], 3, 8, GL_BG); gl_bdr[i] = false; }
+        if(gl_bon[i])
+        {
+            Box(gl_bx[i], gl_by[i], 3, 8, COLOR_WHITE);
+            gl_pbx[i] = gl_bx[i]; gl_pby[i] = gl_by[i]; gl_bdr[i] = true;
+        }
+    }
+    if(s_first || gl_sx != gl_psx)
+    {
+        Box(gl_psx, GL_SY - 7, 26, 20, GL_BG);
+        Box(gl_sx, GL_SY, 26, 12, COLOR_WHITE);
+        Box(gl_sx + 11, GL_SY - 6, 4, 6, COLOR_WHITE);
+        Box(gl_sx, GL_SY + 4, 4, 8, COLOR_RED);  Box(gl_sx + 22, GL_SY + 4, 4, 8, COLOR_RED);
+        gl_psx = gl_sx;
+    }
+}
+
 //*****************************************************************************
 // 3. GAME TABLE  <- add a microgame: one line here
 //      cmd, inspiration tag, frames, background, winOnTimeout, init, update, render
 //*****************************************************************************
+#define WFULL 0, 0, FIELD_W, FIELD_H
 static const MicroGame kGames[] =
 {
-    { "CLIMB!",    "Donkey Kong",     260, DK_BG, 0, DkInit, DkUpdate, DkRender },
-    { "BATTLE!",   "Pokemon",         200, PK_BG, 0, PkInit, PkUpdate, PkRender },
-    { "FLIP!",     "Pokemon Pinball", 340, PB_BG, 0, PbInit, PbUpdate, PbRender },
-    { "RUN!",      "Sonic",           260, SO_BG, 0, SoInit, SoUpdate, SoRender },
-    { "BLAST!",    "Metroid",         320, MT_BG, 0, MtInit, MtUpdate, MtRender },
-    { "SLICE!",    "Fruit Ninja",     280, FN_BG, 0, FnInit, FnUpdate, FnRender },
-    { "RACE!",     "Hydro Thunder",   190, HY_BG, 1, HyInit, HyUpdate, HyRender },
-    { "TURN!",     "Temple Run",      280, TP_BG, 0, TpInit, TpUpdate, TpRender },
-    { "CALL IT!",  "Helldivers 2",    170, HD_BG, 0, HdInit, HdUpdate, HdRender },
-    { "BREAK!",    "Brick Breaker",   280, BK_BG, 0, BkInit, BkUpdate, BkRender },
-    { "FIT IT!",   "Tetris",          240, TT_BG, 0, TtInit, TtUpdate, TtRender },
-    { "CHOMP!",    "Pac-Man",         330, CH_BG, 0, ChInit, ChUpdate, ChRender },
-    { "CROSS!",    "Frogger",         280, FR_BG, 0, FrInit, FrUpdate, FrRender },
-    { "FLAP!",     "Flappy Bird",     200, FB_BG, 1, FbInit, FbUpdate, FbRender },
-    { "JUMP!",     "Chrome Dino",     180, DN_BG, 1, DnInit, DnUpdate, DnRender },
-    { "STOMP!",    "Super Mario",     260, MR_BG, 0, MrInit, MrUpdate, MrRender },
-    { "DASH!",     "Geometry Dash",   200, GD_BG, 1, GdInit, GdUpdate, GdRender },
-    { "LAUNCH!",   "Angry Birds",     260, BD_BG, 0, BdInit, BdUpdate, BdRender },
-    { "BEAT!",     "Melatonin",       300, ML_BG, 0, MlInit, MlUpdate, MlRender },
-    { "SORT!",     "Recycler",        220, RC_BG, 0, RcInit, RcUpdate, RcRender },
-    { "RETURN!",   "Pong",            300, PG_BG, 0, PgInit, PgUpdate, PgRender },
-    { "SHOOT!",    "Galaga",          320, GL_BG, 0, GlInit, GlUpdate, GlRender },
+    { "CLIMB!",    "Donkey Kong",     260, DK_BG, WFULL,              0, DkInit, DkUpdate, DkRender },
+    { "BATTLE!",   "Pokemon",         200, PK_BG, WFULL,              0, PkInit, PkUpdate, PkRender },
+    { "FLIP!",     "Pokemon Pinball", 340, PB_BG, 60, 12, 200, 200,   0, PbInit, PbUpdate, PbRender },
+    { "RUN!",      "Sonic",           280, SO_BG, 0, 40, 320, 160,    0, SoInit, SoUpdate, SoRender },
+    { "PLANT!",    "Plants vs Zombies", 340, PZ_BG0, 0, 24, 320, 168, 0, PzInit, PzUpdate, PzRender },
+    { "SLICE!",    "Fruit Ninja",     280, FN_BG, WFULL,              0, FnInit, FnUpdate, FnRender },
+    { "RACE!",     "Cruis'n USA",     190, RS_SKY, 40, 24, 240, 180,  1, RsInit, RsUpdate, RsRender },
+    { "ESCAPE!",   "Temple Run",      230, TP_SKY, 40, 24, 240, 180,  1, TpInit, TpUpdate, TpRender },
+    { "CALL IT!",  "Helldivers 2",    170, HD_BG, WFULL,              0, HdInit, HdUpdate, HdRender },
+    { "BREAK!",    "Brick Breaker",   280, BK_BG, WFULL,              0, BkInit, BkUpdate, BkRender },
+    { "FIT IT!",   "Tetris",          240, TT_BG, WFULL,              0, TtInit, TtUpdate, TtRender },
+    { "CHOMP!",    "Pac-Man",         330, PM_BG, 55, 24, 210, 182,   0, PmInit, PmUpdate, PmRender },
+    { "CROSS!",    "Frogger",         280, FR_BG, WFULL,              0, FrInit, FrUpdate, FrRender },
+    { "FLAP!",     "Flappy Bird",     200, FB_BG, WFULL,              1, FbInit, FbUpdate, FbRender },
+    { "JUMP!",     "Chrome Dino",     180, DN_BG, WFULL,              1, DnInit, DnUpdate, DnRender },
+    { "STOMP!",    "Super Mario",     260, MR_BG, WFULL,              0, MrInit, MrUpdate, MrRender },
+    { "DASH!",     "Geometry Dash",   200, GD_BG, WFULL,              1, GdInit, GdUpdate, GdRender },
+    { "LAUNCH!",   "Angry Birds",     280, BD_BG, WFULL,              0, BdInit, BdUpdate, BdRender },
+    { "BEAT!",     "Melatonin",       300, ML_BG, WFULL,              0, MlInit, MlUpdate, MlRender },
+    { "SORT!",     "Recycler",        220, RC_BG, WFULL,              0, RcInit, RcUpdate, RcRender },
+    { "RETURN!",   "Pong",            300, PG_BG, WFULL,              0, PgInit, PgUpdate, PgRender },
+    { "SHOOT!",    "Galaga",          320, GL_BG, WFULL,              0, GlInit, GlUpdate, GlRender },
 };
 
 //*****************************************************************************
@@ -2449,10 +3344,21 @@ static uint16_t s_phase, s_t, s_cur, s_lives, s_score, s_played, s_level;
 static uint16_t s_total, s_left, s_bag[32], s_bagPos, s_speedUp;
 static uint32_t s_best;
 static bool     s_dirty, s_won, s_newBest;
+static bool     s_repaintAll;                       // Settings overlay wiped the screen
 static bool     s_practice;                         // practice mode: no lives, no score
 static int16_t  s_menu, s_sel, s_pLevel;            // title cursor, picker cursor, practice speed
 static int16_t  s_barPx;
 static bool     s_barRed;
+
+// Black out everything on the playfield outside a (smaller) render window, so the
+// intro banner and text don't show around it. Costs only the area it covers.
+static void ClearOutside(int16_t wx, int16_t wy, int16_t ww, int16_t wh)
+{
+    if(wy > 0)                 Graphics_FillRect(0, 0, FIELD_W - 1, wy - 1, COLOR_BLACK);
+    if(wy + wh < FIELD_H)      Graphics_FillRect(0, wy + wh, FIELD_W - 1, FIELD_H - 1, COLOR_BLACK);
+    if(wx > 0)                 Graphics_FillRect(0, wy, wx - 1, wy + wh - 1, COLOR_BLACK);
+    if(wx + ww < FIELD_W)      Graphics_FillRect(wx + ww, wy, FIELD_W - 1, wy + wh - 1, COLOR_BLACK);
+}
 
 // ---- fuse bar ---------------------------------------------------------------
 static void BarFull(void)
@@ -2675,6 +3581,7 @@ static void EnterPlay(void)
 static void EndGame(bool won)
 {
     s_won = won;
+    Buzzer_Stop();                                  // music (Melatonin) off before the jingle
     if(won) { if(!s_practice) s_score++; Buzzer_PlaySfx(&sfx_powerup); }
     else    { if(!s_practice) s_lives--; Buzzer_PlaySfx(&sfx_hit); }
     GoPhase(PH_RESULT);
@@ -2810,15 +3717,19 @@ static void WW_Render(void)
             break;
 
         case PH_PLAY:
+            g_wx = g->wx;  g_wy = g->wy;  g_ww = g->ww;  g_wh = g->wh;
             if(s_dirty)
             {
-                Graphics_FillRect(0, 0, FIELD_W - 1, FIELD_H - 1, g->bg);
+                ClearOutside(g_wx, g_wy, g_ww, g_wh);
+                Graphics_FillRect(g_wx, g_wy, g_wx + g_ww - 1, g_wy + g_wh - 1, g->bg);
                 BarFull();
                 s_first = true;
                 s_dirty = false;
+                s_repaintAll = false;
             }
             g->render();
             s_first = false;
+            g_wx = 0;  g_wy = 0;  g_ww = FIELD_W;  g_wh = FIELD_H;
             BarUpdate();
             break;
 
@@ -2826,10 +3737,17 @@ static void WW_Render(void)
             if(s_dirty)
             {
                 Graphics_setFont(&g_sContext, &g_sFontCmss20b);
-                Graphics_FillRect(0, 0, FIELD_W - 1, FIELD_H - 1, g->bg);
-                s_first = true;                     // repaint the final frame from state
-                g->render();
-                s_first = false;
+                if(s_repaintAll)                    // only after Settings wiped the screen
+                {
+                    g_wx = g->wx;  g_wy = g->wy;  g_ww = g->ww;  g_wh = g->wh;
+                    ClearOutside(g_wx, g_wy, g_ww, g_wh);
+                    Graphics_FillRect(g_wx, g_wy, g_wx + g_ww - 1, g_wy + g_wh - 1, g->bg);
+                    s_first = true;
+                    g->render();
+                    s_first = false;
+                    g_wx = 0;  g_wy = 0;  g_ww = FIELD_W;  g_wh = FIELD_H;
+                    s_repaintAll = false;
+                }
                 if(s_won) Banner("NICE!", COLOR_LIME, COLOR_BLACK);
                 else      Banner("OOPS!", COLOR_RED,  COLOR_WHITE);
                 s_dirty = false;
@@ -2848,6 +3766,7 @@ static void WW_Redraw(void)
     Graphics_setBackgroundColor(&g_sContext, COLOR_BLACK);
     Graphics_setFont(&g_sContext, &g_sFontCmss20b);
     s_dirty = true;
+    s_repaintAll = true;
 }
 
 static void WW_Exit(void)

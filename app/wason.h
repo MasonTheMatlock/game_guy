@@ -8,13 +8,20 @@
 //
 //   Microgames (22), each a nod to a game you know:
 //     CLIMB!  Donkey Kong      BATTLE!  Pokemon          FLIP!    Pokemon Pinball
-//     RUN!    Sonic            BLAST!   Metroid          SLICE!   Fruit Ninja
-//     RACE!   Hydro Thunder    TURN!    Temple Run       CALL IT! Helldivers 2
+//     RUN!    Sonic            PLANT!   Plants vs Zombies SLICE!  Fruit Ninja
+//     RACE!   Cruis'n USA      ESCAPE!  Temple Run       CALL IT! Helldivers 2
 //     BREAK!  Brick Breaker    FIT IT!  Tetris           CHOMP!   Pac-Man
 //     CROSS!  Frogger          FLAP!    Flappy Bird      JUMP!    Chrome Dino
 //     STOMP!  Super Mario      DASH!    Geometry Dash    LAUNCH!  Angry Birds
 //     BEAT!   Melatonin        SORT!    Recycler         RETURN!  Pong
 //     SHOOT!  Galaga
+//
+//   DISPLAY NOTES (LAUNCHXL-F28069M -> 320x240 BoosterPack, ~250k pixels/s):
+//     * each MicroGame has a render window in kGames[]; (0,0) inside a game is the
+//       window's top-left and drawing is clipped to it. Smaller window = cheaper.
+//     * art sprites: DrawArt()/MoveArt() draw opaque pixel-art with merged runs.
+//     * moving things: draw the NEW image first, then EraseOutside() only the part
+//       of the old one that was vacated. Never erase-then-redraw (that flickers).
 //
 //   MENU: title screen = PLAY (the marathon) or PRACTICE (pick any microgame from
 //   a scrolling list, L/R sets the speed level; no lives, no score, and after
