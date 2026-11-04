@@ -80,9 +80,11 @@ PAGE 0 :   /* Program Memory */
       (drivers/save.c) owns them for settings and high scores and erases them.
       Same rule as 28069_RAM_lnk.cmd. */
    FLASHF      : origin = 0x3E0000, length = 0x004000     /* on-chip FLASH */
-   FLASHE      : origin = 0x3E4000, length = 0x004000     /* on-chip FLASH */   
-   FLASHD      : origin = 0x3E8000, length = 0x004000     /* on-chip FLASH */
-   FLASHC      : origin = 0x3EC000, length = 0x004000     /* on-chip FLASH */
+   FLASHE      : origin = 0x3E4000, length = 0x004000     /* on-chip FLASH */  
+
+   /* Combine adjacent Flash C and D into one 32K-word region. */
+  FLASHCD : origin = 0x3E8000, length = 0x008000
+
    FLASHB      : origin = 0x3F0000, length = 0x004000
    FLASHA      : origin = 0x3F4000, length = 0x003F80     /* on-chip FLASH */
    CSM_RSVD    : origin = 0x3F7F80, length = 0x000076     /* Part of FLASHA.  Program with all 0x0000 when CSM is in use. */
@@ -126,30 +128,33 @@ PAGE 1 :   /* Data Memory */
 SECTIONS
 {
 
-   /* Allocate program areas: */
-   .cinit              : > FLASHD,     PAGE = 0
-   .pinit              : > FLASHD,     PAGE = 0
-   .text               : { *(.text) } >> FLASHA | FLASHB | FLASHC | FLASHD, PAGE = 0
-   codestart           : > BEGIN,      PAGE = 0
+/* Allocate program areas */
+.cinit      : > FLASHCD, PAGE = 0
+.pinit      : > FLASHCD, PAGE = 0
+
+/* Allow code sections to be distributed across flash regions. */
+.text       : { *(.text) } >> FLASHA | FLASHB | FLASHCD, PAGE = 0
+
+codestart   : > BEGIN, PAGE = 0
 
 #ifdef __TI_COMPILER_VERSION__
-   #if __TI_COMPILER_VERSION__ >= 15009000
-    .TI.ramfunc : {} LOAD = FLASHD,
+    #if __TI_COMPILER_VERSION__ >= 15009000
+    .TI.ramfunc : {} LOAD = FLASHCD,
                          RUN = RAML0_4,
                          LOAD_START(_RamfuncsLoadStart),
                          LOAD_END(_RamfuncsLoadEnd),
                          RUN_START(_RamfuncsRunStart),
                          LOAD_SIZE(_RamfuncsLoadSize),
                          PAGE = 0
-   #else
-   ramfuncs            : LOAD = FLASHD,
-                         RUN = RAML0_L4,
-                         LOAD_START(_RamfuncsLoadStart),
-                         LOAD_END(_RamfuncsLoadEnd),
-                         RUN_START(_RamfuncsRunStart),
-                         LOAD_SIZE(_RamfuncsLoadSize),
-                         PAGE = 0
-   #endif
+    #else
+    ramfuncs : LOAD = FLASHCD,
+               RUN = RAML0_4,
+               LOAD_START(_RamfuncsLoadStart),
+               LOAD_END(_RamfuncsLoadEnd),
+               RUN_START(_RamfuncsRunStart),
+               LOAD_SIZE(_RamfuncsLoadSize),
+               PAGE = 0
+    #endif
 #endif
 
    csmpasswds          : > CSM_PWL_P0, PAGE = 0

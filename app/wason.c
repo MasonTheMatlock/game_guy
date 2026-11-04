@@ -28,7 +28,7 @@
 
 #define NUM_GAMES   ((uint16_t)(sizeof(kGames) / sizeof(kGames[0])))
 
-enum { PH_TITLE, PH_INTRO, PH_PLAY, PH_RESULT, PH_OVER, PH_PICK };
+enum { PH_TITLE, PH_INTRO, PH_PLAY, PH_RESULT, PH_OVER, PH_PICK, PH_TAUNT };
 enum { MG_PLAY = 0, MG_WIN = 1, MG_LOSE = 2 };
 
 typedef struct
@@ -271,6 +271,8 @@ static uint32_t ArtColor(char ch, uint32_t bg)
         case 'm': return 0xC83CA0UL;  case 't': return 0x46AAA0UL;  case 'l': return 0x96DC50UL;
         case 'e': return 0x50555FUL;  case 'z': return 0x82A06EUL;  case 'u': return 0x3C468CUL;
         case 'a': return 0xFAFA78UL;  case 'h': return 0xC89646UL;  case 'f': return 0xEBAA5AUL;
+        case 'v': return 0x6E32A0UL;  case 'x': return 0x3C1E64UL;  case 'j': return 0x8C1A1AUL;
+        case 'i': return 0x46A0E6UL;
         default:  return bg;
     }
 }
@@ -313,7 +315,6 @@ static void MoveArt(int16_t ox, int16_t oy, int16_t nx, int16_t ny, const char *
 // Pixel art (generated). One string per row; '.' = background. See DrawArt().
 //*****************************************************************************
 
-
 static const char *const kArtFire[16] =
 {
     ".......kk.......",
@@ -333,7 +334,6 @@ static const char *const kArtFire[16] =
     "....kooyyookk...",
     "....kookkook...."
 };
-
 
 static const char *const kArtWater[16] =
 {
@@ -355,7 +355,6 @@ static const char *const kArtWater[16] =
     "...kbbknnkbbk..."
 };
 
-
 static const char *const kArtGrass[16] =
 {
     ".....kkdgkk.....",
@@ -375,7 +374,6 @@ static const char *const kArtGrass[16] =
     "..kttk....kttk..",
     "...kk......kk..."
 };
-
 
 static const char *const kArtSonic0[20] =
 {
@@ -401,7 +399,6 @@ static const char *const kArtSonic0[20] =
     "..krrrrrk.krrrrr"
 };
 
-
 static const char *const kArtSonic1[20] =
 {
     "kk..............",
@@ -426,6 +423,29 @@ static const char *const kArtSonic1[20] =
     "....kkkrrrrrk..."
 };
 
+static const char *const kArtSonic2[20] =
+{
+    "kk..............",
+    "bbkkk..kkkk.....",
+    "bbbbbkkbbbbk....",
+    "kbbbbbbbbwwwk...",
+    ".kkkbbbbbwwkbk..",
+    "kkbbbbbbbwwkkk..",
+    "bbbbbbbbbwwwppk.",
+    "bbbbkbbbbbppppk.",
+    "kkkbbbbbbbbpppk.",
+    ".kbbbbkbbbbkkk..",
+    "kbbbbkbbbbbk....",
+    "bbbbkbbbpppbk...",
+    "bbkkkbbbpppbk...",
+    "kk..kbbbpppbk...",
+    "...kkkrrrrpkk...",
+    "..krrrrrrrrrrk..",
+    ".krrwwwwwwwwrrk.",
+    ".krrwwwwwwwwrrk.",
+    "..krrrrrrrrrrk..",
+    "...kkkrrrrkkk..."
+};
 
 static const char *const kArtSpin[16] =
 {
@@ -447,7 +467,6 @@ static const char *const kArtSpin[16] =
     ".....kkkkkk....."
 };
 
-
 static const char *const kArtMotobug[12] =
 {
     "..............",
@@ -464,7 +483,6 @@ static const char *const kArtMotobug[12] =
     ".kkkrrrrrreeek"
 };
 
-
 static const char *const kArtRing[10] =
 {
     "..hhhhhh..",
@@ -478,7 +496,6 @@ static const char *const kArtRing[10] =
     ".hyyyyyyh.",
     "..hhhhhh.."
 };
-
 
 static const char *const kArtSpikes[10] =
 {
@@ -494,7 +511,6 @@ static const char *const kArtSpikes[10] =
     "ssssssssssssssss"
 };
 
-
 static const char *const kArtSpring[10] =
 {
     "..kkkkkkkkkk..",
@@ -509,6 +525,63 @@ static const char *const kArtSpring[10] =
     "krrrrrrrrrrrrk"
 };
 
+static const char *const kArtSunflower[20] =
+{
+    ".kyyyyyyyyk.",
+    ".kyyyyyyyyk.",
+    ".kyynnnnyyk.",
+    "kyyynnnnyyyk",
+    "kyyynnnnyyyk",
+    ".kyynnnnyyk.",
+    ".kyyyyyyyyk.",
+    ".kyyyyyyyyk.",
+    "..kkkyykkk..",
+    "....kddk....",
+    "kkkkkddk....",
+    "dddddddk....",
+    "dddddddkkkkk",
+    "kkkkkddddddd",
+    "....kddddddd",
+    "....kddkkkkk",
+    "....kddk....",
+    "....kddk....",
+    "....kddk....",
+    "....kddk...."
+};
+
+static const char *const kArtPalm[30] =
+{
+    "....................",
+    ".........kkk........",
+    "........kgggk.......",
+    "...kkk..kgggk.kkkk..",
+    "..kgggk.kgggkkggggk.",
+    "..kggggkkgggkgggggk.",
+    "..kgggggggggggggggk.",
+    "...kggggggggggggkk..",
+    "kkkkkgggggggggggk...",
+    "gggggggggnnnnggkkkkk",
+    "gggggggggnnnnggggggg",
+    "gggggggggnnnnggggggg",
+    "kkkkkkkkknnnnggggggg",
+    ".........knnnnkkkkkk",
+    ".........knnnk......",
+    ".........knnnk......",
+    ".........knnnk......",
+    ".........knnnk......",
+    ".........knnnk......",
+    "........knnnnk......",
+    "........knnnnk......",
+    "........knnnnk......",
+    "........knnnk.......",
+    "........knnnk.......",
+    "........knnnk.......",
+    "........knnnk.......",
+    "........knnnk.......",
+    "........knnnk.......",
+    "........knnnk.......",
+    "........knnnk......."
+};
 
 static const char *const kArtOrange[16] =
 {
@@ -530,7 +603,6 @@ static const char *const kArtOrange[16] =
     ".....kkkkkk....."
 };
 
-
 static const char *const kArtApple[16] =
 {
     "........kkkkk...",
@@ -550,7 +622,6 @@ static const char *const kArtApple[16] =
     "....kkrrrrkk....",
     "......kkkk......"
 };
-
 
 static const char *const kArtLime[16] =
 {
@@ -572,7 +643,6 @@ static const char *const kArtLime[16] =
     ".....kkkkkk....."
 };
 
-
 static const char *const kArtBomb[16] =
 {
     ".......kkooorak.",
@@ -593,7 +663,6 @@ static const char *const kArtBomb[16] =
     ".....kkkkkk....."
 };
 
-
 static const char *const kArtPeashooter[16] =
 {
     ".....kkk........",
@@ -613,7 +682,6 @@ static const char *const kArtPeashooter[16] =
     "....kddkkkkkk...",
     ".....kk........."
 };
-
 
 static const char *const kArtZombie[22] =
 {
@@ -641,7 +709,6 @@ static const char *const kArtZombie[22] =
     "...kkkk.kkkk"
 };
 
-
 static const char *const kArtPea[6] =
 {
     ".dlld.",
@@ -652,60 +719,57 @@ static const char *const kArtPea[6] =
     ".dlld."
 };
 
-
 static const char *const kArtRun0[22] =
 {
-    "..khhhhhhhhk..",
-    "..khhhhhhhhk..",
-    ".khhhhhhhhhhk.",
-    "..knnnnnnnnk..",
-    "..knnnnnnnnk..",
-    "..kknnnnnnkk..",
-    ".knnnnnnnnnnk.",
-    ".knnnnnnnnnnk.",
-    ".kkrrrrrrrrkk.",
-    "kpprrrrrrrrppk",
-    "kpprrrrrrrrppk",
-    "kpprrrrrrrrppk",
-    "kpprrrrrrrrppk",
-    "kppnnnnnnnnppk",
-    "kppnnnnnnnnppk",
-    ".kkrrrrrrrrkk.",
+    "..kbbbbbbbbk..",
+    "..kbbbbbbbbk..",
+    ".kbbbbbbbbbbk.",
+    "kbbbbnnnnnnk..",
+    ".kknnnnnnnnk..",
+    "...kuuuuuuk...",
+    "...knnnnnnk...",
+    "...kkknnkkk...",
+    "..kyyyyyyyyk..",
+    ".kooooooooook.",
+    "kppooooooooppk",
+    "kppooooooooppk",
+    "kppooooooooppk",
+    "kppooooooooppk",
+    "kppooooooooppk",
+    ".kkooooooookk.",
     "..kuuukkuuuk..",
     "..kuuukkuuuk..",
     "..kuuukkuuuk..",
+    "..kuuukkwwwk..",
     "..kuuuk.kkk...",
-    "..kuuuk.......",
-    "..kkkk........"
+    ".kwwwwk......."
 };
-
 
 static const char *const kArtRun1[22] =
 {
-    "..khhhhhhhhk..",
-    "..khhhhhhhhk..",
-    ".khhhhhhhhhhk.",
-    "..knnnnnnnnk..",
-    "..knnnnnnnnk..",
-    "..kknnnnnnkk..",
-    ".knnnnnnnnnnk.",
-    ".knnnnnnnnnnk.",
-    ".kkrrrrrrrrkk.",
-    "kpprrrrrrrrppk",
-    "kpprrrrrrrrppk",
-    "kpprrrrrrrrppk",
-    "kpprrrrrrrrppk",
-    "kppnnnnnnnnppk",
-    "kppnnnnnnnnppk",
-    ".kkrrrrrrrrkk.",
+    "..kbbbbbbbbk..",
+    "..kbbbbbbbbk..",
+    ".kbbbbbbbbbbk.",
+    "kbbbbnnnnnnk..",
+    ".kknnnnnnnnk..",
+    "...kuuuuuuk...",
+    "...knnnnnnk...",
+    "...kkknnkkk...",
+    "..kyyyyyyyyk..",
+    ".kooooooooook.",
+    "kppooooooooppk",
+    "kppooooooooppk",
+    "kppooooooooppk",
+    "kppooooooooppk",
+    "kppooooooooppk",
+    ".kkooooooookk.",
     "..kuuukkuuuk..",
     "..kuuukkuuuk..",
     "..kuuukkuuuk..",
+    "..kwwwkkuuuk..",
     "...kkk.kuuuk..",
-    ".......kuuuk..",
-    "........kkkk.."
+    ".......kwwwwk."
 };
-
 
 static const char *const kArtBall[12] =
 {
@@ -723,7 +787,6 @@ static const char *const kArtBall[12] =
     "...kkkkkk..."
 };
 
-
 static const char *const kArtBallHit[12] =
 {
     "...kkkkkk...",
@@ -740,6 +803,41 @@ static const char *const kArtBallHit[12] =
     "...kkkkkk..."
 };
 
+static const char *const kArtPikachu[16] =
+{
+    ".kkyk.kkkk.kyykk",
+    ".kyykkyyyykkyyk.",
+    ".kyyyyyyyyyyyyk.",
+    "..kyyyyyyyyyyk..",
+    "...kyywyyywyk...",
+    "...kyykyyykyk...",
+    "..krryyyyyyrrkkk",
+    "..krryyykyyrrkyy",
+    "..kyyyyyyyyyyyyy",
+    "..kyyyyyyyyyyyyk",
+    "..kyyyyyyyyyyyyk",
+    "..kyyyyyyyyyyyk.",
+    "..kyyyyyyyyyyk..",
+    "...kyyyyyyyyk...",
+    "....kyyyyyyk....",
+    "....kyykkyyk...."
+};
+
+static const char *const kArtDiglett[12] =
+{
+    "..............",
+    "......kk......",
+    "...kkknnkkk...",
+    "..knnnnnnnnk..",
+    ".knnnnnnnnnnk.",
+    "knnnnnnnnnnnnk",
+    "knnnknnnnnknnk",
+    "knnnnppppnnnnk",
+    "knnnnppkpnnnnk",
+    "knnnnppppnnnnk",
+    "nnnnnnnnnnnnnn",
+    "nnnnnnnnnnnnnn"
+};
 
 static const char *const kArtGdSpike[12] =
 {
@@ -757,7 +855,6 @@ static const char *const kArtGdSpike[12] =
     ".wwwwwwwwwww."
 };
 
-
 static const char *const kArtNote[12] =
 {
     "...kkkkkk...",
@@ -772,6 +869,110 @@ static const char *const kArtNote[12] =
     ".kmmmmmmmmk.",
     "..kmmmmmmk..",
     "...kkkkkk..."
+};
+
+static const char *const kArtMetroid[14] =
+{
+    "...kkllllllkk...",
+    "..kllllggllllk..",
+    ".kllggggggggllk.",
+    ".klgwgrrrrggwlk.",
+    "kllgggrrrrgggllk",
+    "klggggrrrrgggglk",
+    "klggggrrrrgggglk",
+    "kllggggggggggllk",
+    "kllggllgllggllk.",
+    "klllgllgllggllk.",
+    "kllllllgllllllk.",
+    "kllkkllllllkllk.",
+    "klllklllllkkllk.",
+    "klllklllllkkllk."
+};
+
+static const char *const kArtSamus[22] =
+{
+    "...kkkkkk.....",
+    "..kooooook....",
+    "..kooooook....",
+    ".kooooggggk...",
+    ".kooooggggk...",
+    ".kooooggggk...",
+    "..kooooook....",
+    "..kooooook....",
+    "..kkkkkkkkk...",
+    ".koooooooook..",
+    ".koooooorrrrk.",
+    ".koooooorrrrk.",
+    ".kyyyooorrrrk.",
+    ".kyyyooorrrrk.",
+    ".kyyyooooook..",
+    ".koooooooook..",
+    ".koooooooook..",
+    "..koookoook...",
+    "..koookoook...",
+    "..koookoook...",
+    "..koookoook...",
+    ".kyyyykyyyyk.."
+};
+
+static const char *const kArtReo[10] =
+{
+    "uukk....kkuu",
+    "uuuuk..kuuuu",
+    "kuuuukkuuuuk",
+    ".kuuuuuuuuk.",
+    "..kkururkk..",
+    "...kmmmmk...",
+    "...kmmmmk...",
+    "....kkkk....",
+    "............",
+    "............"
+};
+
+static const char *const kArtWario[24] =
+{
+    "........kkkkkkkk........",
+    "......kkvvvvvvvvkk......",
+    "....kkvvvvvvvvvvvvkk....",
+    "...kvvvvvvaaaavvvvvvk...",
+    "...kvvvvvaaaaaavvvvvk...",
+    "..kvvvvvvaaxaxavvvvvvk..",
+    "..kvvvvvvaaaxaavvvvvvk..",
+    "...kvvvvvppppppvvvvvk...",
+    "..kxkkkkppppppppkkkkk...",
+    "..kxkkkkkkppppkkkkkkkk..",
+    ".kppppkkkkkkkkkkkkppppk.",
+    ".kppppwwwkkkkkkkwwppppk.",
+    "kpppppwwwkppppwkwwpppppk",
+    ".kppppppppffffppppppppk.",
+    ".kpppppppffffffpppppppk.",
+    "..kppppppffffffppppppk..",
+    "...kppkkkkkffkkkkkppk...",
+    "...kkkkkkkkkkkkkkkkkk...",
+    "..kvkkkkkkkkkkkkkkkkvk..",
+    ".kvvvvkppppppppppkvvvvk.",
+    "kvvvvvvppppppppppvvvvvvk",
+    "kvvvvvvppppppppppvvvvvvk",
+    "vvvvvvvppppppppppvvvvvvv",
+    "kvvvvvvppppppppppvvvvvvk"
+};
+
+static const char *const kArtMouthC[5] =
+{
+    "pppppppppp",
+    "pppppppppp",
+    "pkkkkkkkkp",
+    "kppppppppk",
+    "pppppppppp"
+};
+
+static const char *const kArtMouthO[5] =
+{
+    "ppwwwwwwpp",
+    "pjjjjjjjjp",
+    "pjjjjjjjjp",
+    "pjjjjjjjjp",
+    "ppprrrrppp"
 };
 
 //*****************************************************************************
@@ -905,8 +1106,8 @@ static void DkRender(void)
 }
 
 // ============================================================================
-// BATTLE!  (Pokemon)  pick the super-effective move: L = WATER, UP = FIRE,
-//          R = GRASS. Water > Fire > Grass > Water. Land 3 hits.
+// BATTLE!  (Pokemon)  pick the right attack. L = HYDRO PUMP, UP = FLAMETHROWER,
+//          R = RAZOR LEAF.  Water > Fire > Grass > Water.  Land 3 hits.
 // ============================================================================
 #define PK_BG   0x203040UL
 
@@ -914,51 +1115,81 @@ static const char *const *const kPkArt[3] = { kArtFire, kArtWater, kArtGrass };
 static const int16_t  kPkCounter[3] = { 1, 2, 0 };          // fire<-water, water<-grass, grass<-fire
 static const char    *kPkName[3]   = { "FIRE", "WATER", "GRASS" };
 
-static int16_t pk_t, pk_hits, pk_shown, pk_drawn;
+static int16_t pk_t, pk_hits, pk_shown, pk_drawn, pk_mv, pk_ax, pk_sx, pk_smv;
+static bool    pk_anim, pk_sDr;
 
 static void PkInit(uint16_t spd)
 {
     pk_t = Rnd(3);
     pk_hits = 0;
     pk_shown = pk_drawn = -1;
+    pk_anim = pk_sDr = false;
 }
 
 static int16_t PkUpdate(void)
 {
     int16_t p = -1;
 
-    if(EdgeU())      p = 0;
-    else if(EdgeL()) p = 1;
-    else if(EdgeR()) p = 2;
+    if(pk_anim)                                                 // the attack is flying
+    {
+        pk_ax += 10;
+        if(pk_ax >= 104)
+        {
+            pk_anim = false;
+            Buzzer_PlaySfx(&sfx_explosion);
+            if(++pk_hits >= 3) return MG_WIN;
+            pk_t = (pk_t + 1 + Rnd(2)) % 3;
+        }
+        return MG_PLAY;
+    }
+
+    if(EdgeU())      p = 0;                                     // Flamethrower (fire move)
+    else if(EdgeL()) p = 1;                                     // Hydro Pump   (water move)
+    else if(EdgeR()) p = 2;                                     // Razor Leaf   (grass move)
     if(p < 0) return MG_PLAY;
 
-    if(p != kPkCounter[pk_t]) return MG_LOSE;
-    Buzzer_PlaySfx(&sfx_explosion);
-    if(++pk_hits >= 3) return MG_WIN;
-    pk_t = (pk_t + 1 + Rnd(2)) % 3;
+    if(p != kPkCounter[pk_t]) return MG_LOSE;                   // not very effective...
+    pk_anim = true;  pk_mv = p;  pk_ax = 40;
+    Buzzer_PlaySfx(&sfx_laser);
     return MG_PLAY;
+}
+
+static void PkStream(int16_t x, int16_t mv)                     // 28x14 attack graphic
+{
+    if(mv == 1)      { Box(x, 88, 28, 10, COLOR_BLUE);   Box(x + 3, 90, 22, 3, COLOR_CYAN); }          // Hydro Pump
+    else if(mv == 0) { Box(x, 86, 28, 14, COLOR_ORANGE); Box(x + 4, 89, 20, 8, COLOR_YELLOW);
+                       Box(x + 22, 91, 6, 4, COLOR_RED); }                                            // Flamethrower
+    else             { Box(x, 88, 8, 5, COLOR_LIME);  Box(x + 10, 92, 8, 5, COLOR_GREEN);
+                       Box(x + 20, 87, 8, 5, COLOR_LIME); Box(x + 4, 95, 8, 4, COLOR_GREEN); }        // Razor Leaf
 }
 
 static void PkRender(void)
 {
     if(s_first)
     {
-        Box(20, 170, 80, 50, COLOR_BLUE);
-        Box(120, 170, 80, 50, COLOR_RED);
-        Box(220, 170, 80, 50, COLOR_GREEN);
-        Text("< WATER", 60, 195, COLOR_WHITE);
-        Text("^ FIRE", 160, 195, COLOR_WHITE);
-        Text("GRASS >", 260, 195, COLOR_WHITE);
-        Box(110, 126, 100, 6, 0x2E7D32UL);                      // grass patch under the sprite
+        Box(6, 168, 100, 56, COLOR_BLUE);
+        Box(110, 168, 100, 56, COLOR_RED);
+        Box(214, 168, 100, 56, COLOR_GREEN);
+        Text("< HYDRO",   56, 186, COLOR_WHITE);  Text("PUMP",    56, 208, COLOR_WHITE);
+        Text("^ FLAME",  160, 186, COLOR_WHITE);   Text("THROWER", 160, 208, COLOR_WHITE);
+        Text("RAZOR >",  264, 186, COLOR_WHITE);   Text("LEAF",   264, 208, COLOR_WHITE);
         pk_shown = pk_drawn = -1;
+        pk_sDr = false;
     }
     if(pk_drawn != pk_t)
     {
-        DrawArt(136, 70, kPkArt[pk_t], 16, 16, 3, PK_BG, true); // 48x48, opaque: no erase needed
-        Box(100, 132, 120, 24, PK_BG);
-        Text(kPkName[pk_t], 160, 144, COLOR_WHITE);
+        DrawArt(136, 56, kPkArt[pk_t], 16, 16, 3, PK_BG, true);                 // 48x48, opaque
+        Box(100, 112, 120, 24, PK_BG);
+        Text(kPkName[pk_t], 160, 124, COLOR_WHITE);
         pk_drawn = pk_t;
     }
+    if(pk_anim)
+    {
+        PkStream(pk_ax, pk_mv);                                 // new first, then clear what it left
+        if(pk_sDr) EraseOutside(pk_sx, 86, 28, 14, pk_ax, 86, 28, 14, PK_BG);
+        pk_sx = pk_ax;  pk_smv = pk_mv;  pk_sDr = true;
+    }
+    else if(pk_sDr) { Box(pk_sx, 86, 28, 14, PK_BG); pk_sDr = false; }
     if(pk_shown != pk_hits)
     {
         Box(80, 12, 160, 10, COLOR_DARK_GRAY);
@@ -968,9 +1199,10 @@ static void PkRender(void)
 }
 
 // ============================================================================
-// FLIP!  (Pokemon Pinball)  hold L / R (or the stick, or the button) to raise
-//        a flipper. Hit the Poke-ball bumpers and rollover lights: 8 points.
-//        200x200 window; only the ball, flippers and lit parts are redrawn.
+// FLIP!  (Pokemon Pinball)  hold L / R (or the stick / button) to raise a
+//        flipper. Pikachu and the Voltorbs kick the ball, the Digletts pop up
+//        and down. All that matters: don't drain the ball until time's up.
+//        200x200 window; only what changed is redrawn.
 // ============================================================================
 #define PB_BG   0x14143CUL
 #define PB_W    200
@@ -978,42 +1210,46 @@ static void PkRender(void)
 #define PB_PX   40                          // flipper pivot x (left); right is mirrored
 #define PB_PY   160
 #define PB_TX   88                          // flipper tip x
+#define PB_N    5
 
-static const int16_t kPbBx[3] = {  62,  138, 100 };         // bumper centres
-static const int16_t kPbBy[3] = {  60,   60, 104 };
-static const int16_t kPbLx[3] = {  60,  100, 140 };         // rollover lights (y = 18)
+static const int16_t kPbX[PB_N] = {  52, 148, 100,  26, 174 };      // 0,1 Voltorb  2 Pikachu  3,4 Diglett
+static const int16_t kPbY[PB_N] = {  96,  96,  48,  72,  72 };
+static const int16_t kPbR[PB_N] = {  12,  12,  16,   9,   9 };
+static const int16_t kPbT[PB_N] = {   0,   0,   1,   2,   2 };
 
-static int16_t pb_x4, pb_y4, pb_vx, pb_vy, pb_px, pb_py, pb_score;
-static int16_t pb_flash[3], pb_kick[2];
-static bool    pb_lf, pb_rf, pb_dlf, pb_drf, pb_lit[3], pb_litDr[3], pb_flDr[3];
+static int16_t pb_x4, pb_y4, pb_vx, pb_vy, pb_px, pb_py;
+static int16_t pb_flash[PB_N], pb_kick[2], pb_dt[PB_N];
+static bool    pb_lf, pb_rf, pb_dlf, pb_drf, pb_up[PB_N], pb_dsUp[PB_N], pb_dsFl[PB_N];
 static bool    pb_nearLow;
 
-// Floor height under x for the left half (right half is mirrored).
-static int16_t PbFloorL(int16_t x, bool up)
+static int16_t PbFloorL(int16_t x, bool up)                     // floor height on the left half
 {
-    if(x < PB_PX) return 130 + ((x - 6) * 30) / (PB_PX - 6);                    // outlane guide
-    return PB_PY + ((x - PB_PX) * ((up ? 146 : 176) - PB_PY)) / (PB_TX - PB_PX); // flipper
+    if(x < PB_PX) return 130 + ((x - 6) * 30) / (PB_PX - 6);                        // outlane guide
+    return PB_PY + ((x - PB_PX) * ((up ? 146 : 176) - PB_PY)) / (PB_TX - PB_PX);    // flipper
 }
 
 static void PbInit(uint16_t spd)
 {
+    int16_t i;
+
     pb_x4 = (80 + Rnd(40)) * 4;
-    pb_y4 = 36 * 4;
+    pb_y4 = 100 * 4;
     pb_vx = Rnd(17) - 8;
     pb_vy = 0;
     pb_px = pb_x4 / 4; pb_py = pb_y4 / 4;
-    pb_score = 0;
-    pb_flash[0] = pb_flash[1] = pb_flash[2] = 0;
     pb_kick[0] = pb_kick[1] = 0;
     pb_lf = pb_rf = pb_dlf = pb_drf = false;
-    pb_lit[0] = pb_lit[1] = pb_lit[2] = false;
-    pb_litDr[0] = pb_litDr[1] = pb_litDr[2] = false;
-    pb_flDr[0] = pb_flDr[1] = pb_flDr[2] = false;
+    for(i = 0; i < PB_N; i++)
+    {
+        pb_flash[i] = 0;
+        pb_up[i] = (i == 3);  pb_dt[i] = 20 + i * 12;
+        pb_dsUp[i] = !pb_up[i];  pb_dsFl[i] = true;
+    }
 }
 
 static int16_t PbUpdate(void)
 {
-    int16_t i, x, y, dx, dy, fy, sl;
+    int16_t i, x, y, dx, dy, fy, sl, rr;
     bool    right;
 
     pb_lf = g_dpad.l || g_joy.dx < -50 || g_joy.btn;
@@ -1026,35 +1262,31 @@ static int16_t PbUpdate(void)
     pb_x4 += pb_vx;  pb_y4 += pb_vy;
     x = pb_x4 / 4;  y = pb_y4 / 4;
 
-    if(x < 10)        { pb_x4 = 40;            pb_vx =  Abs16(pb_vx); }
+    if(x < 10)        { pb_x4 = 40;              pb_vx =  Abs16(pb_vx); }
     if(x > PB_W - 10) { pb_x4 = (PB_W - 10) * 4; pb_vx = -Abs16(pb_vx); }
-    if(y < 10)        { pb_y4 = 40;            pb_vy =  Abs16(pb_vy); }
+    if(y < 10)        { pb_y4 = 40;              pb_vy =  Abs16(pb_vy); }
     x = pb_x4 / 4;  y = pb_y4 / 4;
 
-    for(i = 0; i < 3; i++)                                      // Poke-ball bumpers
+    for(i = 0; i < PB_N; i++)                                   // Pokemon bumpers
     {
         if(pb_flash[i] > 0) pb_flash[i]--;
-        dx = x - kPbBx[i];  dy = y - kPbBy[i];
-        if(dx * dx + dy * dy < 256)
+        if(kPbT[i] == 2)                                        // Diglett: pops up and down
+        {
+            if(--pb_dt[i] <= 0) { pb_up[i] = !pb_up[i]; pb_dt[i] = pb_up[i] ? 45 : 50; }
+            if(!pb_up[i]) continue;
+        }
+        dx = x - kPbX[i];  dy = y - kPbY[i];  rr = kPbR[i] + 4;
+        if(dx * dx + dy * dy < rr * rr)
         {
             pb_vx = Clamp16(dx * 2 + (dx > 0 ? 6 : -6), -28, 28);
             pb_vy = Clamp16(dy * 2 + (dy > 0 ? 6 : -6), -28, 28);
             pb_flash[i] = 5;
+            if(kPbT[i] == 2) { pb_up[i] = false; pb_dt[i] = 60; }          // Diglett ducks after a hit
             Buzzer_PlaySfx(&sfx_coin);
-            if(++pb_score >= 8) return MG_WIN;
         }
     }
-    if(y < 26)                                                  // rollover lights
-        for(i = 0; i < 3; i++)
-            if(!pb_lit[i] && Abs16(x - kPbLx[i]) < 14)
-            {
-                pb_lit[i] = true;
-                Buzzer_PlaySfx(&sfx_blip);
-                if(++pb_score >= 8) return MG_WIN;
-            }
 
-    // Slanted floors: guide + flipper on each side, a gap in the middle that drains
-    right = (x > PB_W / 2);
+    right = (x > PB_W / 2);                                     // slanted floors + the draining gap
     if(y + 4 >= 125)
     {
         int16_t xm = right ? (PB_W - 1 - x) : x;
@@ -1076,7 +1308,7 @@ static int16_t PbUpdate(void)
                 }
                 else
                 {
-                    sl = onFlip ? 1 : 3;                               // roll toward the gap
+                    sl = onFlip ? 1 : 3;
                     pb_vy = (pb_vy > 8) ? -(pb_vy / 3) : 0;
                     pb_vx += (right ? -sl : sl);
                 }
@@ -1113,10 +1345,19 @@ static void PbDrawGuides(void)
     }
 }
 
-static void PbDrawBumper(int16_t i)
+static void PbDrawObj(int16_t i)
 {
-    DrawArt(kPbBx[i] - 12, kPbBy[i] - 12, pb_flash[i] ? kArtBallHit : kArtBall, 12, 12, 2, PB_BG, true);
-    pb_flDr[i] = (pb_flash[i] > 0);
+    bool fl = (pb_flash[i] > 0);
+
+    if(kPbT[i] == 0)       DrawArt(kPbX[i] - 12, kPbY[i] - 12, fl ? kArtBallHit : kArtBall, 12, 12, 2, PB_BG, true);
+    else if(kPbT[i] == 1)  DrawArt(kPbX[i] - 16, kPbY[i] - 16, kArtPikachu, 16, 16, 2, fl ? COLOR_WHITE : PB_BG, true);
+    else if(pb_up[i])      DrawArt(kPbX[i] - 14, kPbY[i] - 12, kArtDiglett, 14, 12, 2, fl ? COLOR_WHITE : PB_BG, true);
+    else
+    {
+        Box(kPbX[i] - 14, kPbY[i] - 12, 28, 24, PB_BG);
+        Box(kPbX[i] - 12, kPbY[i] + 6, 24, 5, 0x05050FUL);               // the empty hole
+    }
+    pb_dsUp[i] = pb_up[i];  pb_dsFl[i] = fl;
 }
 
 static void PbRender(void)
@@ -1127,25 +1368,16 @@ static void PbRender(void)
     {
         Box(0, 0, 6, PB_H, COLOR_GRAY);  Box(PB_W - 6, 0, 6, PB_H, COLOR_GRAY);
         Box(0, 0, PB_W, 6, COLOR_GRAY);
-        Box(6, 22, 56, 3, 0x2A2A66UL);   Box(PB_W - 62, 22, 56, 3, 0x2A2A66UL);
         PbDrawGuides();
-        for(i = 0; i < 3; i++) { PbDrawBumper(i); pb_litDr[i] = false; }
+        for(i = 0; i < PB_N; i++) PbDrawObj(i);
         pb_dlf = pb_drf = false;
         PbDrawFlip(0, false, COLOR_YELLOW);  PbDrawFlip(1, false, COLOR_YELLOW);
-        Text("POKE PINBALL", PB_W / 2, 150, 0x3C3C80UL);
     }
 
     Box(pb_px - 5, pb_py - 5, 10, 10, PB_BG);                   // old ball
-    for(i = 0; i < 3; i++)
-    {
-        if(pb_flDr[i] != (pb_flash[i] > 0)) PbDrawBumper(i);
-        if(pb_lit[i] != pb_litDr[i] || s_first)
-        {
-            Box(kPbLx[i] - 8, 14, 16, 8, pb_lit[i] ? COLOR_YELLOW : 0x2A2A66UL);
-            pb_litDr[i] = pb_lit[i];
-        }
-    }
-    if(pb_lf != pb_dlf)                                         // flippers move only when toggled
+    for(i = 0; i < PB_N; i++)
+        if(pb_dsUp[i] != pb_up[i] || pb_dsFl[i] != (pb_flash[i] > 0)) PbDrawObj(i);
+    if(pb_lf != pb_dlf)
     {
         PbDrawFlip(0, pb_dlf, PB_BG);  PbDrawFlip(0, pb_lf, COLOR_YELLOW);  pb_dlf = pb_lf;
     }
@@ -1158,23 +1390,38 @@ static void PbRender(void)
         PbDrawGuides();
         PbDrawFlip(0, pb_dlf, COLOR_YELLOW);  PbDrawFlip(1, pb_drf, COLOR_YELLOW);
     }
-    Box(x - 3, y - 4, 6, 8, COLOR_WHITE);                       // ball (octagon from 2 rects)
+    Box(x - 3, y - 4, 6, 8, COLOR_WHITE);                       // ball
     Box(x - 4, y - 3, 8, 6, COLOR_WHITE);
     Box(x - 4, y - 1, 8, 2, COLOR_RED);
     pb_px = x; pb_py = y;
 }
 
 // ============================================================================
-// RUN!  (Sonic)  auto-run through Green Hill. Any button = spin jump.
-//        Grab 5 rings, squash the Motobugs from above, dodge the spikes,
-//        bounce off springs for the high rings.
+// RUN!  (Sonic the Hedgehog)  Green Hill Zone. Any button = spin jump, DOWN =
+//       roll (flattens Motobugs). Grab 5 rings, stomp Motobugs from above,
+//       dodge the spikes, bounce off the springs for the high rings.
+//       Sprites are transparent over a painted scenery (hills, clouds, palms).
 // ============================================================================
-#define SO_GY   130                         // ground top (window-local)
+#define SO_GY   126                         // ground top (window-local)
 #define SO_X    60
-#define SO_BG   0x3A7BD5UL
+#define SO_BG   0x4FA5F5UL
 #define SO_N    4
 
-static int16_t so_y, so_vy, so_py, so_v, so_cd, so_rings, so_ph, so_pw, so_ph0, so_pend, so_pw1, so_ph1, so_chain, so_chr;
+typedef struct { int16_t x, y, w, h; uint32_t c; } SoRect;
+static const SoRect kSoBg[] =
+{
+    { 30, 16, 46, 10, 0xFFFFFFUL }, { 40, 10, 28, 8, 0xFFFFFFUL },          // clouds
+    { 190, 24, 52, 10, 0xFFFFFFUL }, { 200, 18, 32, 8, 0xFFFFFFUL }, { 280, 12, 36, 8, 0xFFFFFFUL },
+    { 10, 84, 100, 42, 0x2E9E6BUL }, { 24, 76, 72, 8, 0x2E9E6BUL },         // far hills
+    { 150, 70, 130, 56, 0x2E9E6BUL }, { 168, 60, 94, 10, 0x2E9E6BUL }, { 290, 92, 40, 34, 0x2E9E6BUL },
+    { 60, 100, 80, 26, 0x3CC06AUL }, { 74, 94, 52, 6, 0x3CC06AUL },         // near hills
+    { 230, 96, 90, 30, 0x3CC06AUL }, { 244, 90, 62, 6, 0x3CC06AUL },
+};
+static const int16_t kSoDecX[5] = { 14, 100, 168, 246, 296 };                // static palms / sunflowers
+static const int16_t kSoDecT[5] = {  0,   1,   0,   1,   0 };
+
+static int16_t so_y, so_vy, so_py, so_v, so_cd, so_rings, so_ph, so_pend, so_chain, so_chr, so_roll, so_dRings;
+static int16_t so_pw1, so_ph1, so_pt1;
 static int16_t so_x[SO_N], so_px[SO_N], so_ty[SO_N], so_t[SO_N], so_h[SO_N], so_w[SO_N];
 static bool    so_on[SO_N], so_dr[SO_N];
 
@@ -1186,6 +1433,31 @@ static const char *const *SoArt(int16_t t)
     return kArtSpring;
 }
 
+static void SoDecor(int16_t i)
+{
+    if(kSoDecT[i] == 0) DrawArt(kSoDecX[i], SO_GY - 30, kArtPalm, 20, 30, 1, SO_BG, false);
+    else                DrawArt(kSoDecX[i], SO_GY - 20, kArtSunflower, 12, 20, 1, SO_BG, false);
+}
+
+// Repaint the scenery inside a window-local rectangle.
+static void SoPaint(int16_t x, int16_t y, int16_t w, int16_t h)
+{
+    int16_t i, ix0, iy0, ix1, iy1, dw, dh;
+
+    Box(x, y, w, h, SO_BG);
+    for(i = 0; i < (int16_t)(sizeof(kSoBg) / sizeof(kSoBg[0])); i++)
+    {
+        ix0 = Max16(x, kSoBg[i].x);  iy0 = Max16(y, kSoBg[i].y);
+        ix1 = Min16(x + w, kSoBg[i].x + kSoBg[i].w);  iy1 = Min16(y + h, kSoBg[i].y + kSoBg[i].h);
+        if(ix0 < ix1 && iy0 < iy1) Box(ix0, iy0, ix1 - ix0, iy1 - iy0, kSoBg[i].c);
+    }
+    for(i = 0; i < 5; i++)
+    {
+        dw = kSoDecT[i] ? 12 : 20;  dh = kSoDecT[i] ? 20 : 30;
+        if(Hit(x, y, w, h, kSoDecX[i], SO_GY - dh, dw, dh)) SoDecor(i);
+    }
+}
+
 static void SoInit(uint16_t spd)
 {
     uint16_t i;
@@ -1194,25 +1466,28 @@ static void SoInit(uint16_t spd)
     so_vy = 0;
     so_v  = 5 + Min16((int16_t)spd / 2, 3);
     so_cd = 12;
-    so_rings = 0;
-    so_ph = 0;  so_pw = 16;  so_ph0 = 20;  so_pend = 0;  so_pw1 = 16;  so_ph1 = 20;  so_chain = 0;  so_chr = 0;
+    so_rings = 0;  so_dRings = -1;
+    so_ph = 0;  so_pend = 0;  so_chain = 0;  so_chr = 0;  so_roll = 0;
+    so_pw1 = 16;  so_ph1 = 20;  so_pt1 = SO_GY - 20;
     for(i = 0; i < SO_N; i++) { so_on[i] = false; so_dr[i] = false; }
 }
 
 static int16_t SoUpdate(void)
 {
     uint16_t i, j;
-    int16_t  r, t = 0, hh, ww, t_last = 0;
+    int16_t  r, t = 0, hh, ww, hy, hh2;
     bool     air;
 
     air = (so_y < SO_GY - 20);
-    if(!air && AnyPress()) { so_vy = -11; Buzzer_PlaySfx(&sfx_jump); }
+    if(!air && so_roll == 0 && EdgeD()) { so_roll = 26; Buzzer_PlaySfx(&sfx_laser); }    // spin roll
+    else if(!air && (g_joy.btnPressed || g_dpad.uPressed || g_dpad.lPressed || g_dpad.rPressed))
+    { so_vy = -11; so_roll = 0; Buzzer_PlaySfx(&sfx_jump); }
+    if(so_roll > 0) so_roll--;
     so_vy++;
     so_y += so_vy;
     if(so_y >= SO_GY - 20) { so_y = SO_GY - 20; so_vy = 0; }
     air = (so_y < SO_GY - 20);
-    so_ph0 = air ? 16 : 20;  so_pw = 16;
-    if((s_frame & 3) == 0) so_ph ^= 1;
+    if((s_frame & 1) == 0) so_ph = (so_ph + 1) & 3;
 
     if(--so_cd <= 0)
     {
@@ -1228,11 +1503,10 @@ static int16_t SoUpdate(void)
                     if(t == 0) { so_chr = Rnd(2); r = so_chr; so_chain = 2; }       // a chain of 3 rings
                     else r = 0;
                 }
-                hh = 10;
+                hh = (t == 1) ? 12 : 10;
                 ww = (t == 0) ? 10 : ((t == 1) ? 14 : ((t == 2) ? 16 : 14));
                 so_on[i] = true; so_t[i] = t; so_h[i] = hh; so_w[i] = ww;
-                so_ty[i] = (t == 0) ? ((r == 2) ? SO_GY - 84 : ((r == 1) ? SO_GY - 50 : SO_GY - 24)) : SO_GY - ((t == 1) ? 12 : 10);
-                if(t == 1) so_h[i] = 12;
+                so_ty[i] = (t == 0) ? ((r == 2) ? SO_GY - 84 : ((r == 1) ? SO_GY - 50 : SO_GY - 24)) : SO_GY - hh;
                 so_x[i] = so_px[i] = 322;
                 if(t == 3) so_pend = 2;
                 break;
@@ -1240,12 +1514,14 @@ static int16_t SoUpdate(void)
         so_cd = (so_pend > 0 || so_chain > 0) ? 5 : ((t == 0 || t == 3) ? 14 + Rnd(8) : 26 + Rnd(10));
     }
 
+    hy = (so_roll > 0 && !air) ? so_y + 6 : so_y + 2;
+    hh2 = (so_roll > 0 && !air) ? 12 : (air ? 14 : 16);
     for(i = 0; i < SO_N; i++)
     {
         if(!so_on[i]) continue;
         so_x[i] -= so_v;
         if(so_x[i] < -20) { so_on[i] = false; continue; }
-        if(!Hit(SO_X + 2, so_y + 2, 12, so_ph0 - 4, so_x[i], so_ty[i], so_w[i], so_h[i])) continue;
+        if(!Hit(SO_X + 2, hy, 12, hh2, so_x[i], so_ty[i], so_w[i], so_h[i])) continue;
 
         if(so_t[i] == 0)
         {
@@ -1253,11 +1529,11 @@ static int16_t SoUpdate(void)
             Buzzer_PlaySfx(&sfx_coin);
             if(++so_rings >= 5) return MG_WIN;
         }
-        else if(so_t[i] == 1)                                   // Motobug: spin on it from above
+        else if(so_t[i] == 1)                                   // Motobug: roll through it or land on it
         {
-            if(so_vy > 0 && so_y + so_ph0 - so_vy <= so_ty[i] + 4)
+            if((so_roll > 0 && !air) || (so_vy > 0 && so_y + 20 - so_vy <= so_ty[i] + 4))
             {
-                so_on[i] = false;  so_vy = -8;
+                so_on[i] = false;  if(air) so_vy = -8;
                 Buzzer_PlaySfx(&sfx_explosion);
                 for(j = 0; j < SO_N; j++) if(so_on[j] && so_t[j] == 0 && so_x[j] > 200) { so_on[j] = false; }
                 if(++so_rings >= 5) return MG_WIN;
@@ -1276,53 +1552,85 @@ static int16_t SoUpdate(void)
 
 static void SoRender(void)
 {
-    uint16_t i;
-    int16_t  y = so_y, w = so_pw, h = so_ph0;
+    uint16_t i, k;
+    int16_t  top, w, h, rx, ry, rw, rh, t;
+    bool     air = (so_y < SO_GY - 20), ball = air || so_roll > 0, redo;
     const char *const *art;
 
     if(s_first)
     {
-        Box(0, SO_GY, 320, 6, COLOR_GREEN);
-        Box(0, SO_GY + 6, 320, 24, 0xB5651DUL);
-        for(i = 0; i < 16; i++) Box(i * 20, SO_GY + 6, 10, 12, 0x8B4A12UL);     // checkered dirt
-        so_py = SO_GY - 20;
+        Box(0, SO_GY, 320, 6, 0x58D03CUL);
+        Box(0, SO_GY + 6, 320, 28, 0xC68E4AUL);
+        for(i = 0; i < 16; i++) { Box(i * 20, SO_GY + 6, 10, 14, 0x8B5A2BUL); Box(i * 20 + 10, SO_GY + 20, 10, 14, 0x8B5A2BUL); }
+        SoPaint(0, 0, 320, SO_GY);
+        so_pt1 = SO_GY - 20;  so_pw1 = 16;  so_ph1 = 20;
+        so_dRings = -1;
     }
 
-    for(i = 0; i < SO_N; i++)
+    for(i = 0; i < SO_N; i++)                                   // items: repaint old spot, draw new (back to back)
     {
         if(so_on[i])
         {
-            MoveArt(so_px[i], so_ty[i], so_x[i], so_ty[i], SoArt(so_t[i]), so_w[i], so_h[i], 1, SO_BG);
-            so_px[i] = so_x[i];
-            so_dr[i] = true;
+            if(so_x[i] != so_px[i] || !so_dr[i])
+            {
+                if(so_dr[i]) SoPaint(so_px[i], so_ty[i], so_w[i], so_h[i]);
+                DrawArt(so_x[i], so_ty[i], SoArt(so_t[i]), so_w[i], so_h[i], 1, SO_BG, false);
+                so_px[i] = so_x[i];  so_dr[i] = true;
+            }
         }
-        else if(so_dr[i]) { Box(so_px[i], so_ty[i], so_w[i], so_h[i], SO_BG); so_dr[i] = false; }
+        else if(so_dr[i]) { SoPaint(so_px[i], so_ty[i], so_w[i], so_h[i]); so_dr[i] = false; }
     }
 
-    art = (so_y < SO_GY - 20) ? kArtSpin : (so_ph ? kArtSonic1 : kArtSonic0);
-    DrawArt(SO_X, y + (20 - h), art, w, h, 1, SO_BG, true);                    // new first...
-    EraseOutside(SO_X, so_py + (20 - so_ph1), so_pw1, so_ph1, SO_X, y + (20 - h), w, h, SO_BG);
-    so_pw1 = w;  so_ph1 = h;  so_py = y;
+    if(ball) { art = kArtSpin; w = 16; h = 16; top = so_y + (air ? 2 : 4); }
+    else
+    {
+        w = 16; h = 20; top = so_y;
+        t = (so_v >= 7 && (so_ph & 2)) ? 2 : (so_ph & 1);        // peel-out blur once he's really moving
+        art = (t == 2) ? kArtSonic2 : (t ? kArtSonic1 : kArtSonic0);
+    }
+    redo = s_first || top != so_pt1 || h != so_ph1 || (!ball);   // running legs animate every frame
+    for(i = 0; i < SO_N && !redo; i++)
+        if(so_dr[i] && Hit(SO_X - 4, top - 2, 24, h + 4, so_px[i], so_ty[i], so_w[i], so_h[i])) redo = true;
+    if(redo)
+    {
+        ry = Min16(top, so_pt1);  rh = Max16(top + h, so_pt1 + so_ph1) - ry;  rx = SO_X;  rw = 16;
+        SoPaint(rx, ry, rw, rh);
+        for(i = 0; i < SO_N; i++)                               // items that were under his box come back
+            if(so_dr[i] && Hit(rx, ry, rw, rh, so_px[i], so_ty[i], so_w[i], so_h[i]))
+                DrawArt(so_px[i], so_ty[i], SoArt(so_t[i]), so_w[i], so_h[i], 1, SO_BG, false);
+        DrawArt(SO_X, top, art, w, h, 1, SO_BG, false);
+        so_pt1 = top;  so_ph1 = h;
+    }
+
+    if(so_dRings != so_rings)                                   // HUD: rings collected
+    {
+        for(k = 0; k < 5; k++)
+        {
+            Box(4 + k * 14, 2, 12, 12, SO_BG);
+            if((int16_t)k < so_rings) DrawArt(5 + k * 14, 3, kArtRing, 10, 10, 1, SO_BG, false);
+        }
+        so_dRings = so_rings;
+    }
 }
 
 // ============================================================================
-// PLANT!  (Plants vs Zombies)  UP/DOWN picks a lane, button plants a
-//         Peashooter at the house end of it. Stop 3 zombies before they reach
-//         the house. 3 plants max (one per lane).
+// PLANT!  (Plants vs Zombies)  UP/DOWN picks a lane, the button plants a
+//         Peashooter at the house end of it. Zombies EAT plants, so keep
+//         replanting. Stop 5 before one gets in the house.
 // ============================================================================
 #define PZ_LH   56                          // lane height
 #define PZ_HX   26                          // house strip width
-#define PZ_N    3
+#define PZ_N    4
 #define PZ_BG0  0x4CAF50UL
 #define PZ_BG1  0x3E9A42UL
 
-static int16_t pz_lane, pz_dlane, pz_kills, pz_cd, pz_spd, pz_spw;
+static int16_t pz_lane, pz_dlane, pz_kills, pz_cd, pz_spd, pz_spw, pz_cool;
 static int16_t pz_zx[PZ_N], pz_zl[PZ_N], pz_zhp[PZ_N], pz_zpx[PZ_N], pz_zfl[PZ_N];
 static bool    pz_zon[PZ_N], pz_zdr[PZ_N];
-static bool    pz_plant[3], pz_pdr[3];
-static int16_t pz_fire[3];
-static int16_t pz_pxp[6], pz_pl[6], pz_ppx[6];
-static bool    pz_pon[6], pz_pdr2[6];
+static bool    pz_plant[3], pz_pdr[3], pz_erase[3];
+static int16_t pz_fire[3], pz_php[3];
+static int16_t pz_pxp[8], pz_pl[8], pz_ppx[8];
+static bool    pz_pon[8], pz_pdr2[8];
 
 static uint32_t PzBg(int16_t lane) { return (lane & 1) ? PZ_BG1 : PZ_BG0; }
 
@@ -1331,24 +1639,26 @@ static void PzInit(uint16_t spd)
     int16_t i;
 
     pz_lane = 1; pz_dlane = -1; pz_kills = 0;
-    pz_cd = 20;
-    pz_spd = 3 + Min16((int16_t)spd / 3, 1);
-    pz_spw = Max16(30, 55 - 4 * (int16_t)spd);
+    pz_cd = 12;  pz_cool = 0;
+    pz_spd = 4 + Min16((int16_t)spd / 3, 2);
+    pz_spw = Max16(20, 38 - 3 * (int16_t)spd);
     for(i = 0; i < PZ_N; i++) { pz_zon[i] = pz_zdr[i] = false; pz_zfl[i] = 0; }
-    for(i = 0; i < 3; i++) { pz_plant[i] = pz_pdr[i] = false; pz_fire[i] = 20; }
-    for(i = 0; i < 6; i++) { pz_pon[i] = pz_pdr2[i] = false; }
+    for(i = 0; i < 3; i++) { pz_plant[i] = pz_pdr[i] = pz_erase[i] = false; pz_fire[i] = 20; pz_php[i] = 0; }
+    for(i = 0; i < 8; i++) { pz_pon[i] = pz_pdr2[i] = false; }
 }
 
 static int16_t PzUpdate(void)
 {
     int16_t i, j;
+    bool    seen;
 
+    if(pz_cool > 0) pz_cool--;
     if(EdgeU() && pz_lane > 0) pz_lane--;
     if(EdgeD() && pz_lane < 2) pz_lane++;
-    if(AnyPress() && !g_dpad.uPressed && !g_dpad.dPressed && !pz_plant[pz_lane])
+    if((g_joy.btnPressed || g_dpad.lPressed || g_dpad.rPressed) && !pz_plant[pz_lane] && pz_cool == 0)
     {
-        pz_plant[pz_lane] = true;
-        pz_fire[pz_lane] = 10;
+        pz_plant[pz_lane] = true;  pz_php[pz_lane] = 70;  pz_fire[pz_lane] = 12;
+        pz_cool = 22;                                           // seed packet recharge
         Buzzer_PlaySfx(&sfx_coin);
     }
 
@@ -1357,16 +1667,23 @@ static int16_t PzUpdate(void)
         for(i = 0; i < PZ_N; i++)
             if(!pz_zon[i])
             {
-                pz_zon[i] = true; pz_zl[i] = Rnd(3); pz_zx[i] = pz_zpx[i] = 292; pz_zhp[i] = 3;
+                pz_zon[i] = true; pz_zl[i] = Rnd(3); pz_zx[i] = pz_zpx[i] = 292;
+                pz_zhp[i] = (Rnd(3) == 0) ? 7 : 4;                // conehead / regular
                 break;
             }
-        pz_cd = pz_spw + Rnd(20);
+        pz_cd = pz_spw + Rnd(18);
     }
 
-    for(i = 0; i < PZ_N; i++)                                   // zombies shamble every 3rd frame
+    for(i = 0; i < PZ_N; i++)                                   // zombies shamble every 3rd frame, or chew
     {
         if(!pz_zon[i]) continue;
         if(pz_zfl[i] > 0) pz_zfl[i]--;
+        if(pz_plant[pz_zl[i]] && pz_zx[i] <= PZ_HX + 38)        // chewing the plant in this lane
+        {
+            if(--pz_php[pz_zl[i]] <= 0) { pz_plant[pz_zl[i]] = false; pz_pdr[pz_zl[i]] = false; pz_erase[pz_zl[i]] = true;
+                                          Buzzer_PlaySfx(&sfx_thud); }
+            continue;
+        }
         if((s_frame % 3) == 0) pz_zx[i] -= pz_spd;
         if(pz_zx[i] <= PZ_HX) return MG_LOSE;
     }
@@ -1375,17 +1692,17 @@ static int16_t PzUpdate(void)
     {
         if(!pz_plant[i]) continue;
         if(--pz_fire[i] > 0) continue;
-        pz_fire[i] = 28;
-        for(j = 0; j < PZ_N; j++)
-            if(pz_zon[j] && pz_zl[j] == i)
-            {
-                for(j = 0; j < 6; j++)
-                    if(!pz_pon[j]) { pz_pon[j] = true; pz_pl[j] = i; pz_pxp[j] = pz_ppx[j] = PZ_HX + 34; break; }
-                Buzzer_PlaySfx(&sfx_laser);
-                break;
-            }
+        pz_fire[i] = 14;
+        seen = false;
+        for(j = 0; j < PZ_N; j++) if(pz_zon[j] && pz_zl[j] == i) seen = true;
+        if(seen)
+        {
+            for(j = 0; j < 8; j++)
+                if(!pz_pon[j]) { pz_pon[j] = true; pz_pl[j] = i; pz_pxp[j] = pz_ppx[j] = PZ_HX + 34; break; }
+            Buzzer_PlaySfx(&sfx_laser);
+        }
     }
-    for(j = 0; j < 6; j++)                                      // peas
+    for(j = 0; j < 8; j++)                                      // peas
     {
         if(!pz_pon[j]) continue;
         pz_pxp[j] += 7;
@@ -1399,7 +1716,7 @@ static int16_t PzUpdate(void)
                 {
                     pz_zon[i] = false;
                     Buzzer_PlaySfx(&sfx_explosion);
-                    if(++pz_kills >= 3) return MG_WIN;
+                    if(++pz_kills >= 5) return MG_WIN;
                 }
                 break;
             }
@@ -1423,23 +1740,26 @@ static void PzRender(void)
     if(s_first || pz_lane != pz_dlane)                          // lane marker on the house wall
     {
         if(pz_dlane >= 0) Box(14, pz_dlane * PZ_LH + 4, 10, 8, 0x8D6E63UL);
-        Box(14, pz_lane * PZ_LH + 4, 10, 8, COLOR_YELLOW);
+        Box(14, pz_lane * PZ_LH + 4, 10, 8, pz_cool > 0 ? COLOR_GRAY : COLOR_YELLOW);
         pz_dlane = pz_lane;
     }
 
     for(i = 0; i < 3; i++)
+    {
+        if(pz_erase[i]) { Box(PZ_HX, i * PZ_LH + 6, 40, 44, PzBg(i)); pz_erase[i] = false; }
         if(pz_plant[i] && !pz_pdr[i])
         {
             DrawArt(PZ_HX + 2, i * PZ_LH + 12, kArtPeashooter, 16, 16, 2, PzBg(i), true);
             pz_pdr[i] = true;
         }
+    }
 
     for(i = 0; i < PZ_N; i++)
     {
         ly = pz_zl[i] * PZ_LH + 6;
         if(pz_zon[i])
         {
-            if(pz_zx[i] != pz_zpx[i] || pz_zfl[i] == 3 || pz_zfl[i] == 0 || !pz_zdr[i])
+            if(pz_zx[i] != pz_zpx[i] || !pz_zdr[i])
             {
                 if(pz_zdr[i]) MoveArt(pz_zpx[i], ly, pz_zx[i], ly, kArtZombie, 12, 22, 2, PzBg(pz_zl[i]));
                 else          DrawArt(pz_zx[i], ly, kArtZombie, 12, 22, 2, PzBg(pz_zl[i]), true);
@@ -1449,7 +1769,7 @@ static void PzRender(void)
         else if(pz_zdr[i]) { Box(pz_zpx[i], ly, 24, 44, PzBg(pz_zl[i])); pz_zdr[i] = false; }
     }
 
-    for(i = 0; i < 6; i++)
+    for(i = 0; i < 8; i++)
     {
         ly = pz_pl[i] * PZ_LH + 17;
         if(pz_pon[i])
@@ -1459,6 +1779,166 @@ static void PzRender(void)
             pz_ppx[i] = pz_pxp[i];  pz_pdr2[i] = true;
         }
         else if(pz_pdr2[i]) { Box(pz_ppx[i], ly, 6, 6, PzBg(pz_pl[i])); pz_pdr2[i] = false; }
+    }
+}
+
+// ============================================================================
+// BLAST!  (Metroid)  Aim the arm cannon with the STICK, fire with the button.
+//         Freeze 5 of the creatures before one reaches Samus.
+//         Metroids take 2 hits; Reo bats are fast and wavy.
+// ============================================================================
+#define MT_BG   0x14001EUL
+#define MT_N    4
+#define MT_CX   40                          // cannon muzzle origin
+#define MT_CY   104
+
+static int16_t mt_ax, mt_ay, mt_dvx, mt_dvy, mt_kills, mt_cd, mt_spd;
+static int16_t mt_ex[MT_N], mt_ey[MT_N], mt_pex[MT_N], mt_pey[MT_N], mt_et[MT_N], mt_hp[MT_N], mt_fl[MT_N];
+static int16_t mt_bx[5], mt_by[5], mt_bvx[5], mt_bvy[5], mt_pbx[5], mt_pby[5];
+static bool    mt_eon[MT_N], mt_edr[MT_N], mt_bon[5], mt_bdr[5], mt_aimDirty;
+
+static void MtAim(void)                                         // stick -> unit-ish vector (|max| = 8)
+{
+    int16_t s = Max16(Abs16(g_joy.dx), Abs16(g_joy.dy));
+
+    if(s >= 25)
+    {
+        mt_ax = (int16_t)(((int32_t)g_joy.dx * 8) / s);
+        mt_ay = (int16_t)(((int32_t)g_joy.dy * 8) / s);
+        if(mt_ax < 2 && mt_ax > -2 && mt_ay < 2 && mt_ay > -2) mt_ax = 8;
+    }
+}
+
+static void MtInit(uint16_t spd)
+{
+    int16_t i;
+
+    mt_ax = 8; mt_ay = 0; mt_dvx = mt_dvy = 99;
+    mt_kills = 0;
+    mt_cd = 15;
+    mt_spd = 1 + Min16((int16_t)spd / 3, 1);
+    mt_aimDirty = true;
+    for(i = 0; i < MT_N; i++) { mt_eon[i] = mt_edr[i] = false; mt_fl[i] = 0; }
+    for(i = 0; i < 5; i++) { mt_bon[i] = mt_bdr[i] = false; }
+}
+
+static int16_t MtUpdate(void)
+{
+    int16_t i, j, w, h;
+
+    MtAim();
+    if(mt_ax != mt_dvx || mt_ay != mt_dvy) mt_aimDirty = true;
+
+    if(g_joy.btnPressed || g_dpad.lPressed || g_dpad.rPressed || g_dpad.uPressed || g_dpad.dPressed)
+        for(i = 0; i < 5; i++)
+            if(!mt_bon[i])
+            {
+                mt_bon[i] = true;  mt_bx[i] = mt_pbx[i] = MT_CX + mt_ax * 2;  mt_by[i] = mt_pby[i] = MT_CY + mt_ay * 2;
+                mt_bvx[i] = mt_ax;  mt_bvy[i] = mt_ay;
+                Buzzer_PlaySfx(&sfx_laser);
+                break;
+            }
+
+    if(--mt_cd <= 0)
+    {
+        for(i = 0; i < MT_N; i++)
+            if(!mt_eon[i])
+            {
+                mt_eon[i] = true;  mt_et[i] = (Rnd(3) == 0) ? 1 : 0;
+                mt_ex[i] = mt_pex[i] = 324;  mt_ey[i] = mt_pey[i] = 20 + Rnd(170);
+                mt_hp[i] = mt_et[i] ? 1 : 2;  mt_fl[i] = 0;
+                break;
+            }
+        mt_cd = Max16(22, 44 + Rnd(24) - 8 * mt_spd);
+    }
+
+    for(i = 0; i < MT_N; i++)
+    {
+        if(!mt_eon[i]) continue;
+        if(mt_fl[i] > 0) mt_fl[i]--;
+        mt_ex[i] -= mt_et[i] ? mt_spd + 2 : mt_spd + 1;
+        if(((s_frame + i * 7) & 3) == 0)                         // drift toward Samus, bats weave
+        {
+            if(mt_ey[i] < 100) mt_ey[i]++; else if(mt_ey[i] > 110) mt_ey[i]--;
+            if(mt_et[i]) mt_ey[i] += ((s_frame >> 3) & 1) ? 3 : -3;
+        }
+        w = mt_et[i] ? 12 : 16;  h = mt_et[i] ? 10 : 14;
+        if(Hit(mt_ex[i], mt_ey[i], w * 2, h * 2, 8, 88, 30, 44)) return MG_LOSE;
+    }
+
+    for(j = 0; j < 5; j++)
+    {
+        if(!mt_bon[j]) continue;
+        mt_bx[j] += mt_bvx[j];  mt_by[j] += mt_bvy[j];
+        if(mt_bx[j] < 0 || mt_bx[j] > 330 || mt_by[j] < -6 || mt_by[j] > 226) { mt_bon[j] = false; continue; }
+        for(i = 0; i < MT_N; i++)
+        {
+            if(!mt_eon[i]) continue;
+            w = mt_et[i] ? 12 : 16;  h = mt_et[i] ? 10 : 14;
+            if(Hit(mt_bx[j] - 3, mt_by[j] - 3, 7, 7, mt_ex[i], mt_ey[i], w * 2, h * 2))
+            {
+                mt_bon[j] = false;  mt_fl[i] = 3;
+                if(--mt_hp[i] <= 0)
+                {
+                    mt_eon[i] = false;
+                    Buzzer_PlaySfx(&sfx_explosion);
+                    if(++mt_kills >= 5) return MG_WIN;
+                }
+                else Buzzer_PlaySfx(&sfx_blip);
+                break;
+            }
+        }
+    }
+    return MG_PLAY;
+}
+
+static void MtBarrel(int16_t vx, int16_t vy, bool on)
+{
+    int16_t k;
+    for(k = 1; k <= 4; k++)
+        Box(MT_CX + vx * k - 2, MT_CY + vy * k - 2, 5, 5, on ? COLOR_ORANGE : MT_BG);
+    Box(MT_CX + vx * 8 - 1, MT_CY + vy * 8 - 1, 3, 3, on ? COLOR_YELLOW : MT_BG);          // sight
+}
+
+static void MtRender(void)
+{
+    int16_t i;
+
+    if(s_first)
+    {
+        DrawArt(8, 88, kArtSamus, 14, 22, 2, MT_BG, true);
+        mt_dvx = mt_dvy = 99;  mt_aimDirty = true;
+        for(i = 0; i < MT_N; i++) mt_edr[i] = false;
+    }
+    if(mt_aimDirty)
+    {
+        if(mt_dvx != 99) MtBarrel(mt_dvx, mt_dvy, false);
+        MtBarrel(mt_ax, mt_ay, true);
+        mt_dvx = mt_ax;  mt_dvy = mt_ay;
+        mt_aimDirty = false;
+    }
+
+    for(i = 0; i < MT_N; i++)
+    {
+        if(mt_eon[i])
+        {
+            if(mt_edr[i]) MoveArt(mt_pex[i], mt_pey[i], mt_ex[i], mt_ey[i], mt_et[i] ? kArtReo : kArtMetroid,
+                                  mt_et[i] ? 12 : 16, mt_et[i] ? 10 : 14, 2, MT_BG);
+            else          DrawArt(mt_ex[i], mt_ey[i], mt_et[i] ? kArtReo : kArtMetroid,
+                                  mt_et[i] ? 12 : 16, mt_et[i] ? 10 : 14, 2, MT_BG, true);
+            if(mt_fl[i] > 0) Box(mt_ex[i] + 8, mt_ey[i] + 6, 6, 6, COLOR_WHITE);
+            mt_pex[i] = mt_ex[i];  mt_pey[i] = mt_ey[i];  mt_edr[i] = true;
+        }
+        else if(mt_edr[i]) { Box(mt_pex[i], mt_pey[i], 32, 28, MT_BG); mt_edr[i] = false; }
+    }
+    for(i = 0; i < 5; i++)
+    {
+        if(mt_bdr[i]) { Box(mt_pbx[i] - 3, mt_pby[i] - 3, 7, 7, MT_BG); mt_bdr[i] = false; }
+        if(mt_bon[i])
+        {
+            Box(mt_bx[i] - 2, mt_by[i] - 2, 5, 5, COLOR_CYAN);
+            mt_pbx[i] = mt_bx[i];  mt_pby[i] = mt_by[i];  mt_bdr[i] = true;
+        }
     }
 }
 
@@ -1624,7 +2104,7 @@ static void PsDrawRoad(uint32_t sky, uint32_t side, uint32_t road, uint32_t edge
 #define RS_SKY   0x6EC6FFUL
 #define RS_GRASS 0x2E8B2EUL
 #define RS_ROAD  0x454B55UL
-#define RS_N     3
+#define RS_N     7
 #define RS_CY    (PS_H - 6)                 // player car bottom
 
 static int16_t rs_px, rs_ppx, rs_cd, rs_sp, rs_ds, rs_dk[10], rs_dl;
@@ -1651,9 +2131,9 @@ static int16_t RsUpdate(void)
 {
     int16_t i, k, dxs, step;
 
-    dxs = (g_joy.dx * 5) / 100;
-    if(g_dpad.l) dxs = -5;
-    if(g_dpad.r) dxs =  5;
+    dxs = (g_joy.dx * 7) / 100;
+    if(g_dpad.l) dxs = -7;
+    if(g_dpad.r) dxs =  7;
     rs_px = Clamp16(rs_px + dxs, 24, PS_W - 24);
     rs_nitro = g_joy.btn;
     step = rs_nitro ? rs_sp + 6 : rs_sp;
@@ -1661,14 +2141,19 @@ static int16_t RsUpdate(void)
 
     if(--rs_cd <= 0)
     {
-        for(i = 0; i < RS_N; i++)
-            if(!rs_on[i]) { rs_on[i] = true; rs_z[i] = 16; rs_l[i] = Rnd(3); rs_c[i] = Rnd(4); rs_pk[i] = -1; break; }
-        rs_cd = Max16(12, 26 + Rnd(14) - (rs_sp - 10) * 2);
+        int16_t lane = Rnd(3), mask = 0, q;
+
+        for(q = 0; q < RS_N; q++)                               // lanes with a car just spawned
+            if(rs_on[q] && (rs_z[q] >> 4) <= 9) mask |= (1 << rs_l[q]);
+        if((mask | (1 << lane)) != 7)                           // always leave a lane open
+            for(i = 0; i < RS_N; i++)
+                if(!rs_on[i]) { rs_on[i] = true; rs_z[i] = 16; rs_l[i] = lane; rs_c[i] = Rnd(4); rs_pk[i] = -1; break; }
+        rs_cd = Max16(8, 15 + Rnd(10) - (rs_sp - 10));
     }
     for(i = 0; i < RS_N; i++)
     {
         if(!rs_on[i]) continue;
-        rs_z[i] += step - 5;                                    // traffic drives, but slower than you
+        rs_z[i] += step - 7;                                    // traffic drives, but slower than you
         k = rs_z[i] >> 4;
         if(k >= PS_K - 1) { rs_on[i] = false; continue; }
         if(k >= 20 && Abs16(PsLaneX(rs_l[i], k) - rs_px) < 30) return MG_LOSE;
@@ -1771,183 +2256,245 @@ static void RsRender(void)
 }
 
 // ============================================================================
-// ESCAPE!  (Temple Run)  3D behind-the-runner view. L/R change lane, UP jumps
-//          the roots and gaps, DOWN slides under branches, grab coins. When a
-//          big wall with an arrow comes at you, press that way to TURN.
+// SURF!  (Subway Surfers)  run the rails. L/R switch lane, UP jumps the
+//        barriers, DOWN slides under the signs, grab coins, and stay out of
+//        the way of the trains. Survive.   (3D view, shared with RACE!)
 // ============================================================================
-#define TP_SKY   0x9BD4B0UL
-#define TP_SIDE  0x1F5A2AUL
-#define TP_ROAD  0x8B6B43UL
-#define TP_N     4
+#define SF_SKY   0x87CEEBUL
+#define SF_SIDE  0x5E6270UL
+#define SF_ROAD  0x7A6F66UL
+#define SF_N     5
 
-static int16_t tp_lane, tp_x, tp_px, tp_jy, tp_jvy, tp_slide, tp_cd, tp_sp, tp_turnCd, tp_pjy, tp_pslide, tp_pf;
-static int16_t tp_z[TP_N], tp_l[TP_N], tp_ty[TP_N], tp_pk[TP_N], tp_d[TP_N];
-static bool    tp_on[TP_N], tp_dr[TP_N];
+static int16_t sf_lane, sf_x, sf_px, sf_jy, sf_jvy, sf_slide, sf_cd, sf_sp, sf_pjy, sf_pslide, sf_pf;
+static int16_t sf_z[SF_N], sf_l[SF_N], sf_ty[SF_N], sf_pk[SF_N], sf_c[SF_N];
+static bool    sf_on[SF_N], sf_dr[SF_N];
 
-static int16_t TpX(int16_t lane) { return PsLaneX(lane, PS_K - 1); }
+static const uint32_t kSfTrain[3] = { 0x2E7D32UL, 0xD84315UL, 0x1565C0UL };
 
-static void TpInit(uint16_t spd)
+static int16_t SfX(int16_t lane) { return PsLaneX(lane, PS_K - 1); }
+
+static void SfInit(uint16_t spd)
 {
     int16_t i;
 
     PsInit();
-    tp_lane = 1;  tp_x = tp_px = TpX(1);
-    tp_jy = tp_jvy = 0;  tp_slide = 0;
-    tp_pjy = 0;  tp_pslide = 0;  tp_pf = -1;
-    tp_cd = 12;
-    tp_turnCd = 3;
-    tp_sp = 11 + Min16((int16_t)spd, 4);
-    for(i = 0; i < TP_N; i++) { tp_on[i] = tp_dr[i] = false; }
+    sf_lane = 1;  sf_x = sf_px = SfX(1);
+    sf_jy = sf_jvy = 0;  sf_slide = 0;
+    sf_pjy = 0;  sf_pslide = 0;  sf_pf = -1;
+    sf_cd = 10;
+    sf_sp = 12 + Min16((int16_t)spd, 4);
+    for(i = 0; i < SF_N; i++) { sf_on[i] = sf_dr[i] = false; }
 }
 
-static int16_t TpUpdate(void)
+static int16_t SfUpdate(void)
 {
-    int16_t i, k, t, want, wallK = -1;
+    int16_t i, j, k, t, mask;
 
-    for(i = 0; i < TP_N; i++)
-        if(tp_on[i] && tp_ty[i] == 4) wallK = tp_z[i] >> 4;
+    if(EdgeL() && sf_lane > 0) { sf_lane--; Buzzer_PlaySfx(&sfx_blip); }
+    if(EdgeR() && sf_lane < 2) { sf_lane++; Buzzer_PlaySfx(&sfx_blip); }
+    if(sf_jy == 0 && sf_slide == 0 && (EdgeU() || g_joy.btnPressed)) { sf_jvy = 9; Buzzer_PlaySfx(&sfx_jump); }
+    if(sf_jy == 0 && sf_jvy == 0 && EdgeD()) sf_slide = 18;
 
-    if(wallK >= 17)                                             // a wall is coming: L/R means TURN
+    if(sf_jvy != 0 || sf_jy > 0)
     {
-        want = EdgeL() ? -1 : (EdgeR() ? 1 : 0);
-        if(want != 0)
-            for(i = 0; i < TP_N; i++)
-                if(tp_on[i] && tp_ty[i] == 4)
-                {
-                    if(want != tp_d[i]) return MG_LOSE;
-                    tp_on[i] = false;  tp_dr[i] = true;         // wall gone: erase it in render
-                    Buzzer_PlaySfx(&sfx_powerup);
-                }
+        sf_jy += sf_jvy;  sf_jvy--;
+        if(sf_jy <= 0) { sf_jy = 0; sf_jvy = 0; }
     }
-    else
-    {
-        if(EdgeL() && tp_lane > 0) { tp_lane--; Buzzer_PlaySfx(&sfx_blip); }
-        if(EdgeR() && tp_lane < 2) { tp_lane++; Buzzer_PlaySfx(&sfx_blip); }
-    }
-    if(tp_jy == 0 && (EdgeU() || g_joy.btnPressed) && tp_slide == 0) { tp_jvy = 9; Buzzer_PlaySfx(&sfx_jump); }
-    if(tp_jy == 0 && EdgeD() && tp_jvy == 0) tp_slide = 18;
+    if(sf_slide > 0) sf_slide--;
+    sf_x += Clamp16(SfX(sf_lane) - sf_x, -9, 9);
 
-    if(tp_jvy != 0 || tp_jy > 0)
+    if(--sf_cd <= 0)
     {
-        tp_jy += tp_jvy;  tp_jvy--;
-        if(tp_jy <= 0) { tp_jy = 0; tp_jvy = 0; }
-    }
-    if(tp_slide > 0) tp_slide--;
-
-    tp_x += Clamp16(TpX(tp_lane) - tp_x, -9, 9);
-
-    if(--tp_cd <= 0)
-    {
-        for(i = 0; i < TP_N; i++)
-            if(!tp_on[i])
+        for(i = 0; i < SF_N; i++)
+            if(!sf_on[i])
             {
                 t = Rnd(10);
-                tp_ty[i] = (t < 3) ? 0 : ((t < 5) ? 1 : ((t < 6) ? 2 : 3));    // root, branch, gap, coin
-                if(--tp_turnCd <= 0) { tp_ty[i] = 4; tp_d[i] = Rnd(2) ? 1 : -1; tp_turnCd = 4 + Rnd(2); }
-                tp_on[i] = true; tp_l[i] = Rnd(3); tp_z[i] = 16; tp_pk[i] = -1; tp_dr[i] = false;
+                t = (t < 3) ? 0 : ((t < 5) ? 1 : ((t < 7) ? 2 : 3));            // train, barrier, sign, coin
+                j = Rnd(3);
+                mask = 0;                                                      // never wall off all 3 lanes
+                for(k = 0; k < SF_N; k++)
+                    if(sf_on[k] && sf_ty[k] != 3 && (sf_z[k] >> 4) <= 9) mask |= (1 << sf_l[k]);
+                if(t != 3 && (mask | (1 << j)) == 7) t = 3;
+                sf_on[i] = true; sf_ty[i] = t; sf_l[i] = j; sf_z[i] = 16; sf_pk[i] = -1; sf_dr[i] = false;
+                sf_c[i] = Rnd(3);
                 break;
             }
-        tp_cd = 20 + Rnd(14);
-        if(wallK >= 0 || (tp_turnCd <= 0)) tp_cd += 8;
+        sf_cd = Max16(9, 18 + Rnd(12) - 2 * (sf_sp - 12));
     }
 
-    for(i = 0; i < TP_N; i++)
+    for(i = 0; i < SF_N; i++)
     {
-        if(!tp_on[i]) continue;
-        tp_z[i] += tp_sp;
-        k = tp_z[i] >> 4;
-        if(k >= PS_K - 1)
+        if(!sf_on[i]) continue;
+        sf_z[i] += sf_sp;
+        k = sf_z[i] >> 4;
+        if(k >= PS_K - 1) { sf_on[i] = false; continue; }
+        if(k >= 21 && sf_l[i] == sf_lane)
         {
-            if(tp_ty[i] == 4) return MG_LOSE;                   // ran into the wall
-            tp_on[i] = false;  continue;
-        }
-        if(k >= 21 && tp_ty[i] != 4 && tp_l[i] == tp_lane)
-        {
-            if(tp_ty[i] == 3)      { tp_on[i] = false; Buzzer_PlaySfx(&sfx_coin); }
-            else if(tp_ty[i] == 0 && tp_jy < 12) return MG_LOSE;
-            else if(tp_ty[i] == 2 && tp_jy < 10) return MG_LOSE;
-            else if(tp_ty[i] == 1 && tp_slide == 0) return MG_LOSE;
+            if(sf_ty[i] == 3)      { sf_on[i] = false; Buzzer_PlaySfx(&sfx_coin); }
+            else if(sf_ty[i] == 0) return MG_LOSE;                              // train
+            else if(sf_ty[i] == 1 && sf_jy < 12) return MG_LOSE;                // barrier
+            else if(sf_ty[i] == 2 && sf_slide == 0) return MG_LOSE;             // overhead sign
         }
     }
     return MG_PLAY;
 }
 
-static void TpObjRect(int16_t i, int16_t k, int16_t *x, int16_t *y, int16_t *w, int16_t *h)
+static void SfObjRect(int16_t i, int16_t k, int16_t *x, int16_t *y, int16_t *w, int16_t *h)
 {
-    int16_t laneW = (ps_hw[k] * 2) / 3, t = ps_t[k], ty = tp_ty[i];
+    int16_t laneW = (ps_hw[k] * 2) / 3, t = ps_t[k], ty = sf_ty[i];
 
-    if(ty == 4) { *w = ps_hw[k] * 2; *h = 6 + (t * 64) / 64; *x = PS_CX - ps_hw[k]; *y = ps_y[k] - *h; return; }
-    *x = PsLaneX(tp_l[i], k);
-    if(ty == 0)      { *w = (laneW * 3) / 4; *h = 2 + (t * 18) / 64; *y = ps_y[k] - *h; }
-    else if(ty == 1) { *w = laneW;           *h = 2 + (t * 10) / 64; *y = ps_y[k] - (t * 40) / 64 - *h; }
-    else if(ty == 2) { *w = laneW;           *h = 2 + (t * 8) / 64;  *y = ps_y[k] - *h + 1; }
-    else             { *w = 2 + (t * 14) / 64; *h = *w;               *y = ps_y[k] - (t * 12) / 64 - *h; }
+    *x = PsLaneX(sf_l[i], k);
+    if(ty == 0)      { *w = (laneW * 9) / 10; *h = 6 + (t * 48) / 64; *y = ps_y[k] - *h; }
+    else if(ty == 1) { *w = (laneW * 3) / 4;  *h = 2 + (t * 14) / 64; *y = ps_y[k] - *h; }
+    else if(ty == 2) { *w = laneW;            *h = 2 + (t * 10) / 64; *y = ps_y[k] - (t * 40) / 64 - *h; }
+    else             { *w = 2 + (t * 14) / 64; *h = *w;                *y = ps_y[k] - (t * 12) / 64 - *h; }
     *x -= *w / 2;
 }
 
-static void TpRender(void)
+static void SfDrawObj(int16_t i, int16_t x, int16_t y, int16_t w, int16_t h)
 {
-    int16_t i, k, x, y, w, h, ox, oy, ow, oh, fy, pose;
-    uint32_t c;
+    int16_t ty = sf_ty[i];
+
+    if(ty == 0)                                                 // subway train: body, windscreen, headlights
+    {
+        Box(x, y, w, h, kSfTrain[sf_c[i]]);
+        if(w >= 12)
+        {
+            Box(x + w / 8, y + h / 8, (w * 3) / 4, h / 3, 0x203040UL);
+            Box(x + w / 8, y + (h * 3) / 4, w / 6 + 1, h / 8 + 1, COLOR_YELLOW);
+            Box(x + w - w / 8 - w / 6 - 1, y + (h * 3) / 4, w / 6 + 1, h / 8 + 1, COLOR_YELLOW);
+        }
+    }
+    else if(ty == 1)                                            // red/white striped barrier
+    {
+        Box(x, y, w, h, COLOR_RED);
+        Box(x + w / 4, y, w / 5 + 1, h, COLOR_WHITE);
+        Box(x + (w * 3) / 5, y, w / 5 + 1, h, COLOR_WHITE);
+    }
+    else if(ty == 2)                                            // overhead sign
+    {
+        Box(x, y, w, h, 0x1565C0UL);
+        if(h >= 6) Box(x + 2, y + h / 4, w - 4, h / 2, COLOR_WHITE);
+    }
+    else Box(x, y, w, h, 0xFFD700UL);                           // coin
+}
+
+// Repaint the railway (ballast, ties, rails) inside a rectangle. Used instead of a
+// flat fill whenever something moves off the track, so the rails survive.
+static void SfBoxIn(int16_t rx, int16_t ry, int16_t rw, int16_t rh, int16_t x, int16_t y, int16_t w, int16_t h, uint32_t c)
+{
+    int16_t x0 = Max16(rx, x), y0 = Max16(ry, y), x1 = Min16(rx + rw, x + w), y1 = Min16(ry + rh, y + h);
+
+    if(x1 > x0 && y1 > y0) Box(x0, y0, x1 - x0, y1 - y0, c);
+}
+
+static void SfPaintTrack(int16_t x, int16_t y, int16_t w, int16_t h)
+{
+    int16_t yy, hw, i, cx;
+
+    if(y < PS_HZ) SfBoxIn(x, y, w, h, 0, 0, PS_W, PS_HZ, SF_SKY);
+    for(yy = PS_HZ; yy < PS_H; yy += 3)                         // same 3 px bands PsDrawRoad() used
+    {
+        if(yy + 3 <= y || yy >= y + h) continue;
+        hw = 12 + (106 * (yy - PS_HZ)) / (PS_H - 1 - PS_HZ);
+        SfBoxIn(x, y, w, h, 0,               yy, PS_W,   3, SF_SIDE);
+        SfBoxIn(x, y, w, h, PS_CX - hw - 3,  yy, 3,      3, 0xA0A0A8UL);
+        SfBoxIn(x, y, w, h, PS_CX + hw,      yy, 3,      3, 0xA0A0A8UL);
+        SfBoxIn(x, y, w, h, PS_CX - hw,      yy, hw * 2, 3, SF_ROAD);
+    }
+    for(yy = PS_HZ + 4; yy < PS_H; yy += 6)                     // ties and rails
+    {
+        if(yy + 6 <= y || yy >= y + h) continue;
+        hw = 12 + (106 * (yy - PS_HZ)) / (PS_H - 1 - PS_HZ);
+        SfBoxIn(x, y, w, h, PS_CX - hw, yy, hw * 2, 2, 0x4A4038UL);
+        for(i = 0; i < 3; i++)
+        {
+            cx = PS_CX + (i - 1) * ((hw * 2) / 3);
+            SfBoxIn(x, y, w, h, cx - hw / 10 - 1, yy, 2, 6, 0xC8C8D0UL);
+            SfBoxIn(x, y, w, h, cx + hw / 10, yy, 2, 6, 0xC8C8D0UL);
+        }
+    }
+}
+
+// Like EraseOutside(), but the vacated pixels get the track repainted.
+static void SfEraseOutside(int16_t ox, int16_t oy, int16_t ow, int16_t oh,
+                           int16_t nx, int16_t ny, int16_t nw, int16_t nh)
+{
+    int16_t ix0 = Max16(ox, nx), iy0 = Max16(oy, ny);
+    int16_t ix1 = Min16(ox + ow, nx + nw), iy1 = Min16(oy + oh, ny + nh);
+
+    if(ix0 >= ix1 || iy0 >= iy1) { SfPaintTrack(ox, oy, ow, oh); return; }
+    if(iy0 > oy)           SfPaintTrack(ox, oy, ow, iy0 - oy);
+    if(iy1 < oy + oh)      SfPaintTrack(ox, iy1, ow, oy + oh - iy1);
+    if(ix0 > ox)           SfPaintTrack(ox, iy0, ix0 - ox, iy1 - iy0);
+    if(ix1 < ox + ow)      SfPaintTrack(ix1, iy0, ox + ow - ix1, iy1 - iy0);
+}
+
+static void SfRender(void)
+{
+    int16_t i, k, x, y, w, h, ox, oy, ow, oh, fy, pose, hw, cx;
 
     if(s_first)
     {
-        PsDrawRoad(TP_SKY, TP_SIDE, TP_ROAD, 0x5A4630UL);
-        for(i = 0; i < 5; i++)                                  // jungle trunks (static)
+        PsDrawRoad(SF_SKY, SF_SIDE, SF_ROAD, 0xA0A0A8UL);
+        Box(8, 28, 28, 34, 0x7A7A90UL);   Box(40, 38, 22, 24, 0x6A6A80UL);  Box(66, 22, 26, 40, 0x808098UL);   // skyline
+        Box(150, 30, 30, 32, 0x7A7A90UL); Box(184, 40, 24, 22, 0x6A6A80UL); Box(212, 26, 22, 36, 0x808098UL);
+        for(y = PS_HZ + 4; y < PS_H; y += 6)                                // railway: ties + 2 rails per lane
         {
-            k = 4 + i * 4;
-            Box(PS_CX - ps_hw[k] - 14 - ps_t[k] / 6, ps_y[k] - 10 - ps_t[k] / 2, 4 + ps_t[k] / 10, 10 + ps_t[k] / 2, 0x4A3320UL);
-            Box(PS_CX + ps_hw[k] + 10 + ps_t[k] / 6, ps_y[k] - 10 - ps_t[k] / 2, 4 + ps_t[k] / 10, 10 + ps_t[k] / 2, 0x4A3320UL);
-        }
-        Box(80, 20, 80, 40, 0x2F7A3FUL);  Box(150, 30, 70, 30, 0x2F7A3FUL);        // distant canopy
-        for(i = 0; i < TP_N; i++) tp_pk[i] = -1;
-        tp_pf = -1;
-    }
-
-    for(i = 0; i < TP_N; i++)                                   // obstacles: new first, then the leftovers
-    {
-        if(tp_on[i])
-        {
-            k = tp_z[i] >> 4;
-            if(k != tp_pk[i])
+            hw = 12 + (106 * (y - PS_HZ)) / (PS_H - 1 - PS_HZ);
+            Box(PS_CX - hw, y, hw * 2, 2, 0x4A4038UL);
+            for(i = 0; i < 3; i++)
             {
-                TpObjRect(i, k, &x, &y, &w, &h);
-                c = (tp_ty[i] == 0) ? 0x5D3A1A : ((tp_ty[i] == 1) ? 0x2E7D32 : ((tp_ty[i] == 2) ? 0x15100A : ((tp_ty[i] == 3) ? 0xFFD700 : 0x3B2A1A)));
-                Box(x, y, w, h, c);
-                if(tp_ty[i] == 4 && k >= 6)
-                    Arrow(PS_CX, y + h / 2, tp_d[i] < 0 ? 2 : 3, 1 + ps_t[k] / 22, COLOR_YELLOW);
-                if(tp_pk[i] >= 0)
-                {
-                    TpObjRect(i, tp_pk[i], &ox, &oy, &ow, &oh);
-                    EraseOutside(ox, oy, ow, oh, x, y, w, h, TP_ROAD);
-                }
-                tp_pk[i] = k;  tp_dr[i] = true;
+                cx = PS_CX + (i - 1) * ((hw * 2) / 3);
+                Box(cx - hw / 10 - 1, y, 2, 6, 0xC8C8D0UL);
+                Box(cx + hw / 10, y, 2, 6, 0xC8C8D0UL);
             }
         }
-        else if(tp_dr[i] && tp_pk[i] >= 0)
+        for(i = 0; i < SF_N; i++) sf_pk[i] = -1;
+        sf_pf = -1;
+    }
+
+    for(i = 0; i < SF_N; i++)                                   // objects: new first, then the leftovers
+    {
+        if(sf_on[i])
         {
-            TpObjRect(i, tp_pk[i], &ox, &oy, &ow, &oh);
-            Box(ox, oy, ow, oh, TP_ROAD);
-            tp_dr[i] = false;
+            k = sf_z[i] >> 4;
+            if(k != sf_pk[i])
+            {
+                SfObjRect(i, k, &x, &y, &w, &h);
+                SfDrawObj(i, x, y, w, h);
+                if(sf_pk[i] >= 0)
+                {
+                    SfObjRect(i, sf_pk[i], &ox, &oy, &ow, &oh);
+                    SfEraseOutside(ox, oy, ow, oh, x, y, w, h);
+                }
+                sf_pk[i] = k;  sf_dr[i] = true;
+            }
+        }
+        else if(sf_dr[i] && sf_pk[i] >= 0)
+        {
+            SfObjRect(i, sf_pk[i], &ox, &oy, &ow, &oh);
+            SfPaintTrack(ox, oy, ow, oh);
+            sf_dr[i] = false;
         }
     }
 
-    fy = PS_H - 4 - tp_jy;
+    fy = PS_H - 4 - sf_jy;
     pose = (s_frame >> 2) & 1;
-    if(s_first || tp_x != tp_px || tp_jy != tp_pjy || (tp_slide > 0) != (tp_pslide > 0) || pose != tp_pf)
+    if(s_first || sf_x != sf_px || sf_jy != sf_pjy || (sf_slide > 0) != (sf_pslide > 0) || pose != sf_pf)
     {
-        int16_t oldFy = PS_H - 4 - tp_pjy;
+        int16_t oldFy = PS_H - 4 - sf_pjy;
+        int16_t rx0 = Min16(sf_px, sf_x) - 16, ry0 = Min16(oldFy, fy) - 46;
 
-        if(tp_slide > 0)
+        SfPaintTrack(rx0, ry0, Abs16(sf_px - sf_x) + 34, Abs16(oldFy - fy) + 48);    // old spot back to track...
+        if(sf_slide > 0)
         {
-            Box(tp_x - 16, fy - 22, 32, 8, 0x8D5A2BUL);          // hat
-            Box(tp_x - 14, fy - 14, 28, 14, 0xD84315UL);         // crouched body
-            Box(tp_x - 12, fy - 4, 24, 4, 0x3949ABUL);
+            Box(sf_x - 16, fy - 24, 32, 8, 0x1565C0UL);          // cap
+            Box(sf_x - 14, fy - 16, 28, 16, 0xF57C00UL);         // sliding on his back
+            Box(sf_x - 12, fy - 4, 24, 4, 0x3949ABUL);
         }
-        else DrawArt(tp_x - 14, fy - 44, pose ? kArtRun1 : kArtRun0, 14, 22, 2, TP_ROAD, true);
-        if(!s_first)
-            EraseOutside(tp_px - 16, oldFy - 44, 32, 44, tp_x - 16, fy - 44, 32, 44, TP_ROAD);
-        tp_px = tp_x;  tp_pjy = tp_jy;  tp_pslide = tp_slide;  tp_pf = pose;
+        else DrawArt(sf_x - 14, fy - 44, pose ? kArtRun1 : kArtRun0, 14, 22, 2, SF_ROAD, false);   // ...then him on top
+        sf_px = sf_x;  sf_pjy = sf_jy;  sf_pslide = sf_slide;  sf_pf = pose;
     }
 }
 
@@ -2181,7 +2728,7 @@ static void TtRender(void)
 
 // ============================================================================
 // CHOMP!  (Pac-Man)  a real maze. Steer (it keeps going, and turns when it can).
-//         Eat 15 dots or a power pellet then catch the ghost.  Don't get caught.
+//         Eat 12 dots or a power pellet then catch the ghost.  Don't get caught.
 //         210x182 window, 14 px cells; only changed cells are redrawn.
 // ============================================================================
 #define PM_C    14
@@ -2226,8 +2773,8 @@ static void PmInit(uint16_t spd)
             pm_d[y][x] = (kPmMap[y][x] == '.') ? 1 : ((kPmMap[y][x] == 'o') ? 2 : 0);
     pm_x = pm_ox = 1;  pm_y = pm_oy = 9;
     pm_dx = 1; pm_dy = 0; pm_ndx = 1; pm_ndy = 0;
-    pm_pc = 3;  pm_eaten = 0;  pm_fr = 0;
-    pm_gm = 6 - Min16((int16_t)spd / 3, 2);
+    pm_pc = 5;  pm_eaten = 0;  pm_fr = 0;
+    pm_gm = 9 - Min16((int16_t)spd / 3, 2);
     pm_gc = pm_gm;
     pm_ng = (spd >= 3) ? 2 : 1;
     pm_g[0][0] = 13; pm_g[0][1] = 3; pm_g[0][2] = -1; pm_g[0][3] = 0; pm_g[0][4] = 13; pm_g[0][5] = 3;
@@ -2270,7 +2817,7 @@ static int16_t PmUpdate(void)
 
     if(--pm_pc <= 0)
     {
-        pm_pc = 3;
+        pm_pc = 5;
         if(!PmWall(pm_x + pm_ndx, pm_y + pm_ndy)) { pm_dx = pm_ndx; pm_dy = pm_ndy; }
         if(!PmWall(pm_x + pm_dx, pm_y + pm_dy))
         {
@@ -2279,12 +2826,12 @@ static int16_t PmUpdate(void)
             pm_moved = true;
             if(pm_d[pm_y][pm_x] == 1) { pm_d[pm_y][pm_x] = 0; pm_eaten++; Buzzer_PlaySfx(&sfx_blip); }
             else if(pm_d[pm_y][pm_x] == 2) { pm_d[pm_y][pm_x] = 0; pm_fr = 90; Buzzer_PlaySfx(&sfx_powerup); }
-            if(pm_eaten >= 15) return MG_WIN;
+            if(pm_eaten >= 12) return MG_WIN;
         }
     }
     if(--pm_gc <= 0)
     {
-        pm_gc = (pm_fr > 0) ? pm_gm + 3 : pm_gm;
+        pm_gc = (pm_fr > 0) ? pm_gm + 4 : pm_gm;
         for(gi = 0; gi < pm_ng; gi++) PmGhostStep(gi);
         pm_moved = true;
     }
@@ -2929,66 +3476,93 @@ static void BdRender(void)
 }
 
 // ============================================================================
-// BEAT!  (Melatonin)  rhythm: press any button when each note reaches the ring.
-//        The Tetris tune plays for now. Hit 5 notes; 3 misses and you wake up.
+// BEAT!  (Melatonin)  rhythm. "Melatonin Groove" plays (songs.c: 28 bars, one
+//        song unit = an eighth note = 150 ms, so a quarter-note beat is 300 ms).
+//        Each note flies in and lands on the ring exactly when that note of the
+//        song sounds - press any button ON it. Notes are placed from the song's
+//        own clock, not frame counts, so they stay in time however fast the
+//        screen is. Hit 6 of 8.
+//
+//        kMlUnit[] is the chart: the song-unit number of each note to hit. Unit n
+//        sounds n * 150 ms after the song starts (unit 8 = the G on bar 2 beat 1).
+//        To re-chart, pick any non-rest notes of song_melatonin.
 // ============================================================================
-#define ML_BG   0x2B1B4DUL
-#define ML_Z    70
-#define ML_N    7
+#define ML_BG       0x2B1B4DUL
+#define ML_Z        70
+#define ML_N        8
+#define ML_UNIT_MS  150                     // = song_melatonin.eighthMs
+#define ML_WIN_MS   100                     // +/- this counts as "on the beat"
+#define ML_NEED     6
 
-static const int16_t kMlT[ML_N] = { 10, 38, 59, 94, 115, 150, 178 };
+static const int16_t kMlUnit[ML_N] = { 8, 10, 13, 16, 18, 21, 24, 26 };
 
-static int16_t ml_res[ML_N], ml_px[ML_N], ml_hits, ml_miss, ml_flash, ml_v;
-static bool    ml_dr[ML_N];
+static int16_t ml_res[ML_N], ml_px[ML_N], ml_hits, ml_miss, ml_flash, ml_v, ml_bdr;
+static uint32_t ml_t0;
+static bool    ml_started, ml_dr[ML_N];
 
-static int16_t MlX(int16_t i)
+static int32_t MlNow(void)                  // ms since the song started (0 until it has)
 {
-    if(s_frame < kMlT[i]) return 340;
-    return 330 - (int16_t)(((int32_t)(s_frame - kMlT[i])) * ml_v);
+    return ml_started ? (int32_t)MsSince(ml_t0) : 0;
+}
+
+static int16_t MlX(int16_t i, int32_t now)  // note x: 0.2 px per ms of lead time
+{
+    int32_t lead = (int32_t)kMlUnit[i] * ML_UNIT_MS - now;
+    int32_t x = ML_Z + (lead * 13) / 64;
+    return (x > 340) ? 340 : (int16_t)x;
 }
 
 static void MlInit(uint16_t spd)
 {
     int16_t i;
 
-    ml_v = 5 + Min16((int16_t)spd / 3, 2);
     ml_hits = ml_miss = ml_flash = 0;
+    ml_bdr = -1;
+    ml_started = false;
     for(i = 0; i < ML_N; i++) { ml_res[i] = 0; ml_px[i] = 340; ml_dr[i] = false; }
-    Buzzer_PlaySong(&song_tetris, 1);
 }
 
 static int16_t MlUpdate(void)
 {
-    int16_t i, x, best = -1, bd = 99;
+    int16_t i, best = -1, bd = 9999, d, resolved = 0;
+    int32_t now;
 
+    if(!ml_started && s_frame >= 2)                             // start the music after the first screen is up
+    {
+        Buzzer_PlaySong(&song_melatonin, 1);
+        ml_t0 = TimerNow();
+        ml_started = true;
+    }
+    if(!ml_started) return MG_PLAY;
+    now = MlNow();
     if(ml_flash > 0) ml_flash--;
 
     for(i = 0; i < ML_N; i++)
     {
-        x = MlX(i);
-        if(ml_res[i] == 0 && x < ML_Z - 18)
+        d = (int16_t)(now - (int32_t)kMlUnit[i] * ML_UNIT_MS);          // + = note is late
+        if(ml_res[i] == 0 && d > ML_WIN_MS)
         {
             ml_res[i] = 2;
-            if(++ml_miss >= 3) return MG_LOSE;
+            if(++ml_miss >= ML_N - ML_NEED + 1) return MG_LOSE;
         }
+        if(ml_res[i] != 0) resolved++;
     }
 
     if(AnyPress())
     {
         for(i = 0; i < ML_N; i++)
         {
-            x = MlX(i);
-            if(ml_res[i] == 0 && Abs16(x - ML_Z) <= 18 && Abs16(x - ML_Z) < bd)
-            { bd = Abs16(x - ML_Z); best = i; }
+            d = Abs16((int16_t)(now - (int32_t)kMlUnit[i] * ML_UNIT_MS));
+            if(ml_res[i] == 0 && d <= ML_WIN_MS && d < bd) { bd = d; best = i; }
         }
         if(best >= 0)
         {
-            ml_res[best] = 1;
+            ml_res[best] = 1;  resolved++;
             ml_flash = 6;
-            Buzzer_PlaySfx(&sfx_coin);
-            if(++ml_hits >= 5) return MG_WIN;
+            if(++ml_hits >= ML_NEED) return MG_WIN;
         }
     }
+    if(resolved >= ML_N) return (ml_hits >= ML_NEED) ? MG_WIN : MG_LOSE;
     return MG_PLAY;
 }
 
@@ -3000,15 +3574,20 @@ static void MlRing(uint32_t c)
 
 static void MlRender(void)
 {
-    int16_t  i, x;
+    int16_t  i, x, b;
+    int32_t  now = MlNow();
     bool     nearRing = false;
     static bool flashDr = false;
 
-    if(s_first) { Text("TAP ON THE BEAT", 160, 200, COLOR_GRAY); MlRing(COLOR_WHITE); flashDr = false; }
+    if(s_first)
+    {
+        Text("PRESS ON THE NOTE", 160, 206, COLOR_GRAY);
+        MlRing(COLOR_WHITE);  flashDr = false;  ml_bdr = -1;
+    }
 
     for(i = 0; i < ML_N; i++)
     {
-        x = MlX(i);
+        x = MlX(i, now);
         if(ml_res[i] == 0 && x < 340)
         {
             if(ml_dr[i]) MoveArt(ml_px[i] - 12, 103, x - 12, 103, kArtNote, 12, 12, 2, ML_BG);
@@ -3023,10 +3602,20 @@ static void MlRender(void)
             nearRing = true;
         }
     }
-    if(nearRing || (ml_flash > 0) != flashDr)                       // ring only when a note touched it / flash changed
+    if(nearRing || (ml_flash > 0) != flashDr)                   // ring only when a note touched it / flash changed
     {
         MlRing(ml_flash ? COLOR_LIME : COLOR_WHITE);
         flashDr = (ml_flash > 0);
+    }
+
+    if(ml_started)                                              // 4 beat lights show where you are in the bar
+    {
+        b = (int16_t)((now / (ML_UNIT_MS * 2)) & 3);                   // quarter-note beat within the bar
+        if(b != ml_bdr)
+        {
+            for(i = 0; i < 4; i++) Box(110 + i * 28, 170, 20, 12, i == b ? COLOR_YELLOW : 0x4A3A70UL);
+            ml_bdr = b;
+        }
     }
 }
 
@@ -3311,13 +3900,14 @@ static void GlRender(void)
 static const MicroGame kGames[] =
 {
     { "CLIMB!",    "Donkey Kong",     260, DK_BG, WFULL,              0, DkInit, DkUpdate, DkRender },
-    { "BATTLE!",   "Pokemon",         200, PK_BG, WFULL,              0, PkInit, PkUpdate, PkRender },
-    { "FLIP!",     "Pokemon Pinball", 340, PB_BG, 60, 12, 200, 200,   0, PbInit, PbUpdate, PbRender },
+    { "BATTLE!",   "Pokemon",         220, PK_BG, WFULL,              0, PkInit, PkUpdate, PkRender },
+    { "FLIP!",     "Pokemon Pinball", 340, PB_BG, 60, 12, 200, 200,   1, PbInit, PbUpdate, PbRender },
     { "RUN!",      "Sonic",           280, SO_BG, 0, 40, 320, 160,    0, SoInit, SoUpdate, SoRender },
-    { "PLANT!",    "Plants vs Zombies", 340, PZ_BG0, 0, 24, 320, 168, 0, PzInit, PzUpdate, PzRender },
+    { "PLANT!",    "Plants vs Zombies", 360, PZ_BG0, 0, 24, 320, 168, 0, PzInit, PzUpdate, PzRender },
+    { "BLAST!",    "Metroid",         340, MT_BG, WFULL,              0, MtInit, MtUpdate, MtRender },
     { "SLICE!",    "Fruit Ninja",     280, FN_BG, WFULL,              0, FnInit, FnUpdate, FnRender },
     { "RACE!",     "Cruis'n USA",     190, RS_SKY, 40, 24, 240, 180,  1, RsInit, RsUpdate, RsRender },
-    { "ESCAPE!",   "Temple Run",      230, TP_SKY, 40, 24, 240, 180,  1, TpInit, TpUpdate, TpRender },
+    { "SURF!",     "Subway Surfers",  230, SF_SKY, 40, 24, 240, 180,  1, SfInit, SfUpdate, SfRender },
     { "CALL IT!",  "Helldivers 2",    170, HD_BG, WFULL,              0, HdInit, HdUpdate, HdRender },
     { "BREAK!",    "Brick Breaker",   280, BK_BG, WFULL,              0, BkInit, BkUpdate, BkRender },
     { "FIT IT!",   "Tetris",          240, TT_BG, WFULL,              0, TtInit, TtUpdate, TtRender },
@@ -3328,7 +3918,7 @@ static const MicroGame kGames[] =
     { "STOMP!",    "Super Mario",     260, MR_BG, WFULL,              0, MrInit, MrUpdate, MrRender },
     { "DASH!",     "Geometry Dash",   200, GD_BG, WFULL,              1, GdInit, GdUpdate, GdRender },
     { "LAUNCH!",   "Angry Birds",     280, BD_BG, WFULL,              0, BdInit, BdUpdate, BdRender },
-    { "BEAT!",     "Melatonin",       300, ML_BG, WFULL,              0, MlInit, MlUpdate, MlRender },
+    { "BEAT!",     "Melatonin",       480, ML_BG, WFULL,              0, MlInit, MlUpdate, MlRender },
     { "SORT!",     "Recycler",        220, RC_BG, WFULL,              0, RcInit, RcUpdate, RcRender },
     { "RETURN!",   "Pong",            300, PG_BG, WFULL,              0, PgInit, PgUpdate, PgRender },
     { "SHOOT!",    "Galaga",          320, GL_BG, WFULL,              0, GlInit, GlUpdate, GlRender },
@@ -3386,6 +3976,71 @@ static void BarUpdate(void)
     }
 }
 
+// ---- intro taunt: angry Waluigi-coloured Wario -------------------------------
+//   "You'll never get to 100!"  typed out one letter at a time with a low blip per
+//   letter (Sans-style), his mouth flapping with each one.
+//
+//   ALL of his picture lives in TauntDrawFace() / TauntDrawMouth(). To use a real
+//   image later: replace the DrawArt() call in TauntDrawFace() with
+//       Graphics_drawImage(&g_sContext, &yourImage, FACE_X, FACE_Y);
+//   and keep (or delete) the TauntDrawMouth() calls for the flapping jaw.
+#define TAUNT_LEN   24                      // 12 + space + 11 letters
+#define FACE_X      16
+#define FACE_Y      116
+#define FACE_S      4                       // 24x24 art drawn at 4x = 96x96
+#define MOUTH_X     (FACE_X + 7 * FACE_S)   // the 10x5 mouth art sits on his chin
+#define MOUTH_Y     (FACE_Y + 19 * FACE_S)
+#define TAUNT_BG    0x150A22UL
+
+static const char kTauntA[] = "You'll never";
+static const char kTauntB[] = "get to 100!";
+static uint16_t   s_tChars, s_tHold, s_tPart;       // letters typed, hold timer, 1 = text dirty, 2 = mouth dirty
+static bool       s_tOpen;
+
+static void TauntDrawFace(void)
+{
+    DrawArt(FACE_X, FACE_Y, kArtWario, 24, 24, FACE_S, TAUNT_BG, true);
+}
+
+static void TauntDrawMouth(bool open)
+{
+    DrawArt(MOUTH_X, MOUTH_Y, open ? kArtMouthO : kArtMouthC, 10, 5, FACE_S, TAUNT_BG, true);
+}
+
+static void TauntDrawText(void)
+{
+    char    a[16], b[16];
+    int16_t i, la = Min16((int16_t)s_tChars, 12), lb = Max16(0, (int16_t)s_tChars - 13);
+
+    for(i = 0; i < la; i++) a[i] = kTauntA[i];
+    a[la] = 0;
+    for(i = 0; i < lb; i++) b[i] = kTauntB[i];
+    b[lb] = 0;
+
+    Graphics_FillRect(130, 40, 306, 70, COLOR_WHITE);
+    Graphics_FillRect(130, 76, 306, 106, COLOR_WHITE);
+    Graphics_setForegroundColor(&g_sContext, COLOR_BLACK);
+    if(la) Graphics_drawString(&g_sContext, (int16_t *)a, AUTO_STRING_LENGTH, 136, 44, TRANSPARENT_TEXT);
+    if(lb) Graphics_drawString(&g_sContext, (int16_t *)b, AUTO_STRING_LENGTH, 136, 80, TRANSPARENT_TEXT);
+}
+
+static void DrawTaunt(void)
+{
+    Graphics_setFont(&g_sContext, &g_sFontCmss20b);
+    Graphics_FillRect(0, 0, FIELD_W - 1, 239, TAUNT_BG);
+    TauntDrawFace();
+    TauntDrawMouth(s_tOpen);
+    Graphics_FillRect(122, 20, 316, 122, COLOR_BLACK);                  // speech bubble + tail
+    Graphics_FillRect(125, 23, 313, 119, COLOR_WHITE);
+    Graphics_FillRect(150, 119, 176, 124, COLOR_BLACK);
+    Graphics_FillRect(153, 119, 173, 123, COLOR_WHITE);
+    Graphics_FillRect(154, 124, 166, 128, COLOR_BLACK);
+    Graphics_FillRect(156, 124, 164, 127, COLOR_WHITE);
+    Graphics_FillRect(156, 128, 160, 131, COLOR_BLACK);
+    TauntDrawText();
+    Text("button: skip", FIELD_W / 2, 230, COLOR_GRAY);
+}
+
 // ---- screens ----------------------------------------------------------------
 static void Banner(const char *s, uint32_t bg, uint32_t fg)
 {
@@ -3406,7 +4061,7 @@ static void DrawTitle(void)
         Graphics_FillRect(20 + i * 36, 20, 40 + i * 36, 34, kBanner[i % 6]);
     BoldText("WASON WARE", FIELD_W / 2 + 2, 72, COLOR_MAGENTA);
     BoldText("WASON WARE", FIELD_W / 2,     70, COLOR_YELLOW);
-    Text("22 microgames. 4 lives. Go!", FIELD_W / 2, 105, COLOR_WHITE);
+    Text("23 microgames. 4 lives. Go!", FIELD_W / 2, 105, COLOR_WHITE);
 
     Label(buf, "Best: ", s_best);
     Text(buf, FIELD_W / 2, 132, COLOR_GOLD);
@@ -3545,13 +4200,14 @@ static void GoPhase(uint16_t phase)
 static void StartRun(void)
 {
     s_practice = false;
+    s_tChars = 0; s_tHold = 0; s_tPart = 0; s_tOpen = false;
     s_lives = WW_LIVES; s_score = 0; s_played = 0; s_level = 0;
     s_speedUp = 0; s_newBest = false;
     s_bag[NUM_GAMES - 1] = 0xFFFF; s_bagPos = NUM_GAMES;
     Rand_Seed(TimerNow() + 12345UL);
     PickGame();
     Buzzer_PlaySfx(&sfx_menu_select);
-    GoPhase(PH_INTRO);
+    GoPhase(PH_TAUNT);                              // Wario sneers first, then the first microgame
 }
 
 static void StartPractice(uint16_t game)
@@ -3666,6 +4322,25 @@ static AppStatus WW_Update(void)
             }
             break;
 
+        case PH_TAUNT:
+            if(g_joy.btnPressed || g_dpad.dPressed) { GoPhase(PH_INTRO); break; }
+            if(s_tChars < TAUNT_LEN)
+            {
+                if((s_t % 4) == 0)
+                {
+                    s_tChars++;
+                    if(s_tChars != 13) { Buzzer_PlaySfx(&sfx_talk); s_tOpen = !s_tOpen; }   // letter: blip + flap
+                    else s_tOpen = false;                                                    // the space
+                    s_tPart |= 3;
+                }
+            }
+            else
+            {
+                if(s_tOpen) { s_tOpen = false; s_tPart |= 2; }
+                if(++s_tHold > 50) GoPhase(PH_INTRO);
+            }
+            break;
+
         case PH_INTRO:
             if(s_t >= WW_INTRO_FRAMES) EnterPlay();
             break;
@@ -3699,6 +4374,17 @@ static void WW_Render(void)
     {
         case PH_TITLE:
             if(s_dirty) { DrawTitle(); s_dirty = false; }
+            break;
+
+        case PH_TAUNT:
+            if(s_dirty) { DrawTaunt(); s_dirty = false; s_tPart = 0; }
+            else if(s_tPart)
+            {
+                Graphics_setFont(&g_sContext, &g_sFontCmss20b);
+                if(s_tPart & 1) TauntDrawText();
+                if(s_tPart & 2) TauntDrawMouth(s_tOpen);
+                s_tPart = 0;
+            }
             break;
 
         case PH_INTRO:
@@ -3780,7 +4466,7 @@ static void WW_Exit(void)
 const App g_wasonwareApp =
 {
     "WASON WARE",                           // name (first letter = menu tile icon)
-    "22 microgames, 4 lives",               // hint shown under the menu
+    "23 microgames, 4 lives",               // hint shown under the menu
     COLOR_MAGENTA,                          // menu tile color
     WW_FRAME_US,                            // frame period
     WW_Init, WW_Update, WW_Render,
