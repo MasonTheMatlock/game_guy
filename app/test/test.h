@@ -6,7 +6,7 @@
 #ifndef __TEST_H__
 #define __TEST_H__
 
-#include "apps.h"
+#include "../apps.h"
 
 extern const App g_testApp;                 // app/test.c
 

@@ -6,8 +6,9 @@
 //       Buzzer_PlaySong(&song_tetris, 1);
 //       Buzzer_PlaySfx(&sfx_coin);
 //
-//   To add a song: define it in songs.c, declare it here, and (if you want
-//   the Settings app to cycle to it) add it to songList[] in songs.c.
+//   Shared sounds live here. A sound that belongs to one app goes in that app's
+//   folder (see app/tetris/tetris_sound.c). To let the Test app's sound page
+//   cycle to a new song, add it to songList[] in app/test/test_songs.c.
 //#############################################################################
 
 #ifndef __SONGS_H__
@@ -28,13 +29,6 @@ extern const Song sfx_blip;             // rotate / small move
 extern const Song sfx_thud;             // piece lands / block hits
 extern const Song sfx_jump;
 extern const Song sfx_laser;
-extern const Song sfx_staff_ray;        // raycaster staff shots
-extern const Song sfx_staff_prism;
-extern const Song sfx_staff_lance;
-extern const Song sfx_staff_storm;
-extern const Song sfx_staff_sun;
-extern const Song sfx_step_a;           // footsteps (alternate A/B)
-extern const Song sfx_step_b;
 extern const Song sfx_powerup;
 extern const Song sfx_hit;              // player hurt
 extern const Song sfx_explosion;
@@ -42,17 +36,11 @@ extern const Song sfx_level_up;
 extern const Song sfx_game_over;
 
 //sound experiment
-extern const Song sfx_tetris_say;       // "TE-TRIS!" announcer phrase
 extern const Song sfx_boot_dmg;         // original Game Boy "ba-ding"
 extern const Song sfx_boot_gbc;         // Game Boy Color style rising sparkle + ding
 //og sounds
-extern const Song song_corridor_run;    // original dungeon-crawler theme (raycaster)
-extern const Song song_tetris;          // Korobeiniki, the traditional folk melody
-extern const Song song_melatonin;       // drum + bass groove for the Wason Ware BEAT! game (31 ms units, 248 ms beats)
-extern const Song sfx_talk;             // short low blip, played per letter of Wario's speech
 extern const Song sfx_coin;             // coin-collect pickup (one-shot)
 
-extern const Song *const songList[];    // every background song, in Settings order
 extern const uint16_t    numSongs;
 
 #endif // __SONGS_H__

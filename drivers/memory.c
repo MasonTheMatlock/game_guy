@@ -1,6 +1,6 @@
 //#############################################################################
-// FILE:   drivers/save.c
-// TITLE:  Save driver implementation. See save.h for the big picture.
+// FILE:   drivers/memory.c
+// TITLE:  Save driver implementation. See memory.h for the big picture.
 //
 // REQUIREMENTS
 //   * TI Flash API for F2806x (Flash2806x_API_Library.h + the .lib) on the
@@ -35,7 +35,7 @@
 //   [8..]  payload (all slots back to back), padded to a multiple of 8 words
 //#############################################################################
 
-#include "save.h"
+#include "memory.h"
 #include "F2806x_Device.h"
 #include "F2806x_Examples.h"
 #include "Flash2806x_API_Library.h"
@@ -51,9 +51,9 @@
 #define SECTOR_B_MASK       SECTORG
 #define SECTOR_WORDS        0x4000U     // 16K words per sector
 
-#define SAVE_MAGIC          0xA55AU
-#define SAVE_LAYOUT_VERSION 1U          // bump ONLY if the header format changes
-#define SAVE_PAYLOAD_MAX    4096U       // sanity limit when reading flash
+#define MEM_MAGIC          0xA55AU
+#define MEM_LAYOUT_VERSION 1U          // bump ONLY if the header format changes
+#define MEM_PAYLOAD_MAX    4096U       // sanity limit when reading flash
 
 #define H_MAGIC             0
 #define H_VERSION           1
@@ -68,15 +68,15 @@
 // Total payload words = sum of every slot size. Computed inside an enum so
 // X is expanded RIGHT NOW (a macro would expand later, after #undef X).
 #define X(name, words)      + (words)
-enum { SAVE_PAYLOAD_WORDS = (0 SAVE_SLOTS(X)) };
+enum { MEM_PAYLOAD_WORDS = (0 MEM_SLOTS(X)) };
 #undef X
 
-enum { IMG_WORDS = ((HDR_WORDS + SAVE_PAYLOAD_WORDS + 7) & ~7) };
+enum { IMG_WORDS = ((HDR_WORDS + MEM_PAYLOAD_WORDS + 7) & ~7) };
 
 // Where a sector lives. (Host unit tests swap this for a RAM array.)
-#ifdef SAVE_HOST_TEST
-extern volatile uint16_t *Save_TestFlashBase(int16_t which);
-#define FLASH_BASE(w)       Save_TestFlashBase(w)
+#ifdef MEM_HOST_TEST
+extern volatile uint16_t *Memory_TestFlashBase(int16_t which);
+#define FLASH_BASE(w)       Memory_TestFlashBase(w)
 #else
 #define FLASH_BASE(w)       ((volatile uint16_t *)((w) ? SECTOR_B_ADDR : SECTOR_A_ADDR))
 #endif
@@ -85,10 +85,10 @@ extern volatile uint16_t *Save_TestFlashBase(int16_t which);
 //*****************************************************************************
 // State (all RAM)
 //*****************************************************************************
-static const uint16_t kSlotWords[SAVE_SLOT_COUNT] =
+static const uint16_t kSlotWords[MEM_SLOT_COUNT] =
 {
 #define X(name, words) (words),
-    SAVE_SLOTS(X)
+    MEM_SLOTS(X)
 #undef X
 };
 
@@ -98,7 +98,7 @@ static uint32_t s_seq;                  // sequence of the newest record in flas
 static int16_t  s_active = -1;          // sector holding the newest record: -1 none, 0 = A, 1 = B
 static uint16_t s_next;                 // word offset of the next blank slot in s_active
 static bool     s_dirty;
-static uint16_t s_err;                  // SAVE_ERR_*
+static uint16_t s_err;                  // MEM_ERR_*
 static bool     s_setupOk = true;       // Flash API scale/callback readback matched
 static uint16_t s_apiStatus;            // raw Flash API status of the last failure
 
@@ -146,11 +146,11 @@ static uint16_t Stride(uint16_t payloadWords)
 // Header looks like a record that fits in the sector? (CRC not checked.)
 static bool Plausible(const volatile uint16_t *p, uint16_t pos, uint16_t *n)
 {
-    if(p[H_MAGIC] != SAVE_MAGIC || p[H_VERSION] != SAVE_LAYOUT_VERSION)
+    if(p[H_MAGIC] != MEM_MAGIC || p[H_VERSION] != MEM_LAYOUT_VERSION)
         return false;
 
     *n = p[H_PAYLOAD];
-    if(*n == 0 || *n > SAVE_PAYLOAD_MAX)
+    if(*n == 0 || *n > MEM_PAYLOAD_MAX)
         return false;
 
     return ((uint32_t)pos + Stride(*n)) <= SECTOR_WORDS;
@@ -236,7 +236,7 @@ static bool NewestInSector(int16_t which, uint16_t *pos, uint32_t *seq,
 // Flash operations. EVERYTHING in this section that runs while the flash is
 // busy must be in RAM: no calls into flash code, no const (flash) data.
 //*****************************************************************************
-#ifndef SAVE_HOST_TEST
+#ifndef MEM_HOST_TEST
 #pragma CODE_SECTION(FlashCallback,  ".TI.ramfunc");
 #pragma CODE_SECTION(FlashProgramOp, ".TI.ramfunc");
 #pragma FUNC_CANNOT_INLINE(FlashCallback);
@@ -337,7 +337,7 @@ static bool WriteImage(int16_t which, uint16_t pos, bool erase)
     uint16_t i;
     uint16_t r;
 
-    s_err       = SAVE_ERR_NONE;
+    s_err       = MEM_ERR_NONE;
     s_apiStatus = 0;
 
     if(!SetupFlashApi())
@@ -350,14 +350,14 @@ static bool WriteImage(int16_t which, uint16_t pos, bool erase)
     UnmuteBuzzer();
     if(r != 0)
     {
-        s_err = (r == 1) ? SAVE_ERR_ERASE : SAVE_ERR_PROGRAM;
+        s_err = (r == 1) ? MEM_ERR_ERASE : MEM_ERR_PROGRAM;
         return false;
     }
 
     for(i = 0; i < IMG_WORDS; i++)
         if(dst[i] != s_img[i])
         {
-            s_err = SAVE_ERR_VERIFY;
+            s_err = MEM_ERR_VERIFY;
             return false;
         }
     return true;
@@ -381,7 +381,7 @@ static bool LoadFromFlash(void)
     s_active = -1;
     s_next   = 0;
     s_dirty  = false;
-    s_err    = SAVE_ERR_NONE;
+    s_err    = MEM_ERR_NONE;
 
     good[0] = NewestInSector(0, &pos[0], &seq[0], &mask[0], &pw[0]);
     good[1] = NewestInSector(1, &pos[1], &seq[1], &mask[1], &pw[1]);
@@ -395,7 +395,7 @@ static bool LoadFromFlash(void)
 
     if(best < 0)
     {
-        for(i = 0; i < SAVE_PAYLOAD_WORDS; i++)
+        for(i = 0; i < MEM_PAYLOAD_WORDS; i++)
             PAYLOAD[i] = 0;
         return false;
     }
@@ -403,16 +403,16 @@ static bool LoadFromFlash(void)
     // Copy what the flash copy has. If this firmware added slots at the end
     // since it was saved, the stored payload is shorter: the extra slots are
     // simply "never written" (their mask bits are 0).
-    n = (pw[best] < SAVE_PAYLOAD_WORDS) ? pw[best] : SAVE_PAYLOAD_WORDS;
+    n = (pw[best] < MEM_PAYLOAD_WORDS) ? pw[best] : MEM_PAYLOAD_WORDS;
     {
         const volatile uint16_t *src = FLASH_BASE(best) + pos[best] + HDR_WORDS;
 
-        for(i = 0; i < SAVE_PAYLOAD_WORDS; i++)
+        for(i = 0; i < MEM_PAYLOAD_WORDS; i++)
             PAYLOAD[i] = (i < n) ? src[i] : 0;
     }
 
-    s_mask   = mask[best] & ((SAVE_SLOT_COUNT >= 32) ? 0xFFFFFFFFUL
-                                                      : ((1UL << SAVE_SLOT_COUNT) - 1UL));
+    s_mask   = mask[best] & ((MEM_SLOT_COUNT >= 32) ? 0xFFFFFFFFUL
+                                                      : ((1UL << MEM_SLOT_COUNT) - 1UL));
     s_seq    = seq[best];
     s_active = best;
 
@@ -421,12 +421,12 @@ static bool LoadFromFlash(void)
     return true;
 }
 
-bool Save_Init(void)
+bool Memory_Init(void)
 {
     bool found = LoadFromFlash();
-    SaveSettings s;
+    MemSettings s;
 
-    if(Save_Read(SAVE_SLOT_SETTINGS, &s,
+    if(Memory_Read(MEM_SLOT_SETTINGS, &s,
                  sizeof(s) / sizeof(uint16_t)))
     {
         if(s.volume < BUZZER_NUM_VOLUMES)
@@ -439,13 +439,13 @@ bool Save_Init(void)
     return found;
 }
 
-bool Save_Read(SaveSlot slot, void *dst, uint16_t words)
+bool Memory_Read(MemSlot slot, void *dst, uint16_t words)
 {
     uint16_t *d = (uint16_t *)dst;
     const uint16_t *s;
     uint16_t i;
 
-    if((uint16_t)slot >= SAVE_SLOT_COUNT || words != kSlotWords[slot])
+    if((uint16_t)slot >= MEM_SLOT_COUNT || words != kSlotWords[slot])
         return false;
     if(!(s_mask & (1UL << slot)))
         return false;
@@ -456,14 +456,14 @@ bool Save_Read(SaveSlot slot, void *dst, uint16_t words)
     return true;
 }
 
-bool Save_Write(SaveSlot slot, const void *src, uint16_t words)
+bool Memory_Write(MemSlot slot, const void *src, uint16_t words)
 {
     const uint16_t *s = (const uint16_t *)src;
     uint16_t *d;
     bool     changed;
     uint16_t i;
 
-    if((uint16_t)slot >= SAVE_SLOT_COUNT || words != kSlotWords[slot])
+    if((uint16_t)slot >= MEM_SLOT_COUNT || words != kSlotWords[slot])
         return false;
 
     changed = !(s_mask & (1UL << slot));
@@ -485,27 +485,27 @@ bool Save_Write(SaveSlot slot, const void *src, uint16_t words)
     return true;
 }
 
-bool Save_IsDirty(void)
+bool Memory_IsDirty(void)
 {
     return s_dirty;
 }
 
-uint16_t Save_GetLastError(void)
+uint16_t Memory_GetLastError(void)
 {
     return s_err;
 }
 
-uint16_t Save_GetLastApiStatus(void)
+uint16_t Memory_GetLastApiStatus(void)
 {
     return s_apiStatus;
 }
 
-bool Save_FlashSetupOk(void)
+bool Memory_FlashSetupOk(void)
 {
     return s_setupOk;
 }
 
-bool Save_Flush(void)
+bool Memory_Flush(void)
 {
     uint32_t seq;
     uint16_t crc;
@@ -519,16 +519,16 @@ bool Save_Flush(void)
 
     seq = s_seq + 1;
 
-    s_img[H_MAGIC]   = SAVE_MAGIC;
-    s_img[H_VERSION] = SAVE_LAYOUT_VERSION;
+    s_img[H_MAGIC]   = MEM_MAGIC;
+    s_img[H_VERSION] = MEM_LAYOUT_VERSION;
     s_img[H_SEQ_LO]  = (uint16_t)(seq & 0xFFFFU);
     s_img[H_SEQ_HI]  = (uint16_t)(seq >> 16);
     s_img[H_MASK_LO] = (uint16_t)(s_mask & 0xFFFFU);
     s_img[H_MASK_HI] = (uint16_t)(s_mask >> 16);
-    s_img[H_PAYLOAD] = SAVE_PAYLOAD_WORDS;
+    s_img[H_PAYLOAD] = MEM_PAYLOAD_WORDS;
 
     crc = Crc16(s_img, H_CRC, 0xFFFFU);
-    crc = Crc16(PAYLOAD, SAVE_PAYLOAD_WORDS, crc);
+    crc = Crc16(PAYLOAD, MEM_PAYLOAD_WORDS, crc);
     s_img[H_CRC] = crc;
 
     // Pad words after the payload stay 0xFFFF (set in LoadFromFlash).
@@ -573,13 +573,13 @@ committed:
     return true;
 }
 
-bool Save_EraseAll(void)
+bool Memory_EraseAll(void)
 {
     uint16_t i;
     uint16_t st = 0;
 
     s_mask = 0;
-    for(i = 0; i < SAVE_PAYLOAD_WORDS; i++)
+    for(i = 0; i < MEM_PAYLOAD_WORDS; i++)
         PAYLOAD[i] = 0;
     s_active = -1;
     s_next   = 0;
@@ -601,47 +601,47 @@ bool Save_EraseAll(void)
 #define FACTORY_VOLUME_IDX      4       // "5 / 5"
 #define FACTORY_BRIGHTNESS_IDX  7       // "8 / 8"
 
-bool Save_FactoryReset(void)
+bool Memory_FactoryReset(void)
 {
-    SaveSettings    st;
-    SaveTetrisNames nm;
+    MemSettings    st;
+    MemTetrisNames nm;
     uint16_t        i, j;
 
     // Every slot: zeros (menu color 0, scores 0, ...) and marked as written,
     // so apps read the zeros instead of "never saved".
-    for(i = 0; i < SAVE_PAYLOAD_WORDS; i++)
+    for(i = 0; i < MEM_PAYLOAD_WORDS; i++)
         PAYLOAD[i] = 0;
-    s_mask = (SAVE_SLOT_COUNT >= 32) ? 0xFFFFFFFFUL
-                                     : ((1UL << SAVE_SLOT_COUNT) - 1UL);
+    s_mask = (MEM_SLOT_COUNT >= 32) ? 0xFFFFFFFFUL
+                                     : ((1UL << MEM_SLOT_COUNT) - 1UL);
 
     st.volume     = FACTORY_VOLUME_IDX;
     st.brightness = FACTORY_BRIGHTNESS_IDX;
-    Save_Write(SAVE_SLOT_SETTINGS, &st, sizeof(st) / sizeof(uint16_t));
+    Memory_Write(MEM_SLOT_SETTINGS, &st, sizeof(st) / sizeof(uint16_t));
 
     // Blank names are spaces (what Tetris itself stores for "no name").
     for(i = 0; i < TETRIS_NUM_SCORES; i++)
         for(j = 0; j < TETRIS_NAME_LEN; j++)
             nm.c[i][j] = ' ';
-    Save_Write(SAVE_SLOT_TETRIS_NAMES, &nm, sizeof(nm) / sizeof(uint16_t));
+    Memory_Write(MEM_SLOT_TETRIS_NAMES, &nm, sizeof(nm) / sizeof(uint16_t));
 
     Buzzer_SetVolume(FACTORY_VOLUME_IDX);
     Backlight_SetLevel(FACTORY_BRIGHTNESS_IDX);
 
     s_dirty = true;                     // always append, even if RAM looked identical
-    return Save_Flush();                // stays dirty on failure; next flush retries
+    return Memory_Flush();                // stays dirty on failure; next flush retries
 }
 
 // Capture the live volume/brightness and write flash if they changed.
 // Signature matches App.exit, so it can be plugged straight into Settings.
-void Save_SyncSettings(void)
+void Memory_SyncSettings(void)
 {
-    SaveSettings s;
+    MemSettings s;
 
     s.volume     = Buzzer_GetVolume();
     s.brightness = Backlight_GetLevel();
 
-    Save_Write(SAVE_SLOT_SETTINGS, &s,
+    Memory_Write(MEM_SLOT_SETTINGS, &s,
                sizeof(s) / sizeof(uint16_t));
 
-    Save_Flush();
+    Memory_Flush();
 }

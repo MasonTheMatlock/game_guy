@@ -1,5 +1,5 @@
 //#############################################################################
-// FILE:   app/wason.h
+// FILE:   app/wason/wason.h
 // TITLE:  Wason Ware - a WarioWare-style microgame marathon (public header)
 //
 //   Every few seconds a new 3-5 second microgame flashes up with a one-word
@@ -24,7 +24,7 @@
 //
 //   BEAT! plays song_melatonin (songs.c): the dreamy funk loop, 150 ms per
 //   eighth-note unit. Its notes are placed from the song's own clock (kMlUnit in
-//   wason.c lists which song units to hit), so they land on the music however
+//   wason_beat.c lists which song units to hit), so they land on the music however
 //   fast the screen is.
 //
 //   DISPLAY NOTES (LAUNCHXL-F28069M -> 320x240 BoosterPack, ~250k pixels/s):
@@ -38,24 +38,28 @@
 //   a scrolling list, L/R sets the speed level; no lives, no score, and after
 //   each try you land back on the list). New microgames appear in it automatically.
 //
-//   HOW TO ADD A MICROGAME (all inside app/wasonware.c)
-//     1. Write  static void XxInit(uint16_t spd)   reset state; spd = 0,1,2..
-//                                                  (grows every WW_PER_LEVEL games)
-//               static int16_t XxUpdate(void)      logic only -> MG_PLAY/MG_WIN/MG_LOSE
-//               static void XxRender(void)         drawing only. When s_first is
-//                                                  true, draw EVERYTHING (the
-//                                                  background was just filled).
-//     2. Add one MicroGame line to kGames[] (command word, inspiration tag,
-//        frames, background color, win-on-timeout flag, the 3 callbacks).
+//   HOW TO ADD A MICROGAME (see wason_priv.h for the file map)
+//     1. New file app/wason/wason_<name>.c with
+//          void    ww_XxInit(uint16_t spd)   reset state; spd = 0,1,2..
+//                                            (grows every WW_PER_LEVEL games)
+//          int16_t ww_XxUpdate(void)         logic only -> MG_PLAY/MG_WIN/MG_LOSE
+//          void    ww_XxRender(void)         drawing only. When ww_first is
+//                                            true, draw EVERYTHING (the
+//                                            background was just filled).
+//        Keep all of its state static.
+//     2. Declare the 3 callbacks and the background color in wason_priv.h.
+//     3. Add one MicroGame line to ww_games[] in wason_table.c (command word,
+//        inspiration tag, frames, background color, win-on-timeout flag, the
+//        3 callbacks).
 //   The bag-shuffle, fuse timer, lives, speed-up and high score are automatic.
 //#############################################################################
 
 #ifndef __WASON_H__
 #define __WASON_H__
 
-#include "apps.h"
+#include "../apps.h"
 
-extern const App g_wasonwareApp;            // app/wasonware.c
+extern const App g_wasonwareApp;            // app/wason/wason.c
 
 #define WW_FRAME_US     16000UL             // pause after each frame (~60 fps max)
 #define WW_LIVES        4                   // lives per run

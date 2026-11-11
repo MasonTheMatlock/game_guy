@@ -22,7 +22,7 @@
 #ifndef __RAYCASTER_H__
 #define __RAYCASTER_H__
 
-#include "apps.h"
+#include "../apps.h"
 
 extern const App g_raycasterApp;            // app/raycaster.c
 

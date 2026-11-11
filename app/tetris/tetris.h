@@ -10,7 +10,7 @@
 #ifndef __TETRIS_H__
 #define __TETRIS_H__
 
-#include "apps.h"
+#include "../apps.h"
 
 extern const App g_tetrisApp;               // app/tetris.c
 
@@ -40,7 +40,7 @@ extern const App g_tetrisApp;               // app/tetris.c
 
 // ---- Title screen / high scores ------------------------------------------
 // Start / High Scores screen (drawn by tetris.c). The top-5 list itself is
-// saved in flash through drivers/save.h (SAVE_SLOT_TETRIS_SCORES).
+// saved in flash through drivers/memory.h (MEM_SLOT_TETRIS_SCORES).
 #define TETRIS_TITLE_ROW_X0       70        // menu rectangles, left/right edge
 #define TETRIS_TITLE_ROW_X1       249
 #define TETRIS_TITLE_ROW_Y0       90        // top of the first rectangle

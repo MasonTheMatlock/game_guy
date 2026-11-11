@@ -63,11 +63,10 @@ void Sfx_PlayWait(const Song *sfx)
 //*****************************************************************************
 const App *const g_apps[] =
 {
-    &g_tetrisApp,           // app/tetris.c
-    &g_raycasterApp,        // app/raycaster.c
     &g_settingsApp,         // app/settings.c
-    &g_testApp,             // app/test.c
-    &g_wasonwareApp,
+    &g_tetrisApp,           // app/tetris/
+    &g_raycasterApp,        // app/raycaster/
+    &g_testApp,             // app/test/
 };
 
 
@@ -77,6 +76,7 @@ const uint16_t g_appCount = sizeof(g_apps) / sizeof(g_apps[0]);
 // 3. App runner
 //*****************************************************************************
 static const App *s_next = NULL;            // set by App_Launch()
+const App        *g_pausedApp = NULL;       // the app under the pause menu
 
 void App_Launch(const App *app)
 {
@@ -104,6 +104,7 @@ static bool PauseMenu(const App *app)
 {
     WaitInputsReleased();               // the long press that got us here
     Sfx_PlayWait(&sfx_pause);               // <-- new
+    g_pausedApp       = app;
     g_settingsOverlay = true;
     g_settingsToMenu  = false;
     RunApp(&g_settingsApp);
@@ -138,8 +139,9 @@ static void RunApp(const App *app)
         Joy_Update();                       // input is read ONCE per frame,
         Dpad_Update();                      // here, never inside apps
 
-        // Hold the button: Settings overlay (any app except the menu).
-        // Inside Settings itself, a hold just closes it.
+        // Hold the button: pause menu over any app except the launcher (the
+        // launcher has Settings > Apps instead). Inside the pause menu itself,
+        // a hold just closes it.
         if(app != &g_menuApp && g_joy.btnLong)
         {
             if(app == &g_settingsApp) break;

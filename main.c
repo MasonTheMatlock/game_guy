@@ -112,7 +112,7 @@ void main(void)
 
     Backlight_Init();
 
-    Save_Init();                    // load saved scores + apply volume/brightness
+    Memory_Init();                   // load saved scores + apply volume/brightness
 
 #if MEMORY_WIPE
     Save_EraseAll();                // wipes every save + setting (both flash sectors)

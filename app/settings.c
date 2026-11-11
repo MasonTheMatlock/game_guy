@@ -1,39 +1,17 @@
 //#############################################################################
 // FILE:   app/settings.c
-// TITLE:  Settings app - a stack of wide rectangles (OG Xbox dashboard style):
-//         Volume, Brightness, Apps
+// TITLE:  PAUSE MENU - Volume, Brightness and the running app's own settings
 //
-// CONTROLS
-//   Menu:
-//     D-pad U/D or stick up/down : move the highlight
-//     D-pad R or stick button tap: open
-//     D-pad L                    : quit to the launcher
-//   Volume / Brightness:
-//     D-pad L/R or stick left/right : lower / raise
-//     D-pad D  (Volume only)        : play a test sound
-//     D-pad U or stick button tap   : back to the menu
-//   Apps:  (row 0 = Menu, then one row per installed app)
-//     D-pad U/D or stick up/down      : move the highlight
-//     D-pad R or stick button tap     : open (Menu -> background color)
-//     D-pad L                         : back to the menu
-//   Menu color:
-//     D-pad L/R or stick left/right   : previous / next color
-//     D-pad U or stick button tap     : save and go back to Apps
-//   Apps > Settings row: FACTORY RESET
-//     Confirm screen (Cancel is highlighted first):
-//       D-pad U/D or stick up/down      : Cancel / Erase Everything
-//       D-pad R or stick button tap     : choose the highlighted one
-//       D-pad L                         : back to Apps, nothing changed
-//     "Erase Everything" calls Save_FactoryReset() right away (no restart
-//     needed): it APPENDS one record with the factory values (volume 5,
-//     brightness 8, Tetris scores 0 with blank names, ...), so no sector is
-//     erased and wear leveling is untouched. It then shows "complete", and any
-//     button leaves to the main menu so every app re-reads its save data.
-//   HOLD stick button: quit to the launcher (handled by apps.c)
+// Two ways in:
+//   * from the launcher tile "Settings":   Volume, Brightness, Apps
+//                                          Apps lists every app; each opens ITS page
+//   * by holding the joystick button inside an app (the pause overlay): Resume,
+//     Volume, Brightness, <that app's> settings (only its own), Main Menu
+//     apps.c runs the overlay on top of the app that was running (g_pausedApp).
 //
-// OVERLAY MODE: holding the stick inside any other app opens this app on top
-// of it (g_settingsOverlay = true). The menu then also has Resume (top) and
-// Main Menu (bottom); L = resume. Holding the stick in here also resumes.
+// An app's settings are plain data (see AppSettings in apps.h): info rows,
+// choice rows, colour pickers and actions with an optional confirm screen.
+// This file draws and runs them, so an app never draws its own settings UI.
 //
 // Same app contract as the others: update() = logic + dirty flags, render() =
 // draw only what is dirty, one public symbol (g_settingsApp).
@@ -48,57 +26,52 @@
 #define MODE_MENU       0
 #define MODE_VOLUME     1
 #define MODE_BRIGHT     2
-#define MODE_APPS       3
-#define MODE_MENUBG     4
-#define MODE_FACTORY    5               // "Erase everything?" Cancel / Erase
-#define MODE_FACTORY_DONE 6             // reset finished (or failed)
+#define MODE_APPSET     3               // the running app's settings list
+#define MODE_COLOR      4               // SET_COLOR swatch picker
+#define MODE_CONFIRM    5               // "are you sure?" Cancel / <button>
+#define MODE_RESULT     6               // text an action returned
+#define MODE_APPS       7               // Settings > Apps: pick an app
 
-// Menu item ids. 1..3 double as the mode they open.
+// Menu item ids. 1, 2 double as the mode they open.
 #define ID_VOLUME       1
 #define ID_BRIGHT       2
-#define ID_APPS         3
+#define ID_APPSET       3
 #define ID_RESUME       4               // overlay only
 #define ID_MAINMENU     5               // overlay only
+#define ID_APPS         6               // launcher tile only
 
 #define ITEM_MAX        5
-static const char *const kIdName[6] =
-    { "", "Volume", "Brightness", "Apps", "Resume", "Main Menu" };
+static const char *const kIdName[7] =
+    { "", "Volume", "Brightness", "", "Resume", "Main Menu", "Apps" };
 
 // Set/read by the runner (apps.c); see settings.h.
 bool g_settingsOverlay = false;
 bool g_settingsToMenu  = false;
 
-// Menu rectangles: ROW_X0..ROW_X1 wide; the selected one grows 10 px each side.
+// Rectangles: ROW_X0..ROW_X1 wide; the selected one grows 10 px each side.
 #define ROW_X0          40
 #define ROW_X1          279
 #define ROW_Y0          38
 #define ROW_H           30
 #define ROW_GAP         4
 
-// Apps screen: outlined rectangles, one per installed app.
-#define APPS_X0         50
-#define APPS_X1         269
-#define APPS_Y0         46
-#define APPS_H          24
-#define APPS_PITCH      32
-#define APPS_MAX_ROWS   5
-
-// Menu color screen: name, preview box, row of swatches.
+// Colour picker: name, preview box, row of swatches.
 #define BG_NAME_Y       72
 #define BG_PREV_X0      60
 #define BG_PREV_X1      259
 #define BG_PREV_Y0      90
 #define BG_PREV_Y1      150
-#define BG_SW_W         28
-#define BG_SW_GAP       8
 #define BG_SW_Y         170
-#define BG_SW_X0        ((SCREEN_W - (MENU_NUM_BGS * BG_SW_W + (MENU_NUM_BGS - 1) * BG_SW_GAP)) / 2)
+#define BG_SW_ROW_W     280             // all swatches together
+#define BG_SW_MAXW      28
+#define BG_SW_GAP       6
+#define BG_MAX          12
 
-// Factory reset screens: three lines of text, then two buttons.
+// Confirm / result screens: three lines of text, then two buttons.
 #define FR_TEXT_Y0      58
 #define FR_TEXT_PITCH   26
 #define FR_BTN_Y0       132
-#define FR_BTN_NUM      2               // 0 = Cancel, 1 = Erase Everything
+#define FR_BTN_NUM      2               // 0 = Cancel, 1 = the action
 
 #define LEVEL_TEXT_Y    100             // "3 / 5"
 #define LEVEL_BAR_BOTTOM 170
@@ -110,24 +83,29 @@ bool g_settingsToMenu  = false;
 #define COL_EDGE        0x8CE070UL      // its bright border
 #define COL_ROW_OFF     0x282828UL      // unselected rectangle
 #define COL_BAR_OFF     0x404040UL
-#define COL_RED_EDGE    0xFF6060UL      // selected "Erase Everything"
+#define COL_RED_EDGE    0xFF6060UL      // selected dangerous button
 #define COL_RED         0xA02020UL
 
 //*****************************************************************************
 // State
 //*****************************************************************************
 static uint16_t s_mode;
-static uint16_t s_sel;                  // highlighted menu row
+static uint16_t s_sel;                  // highlighted pause-menu row
 static uint16_t s_ids[ITEM_MAX];        // item id shown in each menu row
 static uint16_t s_count;                // number of menu rows
 static int16_t  s_stX, s_stY;           // stick flick detection
 static bool     s_dirtyFull;            // whole screen must be redrawn
-static uint16_t s_dirtyRows;            // bit i = menu rectangle i needs redrawing
-static bool     s_dirtyValue;           // volume / brightness readout needs redrawing
-static uint16_t s_appSel;               // highlighted row on the Apps screen (0 = Menu)
-static uint16_t s_bgSel;                // palette index shown on the Menu color screen
-static uint16_t s_confSel;              // factory reset confirm: 0 = Cancel, 1 = Erase
-static bool     s_resetOk;              // Save_FactoryReset() reached flash
+static uint16_t s_dirtyRows;            // bit i = rectangle i needs redrawing
+static bool     s_dirtyValue;           // readout / picker needs redrawing
+
+static const AppSettings *s_set;        // the running app's page (NULL = none)
+static uint16_t s_setSel;               // highlighted row on that page
+static uint16_t s_appSel;               // highlighted app in Settings > Apps
+static bool     s_fromApps;             // the page was opened from the Apps list
+static const SettingItem *s_cur;        // item being picked / confirmed / reported
+static uint16_t s_pick;                 // SET_COLOR: highlighted palette entry
+static uint16_t s_confSel;              // confirm: 0 = Cancel, 1 = do it
+static const char *s_result;            // text returned by the last action
 
 //*****************************************************************************
 // Small helpers
@@ -172,6 +150,20 @@ static int16_t Itoa(char *p, uint16_t v)
     return n;
 }
 
+// Copy the n-th '|'-separated piece of s into buf (at most 31 characters).
+static const char *Piece(const char *s, uint16_t n, char *buf)
+{
+    uint16_t k = 0;
+
+    while(n && *s)
+    {
+        if(*s++ == '|') n--;
+    }
+    while(*s && *s != '|' && k < 31) buf[k++] = *s++;
+    buf[k] = 0;
+    return buf;
+}
+
 static void DrawText(const char *s, int16_t x, int16_t y, uint32_t color)
 {
     Graphics_setForegroundColor(&g_sContext, color);
@@ -203,29 +195,39 @@ static void FrameRect(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint32_t c
     Graphics_FillRect(x1 - 1, y0, x1,     y1,     color);
 }
 
-//*****************************************************************************
-// Menu drawing
-//*****************************************************************************
-static void DrawMenuRow(uint16_t i)
+// One selectable band (menu row, settings row, confirm button).
+static void DrawBand(int16_t top, bool sel, const char *text, bool dim, uint32_t edge, uint32_t fill)
 {
-    int16_t top = ROW_Y0 + (int16_t)i * (ROW_H + ROW_GAP);
-    bool    sel = (i == s_sel);
-
     // Clear the whole band first: the selected rectangle is wider than the others.
     Graphics_FillRect(10, top - 1, SCREEN_W - 11, top + ROW_H, COLOR_BLACK);
 
     if(sel)
     {
-        Graphics_FillRect(ROW_X0 - 10, top,     ROW_X1 + 10, top + ROW_H - 1, COL_EDGE);
-        Graphics_FillRect(ROW_X0 - 8,  top + 2, ROW_X1 + 8,  top + ROW_H - 3, COL_GREEN);
+        Graphics_FillRect(ROW_X0 - 10, top,     ROW_X1 + 10, top + ROW_H - 1, edge);
+        Graphics_FillRect(ROW_X0 - 8,  top + 2, ROW_X1 + 8,  top + ROW_H - 3, dim ? COL_ROW_OFF : fill);
     }
     else
     {
         Graphics_FillRect(ROW_X0, top, ROW_X1, top + ROW_H - 1, COL_ROW_OFF);
     }
 
-    DrawText(kIdName[s_ids[i]], SCREEN_W / 2, top + ROW_H / 2,
-             sel ? COLOR_WHITE : COLOR_GRAY);
+    DrawText(text, SCREEN_W / 2, top + ROW_H / 2,
+             dim ? COLOR_DARK_GRAY : (sel ? COLOR_WHITE : COLOR_GRAY));
+}
+
+//*****************************************************************************
+// Pause-menu drawing
+//*****************************************************************************
+static const char *MenuLabel(uint16_t id)
+{
+    if(id == ID_APPSET) return s_set->title;
+    return kIdName[id];
+}
+
+static void DrawMenuRow(uint16_t i)
+{
+    DrawBand(ROW_Y0 + (int16_t)i * (ROW_H + ROW_GAP), i == s_sel,
+             MenuLabel(s_ids[i]), false, COL_EDGE, COL_GREEN);
 }
 
 //*****************************************************************************
@@ -267,117 +269,106 @@ static void DrawLevel(void)
 }
 
 //*****************************************************************************
-// Apps drawing: row 0 = Menu, then one row per installed app, in the app's color.
-// The highlighted row is a filled green rectangle (same look as the Settings menu).
+// App settings page: one band per item. Choice / info rows show "Label: value".
 //*****************************************************************************
-// Row 0 is the main menu itself (it is not in g_apps[]); rows 1.. are g_apps[0..].
-static uint16_t AppsRowCount(void)
+static bool ItemEnabled(const SettingItem *it)
 {
-    uint16_t n = (uint16_t)(g_appCount + 1);
-
-    return (n > APPS_MAX_ROWS) ? APPS_MAX_ROWS : n;
+    return (it->enabled == NULL) || it->enabled();
 }
 
-static void DrawAppsRow(uint16_t i)
+static void DrawSetRow(uint16_t i)
 {
-    const App *a   = (i == 0) ? &g_menuApp : g_apps[i - 1];
-    int16_t    top = APPS_Y0 + (int16_t)i * APPS_PITCH;
-    bool       sel = (i == s_appSel);
+    const SettingItem *it = &s_set->items[i];
+    char     buf[48];
+    int16_t  n = 0;
+    const char *p = it->label;
 
-    // Clear the whole band first: the selected rectangle is wider.
-    Graphics_FillRect(10, top - 1, SCREEN_W - 11, top + APPS_H, COLOR_BLACK);
-
-    if(sel)
+    while(*p && n < 24) buf[n++] = *p++;
+    if((it->kind == SET_CHOICE || it->kind == SET_INFO) && it->text)
     {
-        Graphics_FillRect(APPS_X0 - 8, top,     APPS_X1 + 8, top + APPS_H - 1, COL_EDGE);
-        Graphics_FillRect(APPS_X0 - 6, top + 2, APPS_X1 + 6, top + APPS_H - 3, COL_GREEN);
+        buf[n++] = ':';
+        buf[n++] = ' ';
+        p = it->text();
+        while(*p && n < 46) buf[n++] = *p++;
     }
-    else
-    {
-        FrameRect(APPS_X0, top, APPS_X1, top + APPS_H - 1, a->color);
-    }
+    buf[n] = 0;
 
-    DrawText((i == 0) ? "Menu" : a->name, SCREEN_W / 2, top + APPS_H / 2, COLOR_WHITE);
+    DrawBand(ROW_Y0 + (int16_t)i * (ROW_H + ROW_GAP), i == s_setSel, buf,
+             !ItemEnabled(it), COL_EDGE, COL_GREEN);
 }
 
 //*****************************************************************************
-// Menu color drawing: color name, a preview of the menu title on that color,
-// and a row of swatches with the chosen one outlined in white.
+// Colour picker: name, a preview box in that colour, and a row of swatches with
+// the chosen one outlined in white.
 //*****************************************************************************
-static void DrawBgPicker(void)
+static void DrawColorPicker(void)
 {
+    uint16_t n = (s_cur->nColors > BG_MAX) ? BG_MAX : s_cur->nColors;
     uint16_t i;
-    int16_t  x;
+    int16_t  w, x, x0;
 
-    // Name
     Graphics_FillRect(60, BG_NAME_Y - 14, SCREEN_W - 61, BG_NAME_Y + 14, COLOR_BLACK);
-    DrawText(Menu_BgName(s_bgSel), SCREEN_W / 2, BG_NAME_Y, COLOR_WHITE);
+    DrawText(s_cur->colorName(s_pick), SCREEN_W / 2, BG_NAME_Y, COLOR_WHITE);
 
-    // Preview
     FrameRect(BG_PREV_X0 - 3, BG_PREV_Y0 - 3, BG_PREV_X1 + 3, BG_PREV_Y1 + 3, COLOR_WHITE);
-    Graphics_FillRect(BG_PREV_X0, BG_PREV_Y0, BG_PREV_X1, BG_PREV_Y1, Menu_BgColor(s_bgSel));
-    DrawText("SELECT GAME", SCREEN_W / 2, (BG_PREV_Y0 + BG_PREV_Y1) / 2, COLOR_WHITE);
+    Graphics_FillRect(BG_PREV_X0, BG_PREV_Y0, BG_PREV_X1, BG_PREV_Y1, s_cur->color(s_pick));
+    if(s_cur->preview)
+        DrawText(s_cur->preview, SCREEN_W / 2, (BG_PREV_Y0 + BG_PREV_Y1) / 2, COLOR_WHITE);
 
-    // Swatches (every one has a frame so Black is visible on the black screen)
-    for(i = 0; i < MENU_NUM_BGS; i++)
+    w = (BG_SW_ROW_W - ((int16_t)n - 1) * BG_SW_GAP) / (int16_t)n;
+    if(w > BG_SW_MAXW) w = BG_SW_MAXW;
+    x0 = (SCREEN_W - ((int16_t)n * w + ((int16_t)n - 1) * BG_SW_GAP)) / 2;
+
+    // Every swatch has a frame so Black is visible on the black screen.
+    for(i = 0; i < n; i++)
     {
-        x = BG_SW_X0 + (int16_t)i * (BG_SW_W + BG_SW_GAP);
+        x = x0 + (int16_t)i * (w + BG_SW_GAP);
 
-        FrameRect(x - 3, BG_SW_Y - 3, x + BG_SW_W + 2, BG_SW_Y + BG_SW_W + 2,
-                  (i == s_bgSel) ? COLOR_WHITE : COL_BAR_OFF);
-        Graphics_FillRect(x, BG_SW_Y, x + BG_SW_W - 1, BG_SW_Y + BG_SW_W - 1, Menu_BgColor(i));
+        FrameRect(x - 3, BG_SW_Y - 3, x + w + 2, BG_SW_Y + w + 2,
+                  (i == s_pick) ? COLOR_WHITE : COL_BAR_OFF);
+        Graphics_FillRect(x, BG_SW_Y, x + w - 1, BG_SW_Y + w - 1, s_cur->color(i));
     }
 }
 
 //*****************************************************************************
-// Factory reset drawing
-//   Confirm screen: what will be erased, then Cancel / Erase Everything
-//   (same rectangles as the Settings menu; Erase turns red when selected).
-//   Result screen:  "complete", or "failed" if the flash write did not work.
+// Confirm and result screens (three '|'-separated lines of text each)
 //*****************************************************************************
-static void DrawFactoryText(uint16_t line, const char *s, uint32_t color)
+static void DrawLines(const char *text, uint32_t c0)
 {
-    DrawText(s, SCREEN_W / 2, FR_TEXT_Y0 + (int16_t)line * FR_TEXT_PITCH, color);
+    char     buf[32];
+    uint16_t i;
+
+    for(i = 0; i < 3; i++)
+    {
+        Piece(text, i, buf);
+        if(buf[0]) DrawText(buf, SCREEN_W / 2, FR_TEXT_Y0 + (int16_t)i * FR_TEXT_PITCH, (i == 0) ? c0 : COLOR_GRAY);
+    }
 }
 
-static void DrawFactoryButton(uint16_t i)
+static void DrawConfirmButton(uint16_t i)
 {
-    int16_t  top  = FR_BTN_Y0 + (int16_t)i * (ROW_H + ROW_GAP);
-    bool     sel  = (i == s_confSel);
-    uint32_t edge = (i == 1) ? COL_RED_EDGE : COL_EDGE;
-    uint32_t fill = (i == 1) ? COL_RED      : COL_GREEN;
+    bool danger = s_cur->danger && (i == 1);
 
-    // Clear the whole band first: the selected rectangle is wider.
-    Graphics_FillRect(10, top - 1, SCREEN_W - 11, top + ROW_H, COLOR_BLACK);
-
-    if(sel)
-    {
-        Graphics_FillRect(ROW_X0 - 10, top,     ROW_X1 + 10, top + ROW_H - 1, edge);
-        Graphics_FillRect(ROW_X0 - 8,  top + 2, ROW_X1 + 8,  top + ROW_H - 3, fill);
-    }
-    else
-    {
-        Graphics_FillRect(ROW_X0, top, ROW_X1, top + ROW_H - 1, COL_ROW_OFF);
-    }
-
-    DrawText((i == 0) ? "Cancel" : "Erase Everything", SCREEN_W / 2,
-             top + ROW_H / 2, sel ? COLOR_WHITE : COLOR_GRAY);
+    DrawBand(FR_BTN_Y0 + (int16_t)i * (ROW_H + ROW_GAP), i == s_confSel,
+             (i == 0) ? "Cancel" : (s_cur->confirmButton ? s_cur->confirmButton : s_cur->label),
+             false, danger ? COL_RED_EDGE : COL_EDGE, danger ? COL_RED : COL_GREEN);
 }
 
-static void DrawFactoryResult(void)
+//*****************************************************************************
+// Settings > Apps: one band per app (the list is capped at ITEM_MAX rows; with
+// more apps this needs paging). An app with no settings page is shown dimmed.
+//*****************************************************************************
+static uint16_t AppRows(void)
 {
-    if(s_resetOk)
-    {
-        DrawFactoryText(0, "Factory reset complete.", COLOR_WHITE);
-        DrawFactoryText(1, "All saves and settings",  COLOR_GRAY);
-        DrawFactoryText(2, "are back to defaults.",   COLOR_GRAY);
-    }
-    else
-    {
-        DrawFactoryText(0, "Factory reset failed.",   COLOR_RED);
-        DrawFactoryText(1, "The flash write did not", COLOR_WHITE);
-        DrawFactoryText(2, "work. Try again.",        COLOR_WHITE);
-    }
+    return (g_appCount > ITEM_MAX) ? ITEM_MAX : g_appCount;
+}
+
+static void DrawAppRow(uint16_t i)
+{
+    const App *a = g_apps[i];
+
+    DrawBand(ROW_Y0 + (int16_t)i * (ROW_H + ROW_GAP), i == s_appSel, a->name,
+             a->settings == NULL, COL_EDGE, COL_GREEN);
 }
 
 //*****************************************************************************
@@ -395,19 +386,29 @@ static void EnterMode(uint16_t mode)
 //*****************************************************************************
 static void Settings_Init(void)
 {
+    s_set = (g_pausedApp != NULL && g_pausedApp->settings != NULL && g_pausedApp->settings->count)
+          ? g_pausedApp->settings : NULL;
+
     s_count = 0;
     if(g_settingsOverlay) s_ids[s_count++] = ID_RESUME;
     s_ids[s_count++] = ID_VOLUME;
     s_ids[s_count++] = ID_BRIGHT;
-    s_ids[s_count++] = ID_APPS;
-    if(g_settingsOverlay) s_ids[s_count++] = ID_MAINMENU;
+    if(g_settingsOverlay)
+    {
+        if(s_set) s_ids[s_count++] = ID_APPSET;         // pause menu: THIS app's settings only
+        s_ids[s_count++] = ID_MAINMENU;
+    }
+    else
+        s_ids[s_count++] = ID_APPS;                     // launcher tile: every app's settings
 
     g_settingsToMenu = false;
     s_sel        = 0;
+    s_setSel     = 0;
     s_appSel     = 0;
-    s_bgSel      = 0;
+    s_fromApps   = false;
     s_confSel    = 0;                   // Cancel is the safe default
-    s_resetOk    = false;
+    s_cur        = NULL;
+    s_result     = NULL;
     s_stX        = 0;
     s_stY        = 0;
     s_dirtyRows  = 0;
@@ -435,7 +436,7 @@ static AppStatus Settings_Update(void)
     {
         case MODE_MENU:
             if(left)
-                return APP_QUIT;        // overlay: resume; launcher: exit
+                return APP_QUIT;        // overlay: resume
 
             if(up || down)
             {
@@ -443,7 +444,7 @@ static AppStatus Settings_Update(void)
                 s_sel = up ? (s_sel + s_count - 1) % s_count
                            : (s_sel + 1) % s_count;
                 s_dirtyRows |= (1 << old) | (1 << s_sel);
-                Buzzer_PlaySfx(&sfx_menu_move);                 // <-- new
+                Buzzer_PlaySfx(&sfx_menu_move);
             }
 
             if(right || tap)
@@ -457,15 +458,17 @@ static AppStatus Settings_Update(void)
                     g_settingsToMenu = true;
                     return APP_QUIT;
                 }
-                EnterMode(id);
-                Buzzer_PlaySfx(&sfx_menu_select);               // <-- new, before EnterMode(id)
+                Buzzer_PlaySfx(&sfx_menu_select);
+                if(id == ID_APPS) { EnterMode(MODE_APPS); break; }
+                if(id == ID_APPSET) { s_fromApps = false; s_setSel = 0; }
+                EnterMode(id == ID_APPSET ? MODE_APPSET : id);
             }
             break;
 
         case MODE_VOLUME:
             if(up || tap)
             {
-                Save_SyncSettings();        // write to flash now, not only when Settings exits
+                Memory_SyncSettings();        // write to flash now, not only when Settings exits
                 EnterMode(MODE_MENU);
                 break;
             }
@@ -489,7 +492,7 @@ static AppStatus Settings_Update(void)
         case MODE_BRIGHT:
             if(up || tap)
             {
-                Save_SyncSettings();        // write to flash now, not only when Settings exits
+                Memory_SyncSettings();        // write to flash now, not only when Settings exits
                 EnterMode(MODE_MENU);
                 break;
             }
@@ -505,11 +508,125 @@ static AppStatus Settings_Update(void)
             }
             break;
 
-        case MODE_FACTORY:
+        case MODE_APPS:
+            n = AppRows();
+            if(left)
+            {
+                Buzzer_PlaySfx(&sfx_menu_back);
+                EnterMode(MODE_MENU);
+                break;
+            }
+
+            if(up || down)
+            {
+                old      = s_appSel;
+                s_appSel = up ? (s_appSel + n - 1) % n : (s_appSel + 1) % n;
+                s_dirtyRows |= (1 << old) | (1 << s_appSel);
+                Buzzer_PlaySfx(&sfx_menu_move);
+            }
+
+            if(right || tap)
+            {
+                if(g_apps[s_appSel]->settings != NULL && g_apps[s_appSel]->settings->count)
+                {
+                    s_set      = g_apps[s_appSel]->settings;
+                    s_setSel   = 0;
+                    s_fromApps = true;
+                    Buzzer_PlaySfx(&sfx_menu_select);
+                    EnterMode(MODE_APPSET);
+                }
+                else
+                {
+                    Buzzer_PlaySfx(&sfx_menu_bump);     // nothing to configure for this app yet
+                }
+            }
+            break;
+
+        case MODE_APPSET:
+            if(left)
+            {
+                Memory_Flush();               // choices / colours are RAM until now
+                Buzzer_PlaySfx(&sfx_menu_back);
+                EnterMode(s_fromApps ? MODE_APPS : MODE_MENU);
+                break;
+            }
+
+            n = s_set->count;
+            if(up || down)
+            {
+                old      = s_setSel;
+                s_setSel = up ? (s_setSel + n - 1) % n : (s_setSel + 1) % n;
+                s_dirtyRows |= (1 << old) | (1 << s_setSel);
+                Buzzer_PlaySfx(&sfx_menu_move);
+            }
+
+            if(right || tap)
+            {
+                const SettingItem *it = &s_set->items[s_setSel];
+
+                s_cur = it;
+                switch(it->kind)
+                {
+                    case SET_CHOICE:
+                        if(it->step) it->step(1);
+                        s_dirtyRows |= (1 << s_setSel);
+                        Buzzer_PlaySfx(&sfx_menu_move);
+                        break;
+
+                    case SET_COLOR:
+                        s_pick = it->get ? it->get() : 0;
+                        Buzzer_PlaySfx(&sfx_menu_select);
+                        EnterMode(MODE_COLOR);
+                        break;
+
+                    case SET_ACTION:
+                        if(it->confirm)
+                        {
+                            s_confSel = 0;                      // always start on Cancel
+                            Buzzer_PlaySfx(&sfx_menu_select);
+                            EnterMode(MODE_CONFIRM);
+                        }
+                        else
+                        {
+                            s_result = it->run ? it->run() : NULL;
+                            Buzzer_PlaySfx(&sfx_menu_select);
+                            EnterMode(s_result ? MODE_RESULT : MODE_APPSET);
+                            if(!s_result) s_dirtyRows = (1 << n) - 1;
+                        }
+                        break;
+
+                    default:                                    // SET_INFO
+                        Buzzer_PlaySfx(&sfx_menu_bump);
+                        break;
+                }
+            }
+            break;
+
+        case MODE_COLOR:
+            if(up || tap)
+            {
+                Memory_Flush();               // leaving the screen: write to flash if changed
+                EnterMode(MODE_APPSET);
+                break;
+            }
+
+            n   = (s_cur->nColors > BG_MAX) ? BG_MAX : s_cur->nColors;
+            old = s_pick;
+            if(right) s_pick = (s_pick + 1) % n;
+            if(left)  s_pick = (s_pick + n - 1) % n;
+            if(s_pick != old)
+            {
+                if(s_cur->set) s_cur->set(s_pick);   // RAM only; the app reads it when it next draws
+                Buzzer_PlaySfx(&sfx_menu_move);
+                s_dirtyValue = true;
+            }
+            break;
+
+        case MODE_CONFIRM:
             if(left)                                    // back out, nothing changed
             {
                 Buzzer_PlaySfx(&sfx_menu_back);
-                EnterMode(MODE_APPS);
+                EnterMode(MODE_APPSET);
                 break;
             }
 
@@ -525,89 +642,21 @@ static AppStatus Settings_Update(void)
                 if(s_confSel == 0)                      // Cancel
                 {
                     Buzzer_PlaySfx(&sfx_menu_back);
-                    EnterMode(MODE_APPS);
+                    EnterMode(MODE_APPSET);
                     break;
                 }
-
-                // Erase Everything: append one record of factory values (blocks
-                // briefly). Also sets the live volume and brightness.
-                s_resetOk = Save_FactoryReset();
-                EnterMode(MODE_FACTORY_DONE);
-                Buzzer_PlaySfx(s_resetOk ? &sfx_menu_select : &sfx_menu_bump);
+                s_result = s_cur->run ? s_cur->run() : NULL;   // may block briefly (flash write)
+                Buzzer_PlaySfx(&sfx_menu_select);
+                EnterMode(s_result ? MODE_RESULT : MODE_APPSET);
+                if(!s_result) s_dirtyRows = (1 << s_set->count) - 1;
             }
             break;
 
-        case MODE_FACTORY_DONE:
+        default:                                        // MODE_RESULT
             if(left || right || up || down || tap)
             {
-                if(!s_resetOk)                          // failed: back to Apps
-                {
-                    Buzzer_PlaySfx(&sfx_menu_back);
-                    EnterMode(MODE_APPS);
-                    break;
-                }
-
-                // Done: leave to the main menu so a game that was paused under
-                // the Settings overlay cannot write its old cached scores back.
-                g_settingsToMenu = true;
-                return APP_QUIT;
-            }
-            break;
-
-        case MODE_MENUBG:
-            if(up || tap)
-            {
-                Save_Flush();           // leaving the screen: write to flash if changed
-                EnterMode(MODE_APPS);
-                break;
-            }
-
-            old = s_bgSel;
-            if(right) s_bgSel = (s_bgSel + 1) % MENU_NUM_BGS;
-            if(left)  s_bgSel = (s_bgSel + MENU_NUM_BGS - 1) % MENU_NUM_BGS;
-            if(s_bgSel != old)
-            {
-                Menu_SetBg(s_bgSel);    // RAM only; the main menu reads it when it next opens
-                Buzzer_PlaySfx(&sfx_menu_move);
-                s_dirtyValue = true;
-            }
-            break;
-
-        default:                                        // MODE_APPS
-            if(left)
-            {
-                EnterMode(MODE_MENU);
-                break;
-            }
-
-            if(up || down)
-            {
-                n   = AppsRowCount();
-                old = s_appSel;
-                s_appSel = up ? (s_appSel + n - 1) % n
-                              : (s_appSel + 1) % n;
-                s_dirtyRows |= (1 << old) | (1 << s_appSel);
-                Buzzer_PlaySfx(&sfx_menu_move);
-            }
-
-            if(right || tap)
-            {
-                if(s_appSel == 0)                       // the Menu row
-                {
-                    s_bgSel = Menu_GetBg();
-                    Buzzer_PlaySfx(&sfx_menu_select);
-                    EnterMode(MODE_MENUBG);
-                }
-                else if(g_apps[s_appSel - 1] == &g_settingsApp)
-                {
-                    s_confSel = 0;                      // always start on Cancel
-                    Buzzer_PlaySfx(&sfx_menu_select);
-                    EnterMode(MODE_FACTORY);            // Settings > Apps > Settings
-                }
-                else
-                {
-                    Buzzer_PlaySfx(&sfx_menu_bump);     // nothing to configure for this app yet
-                }
+                Buzzer_PlaySfx(&sfx_menu_back);
+                EnterMode(MODE_APPSET);
             }
             break;
     }
@@ -629,7 +678,7 @@ static void Settings_Render(void)
         switch(s_mode)
         {
             case MODE_MENU:
-                DrawTitle("Settings");
+                DrawTitle(g_settingsOverlay ? "Pause" : "Settings");
                 DrawHint(g_settingsOverlay ? "U/D:pick  R:select  L:resume"
                                            : "U/D:pick  R:open  L:exit");
                 s_dirtyRows = (1 << s_count) - 1;       // all rectangles
@@ -647,31 +696,35 @@ static void Settings_Render(void)
                 s_dirtyValue = true;
                 break;
 
-            case MODE_MENUBG:
-                DrawTitle("Menu Color");
+            case MODE_APPS:
+                DrawTitle("Apps");
+                DrawHint("U/D:pick  R:open  L:back");
+                s_dirtyRows = (1 << AppRows()) - 1;
+                break;
+
+            case MODE_APPSET:
+                DrawTitle(s_set->title);
+                DrawHint("U/D:pick  R:choose  L:back");
+                s_dirtyRows = (1 << s_set->count) - 1;  // all rows
+                break;
+
+            case MODE_COLOR:
+                DrawTitle(s_cur->label);
                 DrawHint("L/R:change  U:back");
                 s_dirtyValue = true;
                 break;
 
-            case MODE_FACTORY:
-                DrawTitle("Factory Reset");
-                DrawFactoryText(0, "Erase ALL saved data?",        COLOR_WHITE);
-                DrawFactoryText(1, "Scores and all settings",  COLOR_GRAY);
-                DrawFactoryText(2, "This cannot be undone.",       COLOR_ORANGE);
+            case MODE_CONFIRM:
+                DrawTitle(s_cur->label);
+                DrawLines(s_cur->confirm, COLOR_WHITE);
                 DrawHint("U/D:pick  R:choose  L:back");
                 s_dirtyRows = (1 << FR_BTN_NUM) - 1;    // both buttons
                 break;
 
-            case MODE_FACTORY_DONE:
-                DrawTitle("Factory Reset");
-                DrawFactoryResult();
-                DrawHint(s_resetOk ? "Any button: main menu" : "Any button: back");
-                break;
-
-            default:                                    // MODE_APPS
-                DrawTitle("Apps");
-                DrawHint("U/D:pick  R:open  L:back");
-                s_dirtyRows = (1 << AppsRowCount()) - 1;    // all rows
+            default:                                    // MODE_RESULT
+                DrawTitle(s_cur ? s_cur->label : s_set->title);
+                if(s_result) DrawLines(s_result, COLOR_WHITE);
+                DrawHint("Any button: back");
                 break;
         }
     }
@@ -684,40 +737,67 @@ static void Settings_Render(void)
     }
     else if(s_mode == MODE_APPS)
     {
-        for(i = 0; i < AppsRowCount(); i++)
-            if(s_dirtyRows & (1 << i)) DrawAppsRow(i);
+        for(i = 0; i < AppRows(); i++)
+            if(s_dirtyRows & (1 << i)) DrawAppRow(i);
         s_dirtyRows = 0;
     }
-    else if(s_mode == MODE_FACTORY)
+    else if(s_mode == MODE_APPSET)
+    {
+        for(i = 0; i < s_set->count; i++)
+            if(s_dirtyRows & (1 << i)) DrawSetRow(i);
+        s_dirtyRows = 0;
+    }
+    else if(s_mode == MODE_CONFIRM)
     {
         for(i = 0; i < FR_BTN_NUM; i++)
-            if(s_dirtyRows & (1 << i)) DrawFactoryButton(i);
+            if(s_dirtyRows & (1 << i)) DrawConfirmButton(i);
         s_dirtyRows = 0;
-    }
-    else if(s_mode == MODE_FACTORY_DONE)
-    {
-        // Static screen, nothing more to draw.
     }
     else if(s_dirtyValue)
     {
-        if(s_mode == MODE_MENUBG) DrawBgPicker();
-        else                      DrawLevel();
+        if(s_mode == MODE_COLOR) DrawColorPicker();
+        else if(s_mode == MODE_VOLUME || s_mode == MODE_BRIGHT) DrawLevel();
         s_dirtyValue = false;
     }
 }
 
 //*****************************************************************************
+// The Settings entry in Settings > Apps: Factory Reset (asks first).
+// Appends one record of factory values (blocks briefly) and sets the live volume and
+// brightness. Reachable only from the launcher's Settings tile, so no game is paused
+// underneath whose cached scores could be written back afterwards.
+//*****************************************************************************
+static const char *FactoryReset(void)
+{
+    return Memory_FactoryReset()
+        ? "Factory reset complete.|All saves and settings|are back to defaults."
+        : "Factory reset failed.|The flash write did not|work. Try again.";
+}
+
+static const SettingItem s_selfItems[] =
+{
+    {   "Factory Reset", SET_ACTION,
+        NULL, NULL,
+        0, NULL, NULL, NULL, NULL, NULL,
+        FactoryReset, "Erase ALL saved data?|Scores and all settings|This cannot be undone.",
+        "Erase Everything", true, NULL },
+};
+
+static const AppSettings s_selfSettings = { "Factory Reset", s_selfItems, 1 };
+
+//*****************************************************************************
 // The app descriptor: the ONLY public symbol in this file.
-//   Already declared in apps.h and listed in g_apps[] in app/apps.c.
+//   Not listed in g_apps[]: the runner opens it on top of the running app.
 //*****************************************************************************
 const App g_settingsApp =
 {
-    "Settings",                         // name (first letter = menu tile icon)
-    "Change User Settings",             // hint shown under the menu
-    COLOR_DARK_GRAY,                    // menu tile color
+    "Settings",                         // name (launcher tile and Settings > Apps row)
+    "Volume, brightness, app settings", // hint
+    COLOR_DARK_GRAY,                    // color
     RC_FRAME_US,                        // frame period
     Settings_Init, Settings_Update, Settings_Render,
-    Save_SyncSettings,                  // exit(): save volume + brightness to flash
+    Memory_SyncSettings,                // exit(): save volume + brightness to flash
     NULL,                               // not a legacy app
-    NULL                                // no redraw() (Settings is never paused)
+    NULL,                               // no redraw() (the pause menu is never paused)
+    &s_selfSettings                     // Settings > Apps > Settings = Factory Reset
 };

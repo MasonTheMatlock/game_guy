@@ -2694,7 +2694,7 @@ static int16_t TtUpdate(void)
             if(tt_col == tt_gap)
             {
                 tt_row = 13;
-                Buzzer_PlaySfx(&sfx_tetris_say);
+                Buzzer_PlaySfx(&sfx_explosion);
                 return MG_WIN;
             }
             Buzzer_PlaySfx(&sfx_thud);
@@ -3529,7 +3529,7 @@ static int16_t MlUpdate(void)
 
     if(!ml_started && s_frame >= 2)                             // start the music after the first screen is up
     {
-        Buzzer_PlaySong(&song_melatonin, 1);
+        Buzzer_PlaySong(&song_corridor_run, 1);
         ml_t0 = TimerNow();
         ml_started = true;
     }

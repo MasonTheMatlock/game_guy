@@ -1,6 +1,6 @@
 //#############################################################################
 // FILE:   app/settings.h
-// TITLE:  Settings app - public descriptor
+// TITLE:  Pause menu - public descriptor (runs over the running app)
 //#############################################################################
 
 #ifndef __SETTINGS_H__
