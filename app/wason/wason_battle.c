@@ -15,8 +15,7 @@
 static const char *const *const kPkArt[3] = { ww_kArtFire, ww_kArtWater, ww_kArtGrass };
 static const int16_t  kPkCounter[3] = { 1, 2, 0 };          // fire<-water, water<-grass, grass<-fire
 static const char    *kPkName[3]   = { "FIRE", "WATER", "GRASS" };
-
-static int16_t pk_t, pk_hits, pk_shown, pk_drawn, pk_mv, pk_ax, pk_sx, pk_smv;
+static int16_t pk_t, pk_hits, pk_shown, pk_drawn, pk_mv, pk_ax, pk_sx;
 static bool    pk_anim, pk_sDr;
 
 void ww_PkInit(uint16_t spd)
@@ -88,7 +87,7 @@ void ww_PkRender(void)
     {
         PkStream(pk_ax, pk_mv);                                 // new first, then clear what it left
         if(pk_sDr) ww_EraseOutside(pk_sx, 86, 28, 14, pk_ax, 86, 28, 14, PK_BG);
-        pk_sx = pk_ax;  pk_smv = pk_mv;  pk_sDr = true;
+        pk_sx = pk_ax;  pk_sDr = true;
     }
     else if(pk_sDr) { ww_Box(pk_sx, 86, 28, 14, PK_BG); pk_sDr = false; }
     if(pk_shown != pk_hits)

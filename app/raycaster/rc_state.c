@@ -110,7 +110,7 @@ uint16_t rc_flowQ[RC_MAP_CELLS];
 int16_t  rc_flowTx = -1;
 int16_t  rc_flowTy = -1;
    // player tile the flow field was built for
-static uint16_t s_portalTick;
+//static uint16_t s_portalTick;
 uint16_t rc_portalPhase;
 
 Enemy    rc_en[RC_MAX_ENEMIES];

@@ -39,7 +39,7 @@ static void SetPal(uint16_t type, const PalEnt *list)
 void rc_BuildTables(void)
 {
     uint16_t i, c, sh, x, y, n;
-    float    s, co, f;
+    float    s, f;
 
     if(rc_tablesReady) return;
 
