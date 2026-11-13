@@ -106,7 +106,7 @@ int16_t ww_PmUpdate(void)
             pm_moved = true;
             if(pm_d[pm_y][pm_x] == 1) { pm_d[pm_y][pm_x] = 0; pm_eaten++; Buzzer_PlaySfx(&sfx_blip); }
             else if(pm_d[pm_y][pm_x] == 2) { pm_d[pm_y][pm_x] = 0; pm_fr = 90; Buzzer_PlaySfx(&sfx_powerup); }
-            if(pm_eaten >= 12) return MG_WIN;
+            if(pm_eaten >= 50) return MG_WIN;
         }
     }
     if(--pm_gc <= 0)

@@ -67,6 +67,7 @@ const App *const g_apps[] =
     &g_tetrisApp,           // app/tetris/
     &g_raycasterApp,        // app/raycaster/
     &g_testApp,             // app/test/
+    &g_wasonwareApp        // Wason 
 };
 
 

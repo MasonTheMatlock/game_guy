@@ -60,7 +60,7 @@ int16_t ww_MlUpdate(void)
 
     if(!ml_started && ww_frame >= 2)                             // start the music after the first screen is up
     {
-        Buzzer_PlaySong(&song_melatonin, 1);
+        Buzzer_PlaySong(&song_wasonware, 1);
         ml_t0 = TimerNow();
         ml_started = true;
     }

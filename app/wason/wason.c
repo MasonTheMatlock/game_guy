@@ -421,21 +421,38 @@ static AppStatus WW_Update(void)
             break;
 
         case PH_TAUNT:
-            if(g_joy.btnPressed || g_dpad.dPressed) { GoPhase(PH_INTRO); break; }
+            if(g_joy.btnPressed || g_dpad.dPressed)
+             {
+            GoPhase(PH_INTRO);
+             break;
+             }
+
             if(s_tChars < TAUNT_LEN)
             {
-                if((s_t % 4) == 0)
-                {
-                    s_tChars++;
-                    if(s_tChars != 13) { Buzzer_PlaySfx(&sfx_talk); s_tOpen = !s_tOpen; }   // letter: blip + flap
-                    else s_tOpen = false;                                                    // the space
-                    s_tPart |= 3;
-                }
+            if((s_t % 4) == 0)
+            {
+                s_tChars++;
+
+            if(s_tChars != 13) {
+                WasonVoice_Tick(s_tChars);
+                s_tOpen = !s_tOpen;
             }
+            else {
+                s_tOpen = false;  // space
+            }
+
+            s_tPart |= 3;
+        }
+    }
             else
             {
-                if(s_tOpen) { s_tOpen = false; s_tPart |= 2; }
-                if(++s_tHold > 50) GoPhase(PH_INTRO);
+            if(s_tOpen) {
+                s_tOpen = false;
+                s_tPart |= 2;
+            }
+
+            if(++s_tHold > 50)
+                GoPhase(PH_INTRO);
             }
             break;
 

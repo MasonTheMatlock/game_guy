@@ -22,6 +22,7 @@
 #define WASON_PRIV_H
 
 #include "wason.h"
+#include "wason_sound.h"
 
 //*****************************************************************************
 // 1. Layout and shared types
