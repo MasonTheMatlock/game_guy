@@ -1,202 +1,163 @@
+
 /*
-// TI File $Revision: /main/3 $
-// Checkin $Date: March 3, 2011   13:45:43 $
-//###########################################################################
-//
+//#############################################################################
 // FILE:    28069_RAM_lnk.cmd
 //
-// TITLE:   Linker Command File For F28069 examples that run out of RAM
+// TITLE:   Game Guy - Flash-Based Debug Linker Command File
+// DEVICE:  TMS320F28069M
 //
-//          This ONLY includes all SARAM blocks on the F28069 device.
-//          This does not include flash or OTP.
+// DESCRIPTION:
+//   Flash-based execution with Debug symbols and RAM-resident functions.
 //
-//          Keep in mind that L0,L1,L2,L3 and L4 are protected by the code
-//          security module.
+//   FLASH A-E: Program code and constants
+//   FLASH F:   Splash screen and additional constants
+//   FLASH G/H: Reserved for Game Guy settings and high scores
 //
-//          What this means is in most cases you will want to move to
-//          another memory map file which has more memory defined.
-//
-//###########################################################################
-// $TI Release: $ 
-// $Release Date: $ 
-//###########################################################################
-*/
-
-/* ======================================================
-// For Code Composer Studio V2.2 and later
-// ---------------------------------------
-// In addition to this memory linker command file,
-// add the header linker command file directly to the project.
-// The header linker command file is required to link the
-// peripheral structures to the proper locations within
-// the memory map.
-//
-// The header linker files are found in <base>\F2806x_headers\cmd
-//
-// For BIOS applications add:      F2806x_Headers_BIOS.cmd
-// For nonBIOS applications add:   F2806x_Headers_nonBIOS.cmd
-========================================================= */
-
-/* ======================================================
-// For Code Composer Studio prior to V2.2
-// --------------------------------------
-// 1) Use one of the following -l statements to include the
-// header linker command file in the project. The header linker
-// file is required to link the peripheral structures to the proper
-// locations within the memory map                                    */
-
-/* Uncomment this line to include file only for non-BIOS applications */
-/* -l F2806x_Headers_nonBIOS.cmd */
-
-/* Uncomment this line to include file only for BIOS applications */
-/* -l F2806x_Headers_BIOS.cmd */
-
-/* 2) In your project add the path to <base>\F2806x_headers\cmd to the
-   library search path under project->build options, linker tab,
-   library search path (-i).
-/*========================================================= */
-
-/* Define the memory block start/length for the F2806x
-   PAGE 0 will be used to organize program sections
-   PAGE 1 will be used to organize data sections
-
-   Notes:
-         Memory blocks on F28069 are uniform (ie same
-         physical memory) in both PAGE 0 and PAGE 1.
-         That is the same memory region should not be
-         defined for both PAGE 0 and PAGE 1.
-         Doing so will result in corruption of program
-         and/or data.
-
-         Contiguous SARAM memory blocks can be combined
-         if required to create a larger memory block.
+//   RAML0-L4: RAM-resident functions
+//   RAML5-L6: Global and static variables
+//   RAML7:    Heap
+//   RAML8:    C I/O
+//#############################################################################
 */
 
 MEMORY
 {
-PAGE 0 :
-   /* BEGIN is used for the "boot to SARAM" bootloader mode   */
+PAGE 0 : /* PROGRAM MEMORY */
 
-   BEGIN       : origin = 0x000000, length = 0x000002
-   RAMM0       : origin = 0x000050, length = 0x0003B0
-   RAML0_L6    : origin = 0x008000, length = 0x008000	 /* RAML0-4 combined for size of .text */
-   														 /* in Example_F2806xSWPrioritezedInterrupts */
-   RESET       : origin = 0x3FFFC0, length = 0x000002
-   FPUTABLES   : origin = 0x3FD860, length = 0x0006A0	 /* FPU Tables in Boot ROM */
-   IQTABLES    : origin = 0x3FDF00, length = 0x000B50    /* IQ Math Tables in Boot ROM */
-   IQTABLES2   : origin = 0x3FEA50, length = 0x00008C    /* IQ Math Tables in Boot ROM */
-   IQTABLES3   : origin = 0x3FEADC, length = 0x0000AA	 /* IQ Math Tables in Boot ROM */
+    RAML0_4     : origin = 0x008000, length = 0x004000
 
-   BOOTROM    : origin = 0x3FF3B0, length = 0x000C10
+    OTP         : origin = 0x3D7800, length = 0x000400
+
+    /* Flash G and H intentionally reserved for drivers/save.c */
+
+    FLASHF      : origin = 0x3E0000, length = 0x004000
+    FLASHE      : origin = 0x3E4000, length = 0x004000
+
+    FLASHCD     : origin = 0x3E8000, length = 0x008000
+
+    FLASHB      : origin = 0x3F0000, length = 0x004000
+
+    FLASHA      : origin = 0x3F4000, length = 0x003F80
+
+    CSM_RSVD    : origin = 0x3F7F80, length = 0x000076
+    BEGIN       : origin = 0x3F7FF6, length = 0x000002
+    CSM_PWL_P0  : origin = 0x3F7FF8, length = 0x000008
+
+    FPUTABLES   : origin = 0x3FD860, length = 0x0006A0
+    IQTABLES    : origin = 0x3FDF00, length = 0x000B50
+    IQTABLES2   : origin = 0x3FEA50, length = 0x00008C
+    IQTABLES3   : origin = 0x3FEADC, length = 0x0000AA
+
+    ROM         : origin = 0x3FF3B0, length = 0x000C10
+    RESET       : origin = 0x3FFFC0, length = 0x000002
+    VECTORS     : origin = 0x3FFFC2, length = 0x00003E
 
 
-PAGE 1 :
+PAGE 1 : /* DATA MEMORY */
 
-   BOOT_RSVD   : origin = 0x000002, length = 0x00004E     /* Part of M0, BOOT rom will use this for stack */
-   RAMM1       : origin = 0x000400, length = 0x000400     /* on-chip RAM block M1 */
-  // RAML5       : origin = 0x00C000, length = 0x002000     /* on-chip RAM block L5 */
-  // RAML6       : origin = 0x00E000, length = 0x002000     /* on-chip RAM block L6 */
-   RAML7       : origin = 0x010000, length = 0x002000     /* on-chip RAM block L7 */
-   RAML8       : origin = 0x012000, length = 0x002000     /* on-chip RAM block L8 */
-   USB_RAM     : origin = 0x040000, length = 0x000800     /* USB RAM		  */
+    BOOT_RSVD   : origin = 0x000000, length = 0x000050
+    RAMM0       : origin = 0x000050, length = 0x0003B0
+    RAMM1       : origin = 0x000400, length = 0x000400
 
-   /* Flash sector F holds the constant data (.econst: fonts, songs, art).
-      Sectors G (0x3DC000) and H (0x3D8000) are intentionally NOT listed so
-      the linker never uses them: keep high scores / settings in one of those.
-      Flash erases a whole sector at once, so never share a sector. */
-   FLASHF      : origin = 0x3E0000, length = 0x004000     /* on-chip FLASH sector F */
+    RAML5       : origin = 0x00C000, length = 0x002000
+    RAML6       : origin = 0x00E000, length = 0x002000
+    RAML7       : origin = 0x010000, length = 0x002000
+    RAML8       : origin = 0x012000, length = 0x002000
+
+    USB_RAM     : origin = 0x040000, length = 0x000800
 }
 
+
+/*#############################################################################
+   SECTION ALLOCATION
+#############################################################################*/
 
 SECTIONS
 {
-   /* Setup for "boot to SARAM" mode:
-      The codestart section (found in DSP28_CodeStartBranch.asm)
-      re-directs execution to the start of user code.  */
-   codestart        : > BEGIN,      PAGE = 0
-   
+    /* Program initialization */
+    .cinit          : > FLASHCD, PAGE = 0
+    .pinit          : > FLASHCD, PAGE = 0
+
+    /* Executable code distributed across Flash */
+    .text           : { *(.text) } >> FLASHA | FLASHB | FLASHCD, PAGE = 0
+
+    /* Flash boot entry */
+    codestart       : > BEGIN, PAGE = 0
+
+    /* RAM-resident functions loaded from Flash */
 #ifdef __TI_COMPILER_VERSION__
-   #if __TI_COMPILER_VERSION__ >= 15009000
-    .TI.ramfunc     : > RAMM0,      PAGE = 0
-   #else
-   ramfuncs         : > RAMM0,      PAGE = 0   
-   #endif
-#endif 
-   
-   /* Code section takes up your unified 0x8000 block */
-   .text            : > RAML0_L6,   PAGE = 0
-   .cinit           : > RAMM0,      PAGE = 0
-   .pinit           : > RAMM0,      PAGE = 0
-   .switch          : > RAMM0,      PAGE = 0
-   .reset           : > RESET,      PAGE = 0, TYPE = DSECT /* not used, */
+    #if __TI_COMPILER_VERSION__ >= 15009000
 
-   .stack           : > RAMM1,      PAGE = 1
-   
-   /* Unified EABI/COFF Uninitialized Data (Variables) shifted to RAML7 */
-   .ebss            : > RAML7,      PAGE = 1
-   .bss             : > RAML7,      PAGE = 1
+    .TI.ramfunc     : {}
+        LOAD = FLASHCD,
+        RUN = RAML0_4,
+        LOAD_START(_RamfuncsLoadStart),
+        LOAD_END(_RamfuncsLoadEnd),
+        RUN_START(_RamfuncsRunStart),
+        LOAD_SIZE(_RamfuncsLoadSize),
+        PAGE = 0
 
-   /* Unified EABI/COFF Constant Data (Fonts, Strings, Tables) now lives in flash
-      sector F (was RAML8, which overflowed). RAML8 is still used by DMARAML8. */
-   .econst          : > FLASHF,     PAGE = 1
-   .const           : > FLASHF,     PAGE = 1
+    #else
 
-   /* Dynamic Memory Allocation heap shifted to RAML7 */
-   .esysmem         : > RAML7,      PAGE = 1
-   .sysmem          : > RAML7,      PAGE = 1
-   
-   /* Initialized Variables Data section (EABI Specific) mapped safely */
-   .data            : > RAML7,      PAGE = 1
+    ramfuncs        :
+        LOAD = FLASHCD,
+        RUN = RAML0_4,
+        LOAD_START(_RamfuncsLoadStart),
+        LOAD_END(_RamfuncsLoadEnd),
+        RUN_START(_RamfuncsRunStart),
+        LOAD_SIZE(_RamfuncsLoadSize),
+        PAGE = 0
 
-   /* IQmath code mapping updated to the unified block */
-   IQmath           : > RAML0_L6,   PAGE = 0
-   IQmathTables     : > IQTABLES,   PAGE = 0, TYPE = NOLOAD
-   
-   /* Allocate FPU math areas: */
-   FPUmathTables    : > FPUTABLES,  PAGE = 0, TYPE = NOLOAD
-   
-   /* DMA buffers updated to map only to existing physical memory blocks */
-   DMARAML5	        : > RAML7,      PAGE = 1
-   DMARAML6	        : > RAML7,      PAGE = 1
-   DMARAML7	        : > RAML7,      PAGE = 1
-   DMARAML8	        : > RAML8,      PAGE = 1
- 
+    #endif
+#endif
 
-  /* Uncomment the section below if calling the IQNexp() or IQexp()
-      functions from the IQMath.lib library in order to utilize the
-      relevant IQ Math table in Boot ROM (This saves space and Boot ROM
-      is 1 wait-state). If this section is not uncommented, IQmathTables2
-      will be loaded into other memory (SARAM, Flash, etc.) and will take
-      up space, but 0 wait-state is possible.
-   */
-   /*
-   IQmathTables2    : > IQTABLES2, PAGE = 0, TYPE = NOLOAD
-   {
+    /* CSM */
+    csmpasswds      : > CSM_PWL_P0, PAGE = 0
+    csm_rsvd        : > CSM_RSVD, PAGE = 0
 
-              IQmath.lib<IQNexpTable.obj> (IQmathTablesRam)
 
-   }
-   */
-   /* Uncomment the section below if calling the IQNasin() or IQasin()
-      functions from the IQMath.lib library in order to utilize the
-      relevant IQ Math table in Boot ROM (This saves space and Boot ROM
-      is 1 wait-state). If this section is not uncommented, IQmathTables2
-      will be loaded into other memory (SARAM, Flash, etc.) and will take
-      up space, but 0 wait-state is possible.
-   */
-   /*
-   IQmathTables3    : > IQTABLES3, PAGE = 0, TYPE = NOLOAD
-   {
+    /* Runtime data */
+    .stack          : > RAMM0, PAGE = 1
 
-              IQmath.lib<IQNasinTable.obj> (IQmathTablesRam)
+    .ebss           : >> RAML5 | RAML6, PAGE = 1
 
-   }
-   */
+    .esysmem        : > RAML7, PAGE = 1
 
+    .cio            : > RAML8, PAGE = 1
+
+
+    /* Game Guy assets */
+    .splash         : > FLASHF, PAGE = 0
+
+    .econst         : >> FLASHE | FLASHF, PAGE = 0
+
+    .switch         : > FLASHF, PAGE = 0
+
+
+    /* IQMath */
+    IQmath          : > FLASHE, PAGE = 0
+
+    IQmathTables    : > IQTABLES, PAGE = 0, TYPE = NOLOAD
+
+
+    /* FPU tables */
+    FPUmathTables   : > FPUTABLES, PAGE = 0, TYPE = NOLOAD
+
+
+    /* DMA RAM */
+    DMARAML5        : > RAML5, PAGE = 1
+    DMARAML6        : > RAML6, PAGE = 1
+    DMARAML7        : > RAML7, PAGE = 1
+    DMARAML8        : > RAML8, PAGE = 1
+
+
+    /* Reset and interrupt vectors */
+    .reset          : > RESET, PAGE = 0, TYPE = DSECT
+    vectors         : > VECTORS, PAGE = 0, TYPE = DSECT
 }
 
 /*
-//===========================================================================
-// End of file.
-//===========================================================================
+//#############################################################################
+// END OF FILE
+//#############################################################################
 */

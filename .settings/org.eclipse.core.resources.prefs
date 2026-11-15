@@ -1,6 +1,16 @@
 eclipse.preferences.version=1
+encoding//Debug/app/menu/subdir_rules.mk=UTF-8
+encoding//Debug/app/menu/subdir_vars.mk=UTF-8
+encoding//Debug/app/raycaster/subdir_rules.mk=UTF-8
+encoding//Debug/app/raycaster/subdir_vars.mk=UTF-8
 encoding//Debug/app/subdir_rules.mk=UTF-8
 encoding//Debug/app/subdir_vars.mk=UTF-8
+encoding//Debug/app/test/subdir_rules.mk=UTF-8
+encoding//Debug/app/test/subdir_vars.mk=UTF-8
+encoding//Debug/app/tetris/subdir_rules.mk=UTF-8
+encoding//Debug/app/tetris/subdir_vars.mk=UTF-8
+encoding//Debug/app/wason/subdir_rules.mk=UTF-8
+encoding//Debug/app/wason/subdir_vars.mk=UTF-8
 encoding//Debug/board_support/subdir_rules.mk=UTF-8
 encoding//Debug/board_support/subdir_vars.mk=UTF-8
 encoding//Debug/drivers/subdir_rules.mk=UTF-8
