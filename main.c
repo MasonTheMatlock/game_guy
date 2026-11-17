@@ -24,6 +24,7 @@
 #include "grlib/grlib.h"
 #include "drivers/drivers.h"
 #include "app/apps.h"
+#include "HAL_F28069_DFR0299_MP3_UART.h"
 
 //*****************************************************************************
 // MEMORY WIPE
@@ -81,6 +82,13 @@ void main(void)
     InitSysCtrl();
     InitGpio();
 
+    EALLOW;
+    GpioCtrlRegs.GPAMUX1.bit.GPIO6 = 0;     // plain GPIO
+    GpioCtrlRegs.GPADIR.bit.GPIO6  = 1;     // output
+    GpioDataRegs.GPACLEAR.bit.GPIO6 = 1;    // low = buzzer off
+    EDIS;
+
+    
     // Step 2. Interrupts off, default vector table installed.
     DINT;
     InitPieCtrl();
@@ -105,6 +113,8 @@ void main(void)
     //         enabled here, last, once every vector is in place.
     Buzzer_Init();
 
+    MP3_init(20);              // from Mp3.h, already included via drivers.h
+
     EALLOW;
     GpioCtrlRegs.GPAMUX1.bit.GPIO0 = 0;  // Force back to standard GPIO first
     GpioDataRegs.GPACLEAR.bit.GPIO0 = 1; // Clear any residual high latch state
@@ -121,9 +131,16 @@ void main(void)
     EINT;
     ERTM;
 
-    Buzzer_PlaySfx(&sfx_boot_dmg);
+     MP3_playTrack(2);          // /MP3/0001.mp3
+     DELAY_US(10000);
+
+    Buzzer_PlaySfx(&sfx_coin);
     Splash_Show();
 
+    // --- TEMP: MP3 HAL test, remove when it works ---
+  
+       
+    // ------------------------------------------------
     
 
     // Step 6. Menu -> app -> menu -> ... (never returns)

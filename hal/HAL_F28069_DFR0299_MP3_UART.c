@@ -88,12 +88,50 @@ void HAL_MP3_init(void)
 
 void HAL_MP3_sendByte(Uint16 byte)
 {
+    // TEST BUILD: pace the transmitter one byte at a time. Scope captures
+    // showed bytes 1..5 of every 10-byte frame never reached the pin, so we
+    // stop relying on the TX FIFO queue: wait until the FIFO is empty, write
+    // ONE byte, then wait out its full 10-bit time (1042 us at 9600 baud).
     Uint32 timeout = 100000UL;
-    while((ScibRegs.SCIFFTX.bit.TXFFST >= 16) && (--timeout > 0))
+    while((ScibRegs.SCIFFTX.bit.TXFFST != 0) && (--timeout > 0))
     {
         ;
     }
     ScibRegs.SCITXBUF = byte & 0xFF;
+    DELAY_US(1100L);
+}
+
+// Sends one complete 10-byte DFPlayer frame using only the HAL (no Mp3.c).
+void HAL_MP3_sendFrame(Uint16 cmd, Uint16 p1, Uint16 p2)
+{
+    Uint16 sum = (Uint16)(0xFF + 0x06 + cmd + 0x00 + p1 + p2);
+    Uint16 csum = (Uint16)(0 - sum);
+
+    HAL_MP3_sendByte(0x7E);
+    HAL_MP3_sendByte(0xFF);
+    HAL_MP3_sendByte(0x06);
+    HAL_MP3_sendByte(cmd);
+    HAL_MP3_sendByte(0x00);                // FB = 0, no ACK
+    HAL_MP3_sendByte(p1);
+    HAL_MP3_sendByte(p2);
+    HAL_MP3_sendByte((csum >> 8) & 0xFF);
+    HAL_MP3_sendByte(csum & 0xFF);
+    HAL_MP3_sendByte(0xEF);
+}
+
+// HAL-only bring-up loop. Never returns. Expected on J5.47 every cycle:
+//   7E FF 06 06 00 00 14 FE E1 EF   (volume 20)
+//   7E FF 06 12 00 00 01 FE E8 EF   (play /MP3/0001.mp3)
+void HAL_MP3_testLoop(void)
+{
+    HAL_MP3_delayMs(1500);                 // let the module boot
+    for(;;)
+    {
+        HAL_MP3_sendFrame(0x06, 0, 20);
+        HAL_MP3_delayMs(100);
+        HAL_MP3_sendFrame(0x12, 0, 1);         // /MP3/0001.mp3
+        HAL_MP3_delayMs(3000);
+    }
 }
 
 Uint16 HAL_MP3_rxCount(void)

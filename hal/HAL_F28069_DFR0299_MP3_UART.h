@@ -72,6 +72,12 @@ extern Uint16 HAL_MP3_getBrr(void);
 // on RX, 0 otherwise.
 extern Uint16 HAL_MP3_loopbackTest(void);
 
+// Send one full 10-byte frame (7E FF 06 cmd 00 p1 p2 csumH csumL EF), HAL only.
+extern void HAL_MP3_sendFrame(Uint16 cmd, Uint16 p1, Uint16 p2);
+
+// HAL-only bring-up loop: volume 20, then play track 1, repeating. Never returns.
+extern void HAL_MP3_testLoop(void);
+
 // Sends 0x55 forever for scope/logic-analyzer baud verification (104 us/bit).
 extern void HAL_MP3_txTest(void);
 

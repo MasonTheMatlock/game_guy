@@ -23,7 +23,7 @@
 extern "C" {
 #endif
 
-#define MP3_VOLUME_MAX      30      // module range is 0..30
+#define MP3_VOLUME_MAX      25      // module range is 0..30
 
 // Equalizer presets for MP3_setEQ()
 #define MP3_EQ_NORMAL       0

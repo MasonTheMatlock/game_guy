@@ -74,14 +74,14 @@ void MP3_sendCommand(Uint16 cmd, Uint16 param1, Uint16 param2)
     Uint16 sum;
     Uint16 csum;
 
-    sum = (Uint16)(0xFF + 0x06 + cmd + 0x00 + param1 + param2);
+    sum = (Uint16)(0xFF + 0x06 + cmd + 0x01 + param1 + param2);
     csum = (Uint16)(0 - sum);
 
     HAL_MP3_sendByte(0x7E);
     HAL_MP3_sendByte(0xFF);
     HAL_MP3_sendByte(0x06);
     HAL_MP3_sendByte(cmd);
-    HAL_MP3_sendByte(0x00);                // no ACK requested
+    HAL_MP3_sendByte(0x01);                // ACK requested
     HAL_MP3_sendByte(param1);
     HAL_MP3_sendByte(param2);
     HAL_MP3_sendByte((csum >> 8) & 0xFF);
