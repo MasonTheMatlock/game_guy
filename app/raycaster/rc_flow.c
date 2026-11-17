@@ -26,44 +26,54 @@ void rc_ResetRun(void)
     rc_mana = MANA_MAX;
     rc_manaAcc = rc_manaFlash = 0;
     rc_manaShown = -1;
+    rc_pSlow = rc_nullify = rc_pull = 0;
+    rc_miniKills = rc_miniAlive = rc_miniPending = 0;
+    rc_lastMini = 0xFFFFu;
+    rc_dragonKills = 0;
+    rc_chestTimer = 0;
     rc_lastMap = 0xFFFFu;
     rc_wLoaded = 0xFFFFu;
 }
 
 
-static void MakeLevelDef(uint16_t d, LevelDef *o)
+static void MakeLevelDef(uint16_t d, LevelDef *o, bool dragon, bool treasure)
 {
     uint16_t t;
 
-    o->boss = rc_IsBossLevel(d) ? 1u : 0u;
+    o->boss     = dragon ? 1u : 0u;
+    o->treasure = treasure ? 1u : 0u;
 
     t = (uint16_t)(8u + 3u * d);                // more enemies each room
     if(t > 70u) t = 70u;
-    o->total = o->boss ? 1u : t;
+    o->total = dragon ? 1u : treasure ? 0u : t;
 
     t = (uint16_t)(4u + d / 2u);                // more at once
     if(t > 10u) t = 10u;
     o->maxAlive = t;
 
     o->gap = (d >= 14u) ? 18u : (uint16_t)(60u - 3u * d);   // faster arrivals
-
-    o->pSkel  = (d >= 1u) ? ((8u * d  > 26u) ? 26u : 8u * d)  : 0u;
-    o->pBat   = (d >= 1u) ? ((10u + 2u * d > 22u) ? 22u : 10u + 2u * d) : 0u;
-    o->pBrute = (d >= 2u) ? ((6u * (d - 1u) > 24u) ? 24u : 6u * (d - 1u)) : 0u;
-    o->pBeh   = (d >= 3u) ? ((4u * (d - 2u) > 14u) ? 14u : 4u * (d - 2u)) : 0u;
 }
 
 
 // A new round starts without touching the map: only the wave numbers change.
+//   * every 2nd round a mini-boss joins the wave (one at a time)
+//   * round 5, 15, 25 ... is a treasure round (a chest, 1 in 4 is a Mimic)
+//   * the Dragon round comes once 3 mini-bosses are beaten and all 6 doors are bought
 static void StartRound(uint16_t r)
 {
+    bool dragon   = (rc_miniKills >= RC_DRAGON_MINIS) && (rc_doorsBought >= 6u) && !rc_bossAlive;
+    bool treasure = !dragon && (((r + 1u) % 10u) == RC_TREASURE_AT);
+
     rc_level = r;
-    MakeLevelDef(r, &rc_lv);
+    MakeLevelDef(r, &rc_lv, dragon, treasure);
     rc_toSpawn     = rc_lv.total;
     rc_spawnTimer  = 45;
     rc_bossSpawned = rc_bossAlive = 0;
     rc_roundGap    = 0;
-    if((r + 1u) >= (RC_BOSS_EVERY * 2u) && !rc_doorBought[7])
+    rc_miniPending = (!dragon && !treasure && ((r + 1u) % RC_MINI_EVERY) == 0u && rc_miniAlive == 0u) ? 1u : 0u;
+    rc_chestTimer  = 0;
+
+    if(dragon && !rc_doorBought[7])             // the Dragon Den door opens by itself
     {
         uint16_t mi;
         rc_doorBought[7] = true;
@@ -74,6 +84,7 @@ static void StartRound(uint16_t r)
         rc_viewDirty = 2;
         rc_doorShown = 0xFFFFu;
     }
+    if(treasure) rc_StartTreasure();
     rc_hud        |= HUD_TOPR | HUD_LEFT;
     if(r > 0u) rc_Sfx(&sfx_level_up);
 }
@@ -152,6 +163,28 @@ static void UpdateDoorNear(void)
 }
 
 
+// Treasure round: done once the chest is opened, the Mimic is dead, or 30 s are up.
+static bool TreasureDone(void)
+{
+    uint16_t i;
+    bool     any = false;
+
+    if(rc_chestTimer && --rc_chestTimer == 0)       // too slow: the chest vanishes
+    {
+        for(i = 0; i < RC_MAX_OBJ; i++)
+            if(rc_obj[i].alive && rc_obj[i].kind == OB_CHEST) rc_obj[i].alive = 0;
+        for(i = 0; i < RC_MAX_ENEMIES; i++)
+            if(rc_en[i].alive && rc_en[i].type == ET_MIMIC) { rc_en[i].alive = 0; if(rc_alive) rc_alive--; }
+        return true;
+    }
+    for(i = 0; i < RC_MAX_OBJ; i++)
+        if(rc_obj[i].alive && rc_obj[i].kind == OB_CHEST) any = true;
+    if(rc_CountType(ET_MIMIC)) any = true;
+    if(!any) rc_chestTimer = 0;
+    return !any;
+}
+
+
 static void BuyDoor(uint16_t k)
 {
     uint16_t i, cost = rc_DoorCost();
@@ -193,6 +226,8 @@ void rc_UpdatePlay(void)
     if(rc_fxTimer) rc_fxTimer--;
     if(rc_sfxHold) rc_sfxHold--;
     if(rc_stepBlock) rc_stepBlock--;
+    if(rc_pSlow)   { rc_pSlow--;   if(!rc_pSlow)   rc_hud |= HUD_HINT; }
+    if(rc_nullify) { rc_nullify--; if(!rc_nullify) rc_hud |= HUD_HINT; }
 
     for(i = 0; i < NUM_SLOT; i++)               // cooldowns (Haste ticks them twice)
     {
@@ -220,6 +255,7 @@ void rc_UpdatePlay(void)
     {
         sp  = (int16_t)(RC_MOVE_SPEED + ((RC_MOVE_SPEED * rc_lvSpeed) >> 3));
         if(rc_haste) sp += (int16_t)(sp >> 1);
+        if(rc_pSlow) sp = (int16_t)(sp >> 1);                  // webbed / frozen
         fwd = (int16_t)(((int32_t)jy * sp * 41L) >> 12);        // stick/100 * speed
         str = (int16_t)(((int32_t)jx * sp * 41L) >> 12);
         c   = COS(rc_ang);
@@ -245,10 +281,23 @@ void rc_UpdatePlay(void)
     }
 #endif
 
+    // The Beholder's gravity eye drags you toward it
+    if(rc_pull)
+    {
+        int16_t gx = (int16_t)(rc_pullX - rc_px), gy = (int16_t)(rc_pullY - rc_py), gd = Dist10(gx, gy);
+
+        rc_pull--;
+        if(gd > 600)
+        {
+            rc_PlayerPush((int16_t)(((int32_t)gx * 24L) / gd), (int16_t)(((int32_t)gy * 24L) / gd));
+            moved = true;
+        }
+    }
+
     // Mana refills slowly while the stick is released (turning still counts as standing)
     if(jx || jy)
         rc_manaAcc = 0;
-    else if(rc_mana < MANA_MAX && ++rc_manaAcc >= MANA_REGEN_FRAMES)
+    else if(!rc_nullify && rc_mana < MANA_MAX && ++rc_manaAcc >= MANA_REGEN_FRAMES)
     {
         rc_manaAcc = 0;
         rc_mana++;
@@ -271,8 +320,11 @@ void rc_UpdatePlay(void)
     {
         if(rc_roundGap == 0)
         {
-            bool cleared = rc_lv.boss ? (rc_bossSpawned && !rc_bossAlive)
-                                     : (rc_toSpawn == 0 && rc_alive == 0);
+            bool cleared;
+
+            if(rc_lv.boss)           cleared = (rc_bossSpawned && !rc_bossAlive);
+            else if(rc_lv.treasure)  cleared = TreasureDone();
+            else                     cleared = (rc_toSpawn == 0 && rc_CountRegular() == 0 && !rc_miniPending);
             if(cleared)
             {
                 rc_roundGap = ROUND_GAP_FRAMES;

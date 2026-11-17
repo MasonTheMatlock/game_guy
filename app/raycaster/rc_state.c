@@ -17,12 +17,10 @@ int16_t  rc_atan[257];
                     // atan(i/256) in angle units
 uint32_t rc_wallCol[TILE_KINDS][4][2];
     // [tile][shade][side]
-uint32_t rc_pal[PT_COUNT][PAL_N];
-         // [palette][letter - 'a']
-// Sprite columns as vertical runs, packed: y0 | y1 << 4 | colour << 8
-uint16_t rc_run[SH_COUNT][SPR_N][SPR_MAXRUNS];
-
-uint16_t rc_runCnt[SH_COUNT][SPR_N];
+uint32_t rc_sprRgb[SPR_COLORS];
+          // distinct sprite colours
+uint16_t rc_palId[PT_COUNT][PAL_N];
+   // [palette][letter - 'a'] -> colour id
 
 bool     rc_tablesReady = false;
 
@@ -114,6 +112,19 @@ int16_t  rc_flowTy = -1;
 uint16_t rc_portalPhase;
 
 Enemy    rc_en[RC_MAX_ENEMIES];
+
+// New-systems state (webs, magic nullify, gravity pull, mini-boss / dragon / treasure progress)
+uint16_t rc_pSlow;
+uint16_t rc_nullify;
+uint16_t rc_pull;
+int16_t  rc_pullX;
+int16_t  rc_pullY;
+uint16_t rc_miniKills;
+uint16_t rc_miniAlive;
+uint16_t rc_miniPending;
+uint16_t rc_lastMini = 0xFFFFu;
+uint16_t rc_dragonKills;
+uint16_t rc_chestTimer;
 
 uint16_t rc_alive;
 uint16_t rc_toSpawn;

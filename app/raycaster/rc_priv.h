@@ -26,7 +26,9 @@
 //    Rounds never stop: kill the wave, a short breather, the next wave starts.
 //    Doors are BOUGHT with gold (stick button while facing one). Enemies only
 //    spawn in sections you have opened and path-find through open doors.
-//    Every 6th round is the Lich.
+//    Every 2nd round a mini-boss (Slime King, Elemental Golem, Vampire Lord, Beholder or
+//    Lich) joins the wave. Round 5, 15, 25 ... is a treasure round. Beat 3 mini-bosses
+//    with all 6 doors bought and the Dragon wakes in the central arena.
 //  * Kills give GOLD (same as before) and XP. When the XP bar fills you level
 //    up and get 3 random cards to buy with gold (or reroll them for gold).
 //  * D-pad Down cycles the equipped staff / magic item. D-pad Up uses it.
@@ -168,7 +170,9 @@ extern const Song song_corridor_run;
 
 #define RC_BOSS_HP      140
 
-#define RC_BOSS_EVERY   6               // every 6th room is the Lich
+#define RC_MINI_EVERY   2               // a mini-boss joins the wave every 2nd round
+#define RC_TREASURE_AT  5               // treasure round: round 5, 15, 25 ... ((round+1) % 10 == 5)
+#define RC_DRAGON_MINIS 3               // mini-bosses to beat (with all 6 doors bought) before the Dragon wakes
 
 
 //*****************************************************************************
@@ -219,26 +223,101 @@ extern const Song song_corridor_run;
 
 
 //*****************************************************************************
-// Enemies
-//   goblin   : plain melee                    hobgoblin : tough goblin
-//   bat      : fast, flies                    skeleton  : melee, the Lich summons them
-//   beholder : floats at range, shoots dodgeable RED LASER bolts
-//   lich     : boss. Summons skeletons, charges when angry
-//   dragon   : central-arena boss. Breathes flame volleys and tail-whips
+// Enemies (AI types: pursuit, ranged, teleport, charge, summoner, area denial)
+//   goblin, bat, hobgoblin, skeleton, watcher, ghost, slime (splits), spider (on the ceiling),
+//   bomb imp, necromancer, mimic, fire elemental.
+//   Mini-bosses: slime king, elemental golem, vampire lord, beholder, lich.
+//   dragon   : central-arena boss, only after 3 mini-bosses are beaten and all doors bought
 //*****************************************************************************
-enum { ET_GOBLIN, ET_BAT, ET_HOBGOB, ET_SKELETON, ET_BEHOLDER, ET_LICH, ET_DRAGON, ET_COUNT };
+enum { ET_GOBLIN, ET_BAT, ET_HOBGOB, ET_SKELETON, ET_WATCHER, ET_LICH, ET_DRAGON,
+       ET_SLIME, ET_SLIME_S, ET_SPIDER, ET_GHOST, ET_IMP, ET_NECRO, ET_MIMIC, ET_FIREEL,
+       ET_SLIMEKING, ET_GOLEM, ET_VAMPIRE, ET_EYEKING, ET_COUNT };
+
+// The five mini-bosses (everything big except the Dragon). One joins every 2nd round.
+#define RC_NUM_MINI     5
+#define RC_IS_MINI(t)   ((t) == ET_LICH || (t) == ET_EYEKING || (t) == ET_SLIMEKING || \
+                         (t) == ET_GOLEM || (t) == ET_VAMPIRE)
+extern const uint16_t rc_kMini[RC_NUM_MINI];
 
 
-// Sprite shapes (16x16 art) and palettes. Palette ids 0..5 match ET_*.
+// Sprite shapes (16x16 art) and palettes. Every enemy names its own palette (EnemyDef.pal).
 enum { SH_GOBLIN, SH_BAT, SH_SKELETON, SH_LICH, SH_BEHOLDER,
-       SH_FLASK, SH_BOLT, SH_PUFF, SH_DRAGON, SH_DRAGON_ATTACK, SH_COUNT };
+       SH_FLASK, SH_BOLT, SH_PUFF, SH_DRAGON, SH_DRAGON_ATTACK,
+       SH_HOBGOB,
+       SH_SLIME,
+       SH_SPIDER,
+       SH_GHOST,
+       SH_GHOST_FADE,
+       SH_IMP,
+       SH_NECRO,
+       SH_EYEKING_A,
+       SH_EYEKING_B,
+       SH_FIREEL,
+       SH_SLIMEKING_A,
+       SH_SLIMEKING_B,
+       SH_GOLEM_A,
+       SH_GOLEM_B,
+       SH_VAMP_A,
+       SH_VAMP_B,
+       SH_LICH_B,
+       SH_CHEST,
+       SH_MIMIC,
+       SH_ORB,
+       SH_WEB,
+       SH_PUDDLE,
+       SH_WARN,
+       SH_WAVE,
+       SH_ALERT,
+       SH_COUNT };
 
 enum { PT_GOBLIN, PT_BAT, PT_HOBGOB, PT_SKELETON, PT_BEHOLDER, PT_LICH,
        PT_BEHOLDER_HOT,
        PT_FLASK_FIRE, PT_FLASK_FROST, PT_FLASK_VENOM, PT_FLASK_MANA,
        PT_BOLT,
        PT_PUFF_FIRE, PT_PUFF_FROST, PT_PUFF_VENOM, PT_PUFF_ARCANE,
-       PT_DRAGON, PT_DRAGON_HOT, PT_COUNT };
+       PT_DRAGON, PT_DRAGON_HOT,
+       PT_SLIME,
+       PT_SLIME_S,
+       PT_SPIDER,
+       PT_GHOST,
+       PT_GHOST_FADE,
+       PT_IMP,
+       PT_IMP_LIT,
+       PT_NECRO,
+       PT_EYEKING,
+       PT_EYEKING_FIRE,
+       PT_EYEKING_ICE,
+       PT_EYEKING_BOLT,
+       PT_EYEKING_GRAV,
+       PT_EYEKING_NULL,
+       PT_FIREEL,
+       PT_SLIMEKING,
+       PT_GOLEM_FIRE,
+       PT_GOLEM_ICE,
+       PT_GOLEM_STORM,
+       PT_VAMP,
+       PT_CHEST,
+       PT_CHEST_CURSED,
+       PT_MIMIC,
+       PT_ORB_PURPLE,
+       PT_ORB_GREEN,
+       PT_ORB_BLOOD,
+       PT_ORB_FIRE,
+       PT_ORB_ICE,
+       PT_ORB_BOLT,
+       PT_WEB,
+       PT_PUDDLE_SLIME,
+       PT_PUDDLE_FIRE,
+       PT_PUDDLE_WEB,
+       PT_PUDDLE_BLAST,
+       PT_WARN,
+       PT_WAVE_SLIME,
+       PT_WAVE_FIRE,
+       PT_WAVE_ICE,
+       PT_WAVE_STORM,
+       PT_WAVE_NOVA,
+       PT_ALERT,
+       PT_COUNT };
 
 
 typedef struct
@@ -251,22 +330,37 @@ typedef struct
     int16_t  reach;         // contact distance that hurts the player (Q10)
     uint16_t scale;         // sprite height, Q4 fraction of wall height (16 = 1.0)
     uint16_t zoff;          // sprite lift, Q4 fraction of wall height
-    uint16_t shape;
+    uint16_t shape;         // frame A
+    uint16_t pal;
+    uint16_t shapeB;        // frame B of the two-frame walk cycle (mini-bosses), 0 = none
 } EnemyDef;
 extern const EnemyDef rc_kEnemy[ET_COUNT];
+
+// How the regular wave is mixed: weight = min(wMax, w0 + wStep * (round - unlock)).
+// cap < 99 limits how many can be alive: min(cap, 1 + (round - unlock) / 6).
+typedef struct { uint16_t type, unlock, w0, wStep, wMax, cap; } SpawnDef;
+#define NUM_SPAWN 10
+extern const SpawnDef rc_kSpawn[NUM_SPAWN];
 
 
 typedef struct
 {
     int16_t  x, y;          // Q10
     int16_t  hp;
+    int16_t  mhp;           // hp at spawn (phase thresholds)
     uint16_t type;
     uint16_t flash;         // frames of white hit-flash left
     uint16_t slow;          // frames of frost left
     uint16_t freeze;        // frames frozen solid (no move, no attack)
     uint16_t burn;          // frames of burning left
-    uint16_t aux;           // boss charge / beholder shot timer / "summoned" flag
-    uint16_t aux2;          // boss summon timer
+    uint16_t aux;           // per-type timer (shot cadence, summon timer ...)
+    uint16_t aux2;          // per-type timer / counter
+    uint16_t st;            // AI state (walk, telegraph, charge, recovery ...)
+    uint16_t tm;            // frames left in the current state
+    uint16_t an;            // animation counter (walk frame A/B)
+    uint16_t cnt;           // spare counter (shot count, attack cycle, phase flags)
+    uint16_t sum;           // 1 = summoned minion: small reward, dies with its master
+    int16_t  tx, ty;        // charge direction / teleport or attack target (Q10)
     uint16_t alive;
 } Enemy;
 
@@ -359,8 +453,8 @@ extern const Offer rc_kOffer[NUM_OFFER];
 typedef struct
 {
     uint16_t total, maxAlive, gap;
-    uint16_t pBat, pBrute, pSkel, pBeh;     // percent chances
-    uint16_t boss;
+    uint16_t boss;              // 1 = Dragon round (the Dragon is the only enemy)
+    uint16_t treasure;          // 1 = treasure round (no wave, one chest or mimic)
 } LevelDef;
 
 
@@ -385,7 +479,6 @@ extern const char *const rc_kMaps[RC_NUM_MAPS][RC_MAP_H];
 //*****************************************************************************
 #define SPR_N       16
 
-#define SPR_MAXRUNS 6
 extern const char *const *const rc_kArt[SH_COUNT];
 
 
@@ -454,17 +547,12 @@ extern int16_t  rc_colOff[RC_COLS];
 extern int16_t  rc_colCos[RC_COLS];
 extern int16_t  rc_atan[257];
 extern uint32_t rc_wallCol[TILE_KINDS][4][2];
-extern uint32_t rc_pal[PT_COUNT][PAL_N];
-extern uint16_t rc_run[SH_COUNT][SPR_N][SPR_MAXRUNS];
-extern uint16_t rc_runCnt[SH_COUNT][SPR_N];
+#define SPR_COLORS  120                         // distinct sprite colours (ids ID_SPR .. ID_SPR + 119)
+extern uint32_t rc_sprRgb[SPR_COLORS];
+extern uint16_t rc_palId[PT_COUNT][PAL_N];     // [palette][letter] -> colour id
 extern bool     rc_tablesReady;
 
 
-#define RUN_Y0(v)   ((v) & 15u)
-
-#define RUN_Y1(v)   (((v) >> 4) & 15u)
-
-#define RUN_CI(v)   ((v) >> 8)
 
 
 
@@ -551,15 +639,28 @@ extern uint16_t rc_bossSpawned;
 extern uint16_t rc_bossAlive;
 
 
-// Thrown flasks, clouds, sparks and enemy laser bolts
+// Thrown flasks, clouds, sparks, enemy projectiles, floor hazards, shockwaves, chests
 typedef struct
 {
     int16_t  x, y, vx, vy;  // Q10
     int16_t  z;             // sprite lift, Q4 fraction of wall height
+    int16_t  r;             // radius (Q10) for areas, warnings and waves
     uint16_t kind, pal, sc, life, age, aux, alive;
 } Obj;
 
-enum { OB_FLASK, OB_BOLT, OB_CLOUD, OB_SPARK, OB_MANA };
+enum { OB_FLASK, OB_BOLT, OB_CLOUD, OB_SPARK, OB_MANA,
+       OB_WARN,             // red floor ring; turns into an OB_AREA (aux = AR_*, vx = area life) when it ends
+       OB_AREA,             // floor hazard that hurts / slows while the player stands in it
+       OB_WAVE,             // expanding shockwave ring (r grows by vx per frame up to vy)
+       OB_CHEST };          // treasure chest (walk into it)
+
+// OB_BOLT flavours (Obj.aux)
+enum { BK_LASER, BK_FLAME, BK_ORB, BK_DRAIN, BK_WEB, BK_ICE, BK_FIRE, BK_SPARK, BK_COUNT };
+// OB_AREA / OB_WARN flavours
+enum { AR_SLIME, AR_FIRE, AR_BLAST, AR_WEB };
+// OB_WAVE flavours
+enum { WV_SLIME, WV_FIRE, WV_ICE, WV_STORM, WV_NOVA };
+
 uint16_t rc_DoorCost(void);
 extern Obj      rc_obj[RC_MAX_OBJ];
 extern uint16_t rc_mode;
@@ -610,9 +711,9 @@ extern int16_t  rc_prvB[RC_COLS];
 // are sent. A run is (last row << 8) | colour id; the list always covers all
 // RC_VIEW_H rows. Hand cells are as wide as a strip,
 // so the art cells fit the model exactly.
-#define RC_MAXR      12                 // runs stored per strip
+#define RC_MAXR      16                 // runs stored per strip
 
-#define RC_MAXN      32                 // runs allowed while a strip is being built
+#define RC_MAXN      40                 // runs allowed while a strip is being built
 
 #define RC_STRIPS    RC_COLS            // hand cells are as wide as a strip: no splitting
 extern uint16_t rc_sl[RC_STRIPS][RC_MAXR];
@@ -727,7 +828,7 @@ uint16_t rc_RC_CastRay(int16_t angle, uint16_t *tile, uint16_t *side);
 // Game: flow, player, enemies
 //*****************************************************************************
 #define RC_BOLT_SPEED   80              // enemy laser bolt, Q10 per frame
-bool rc_IsBossLevel(uint16_t lv);
+bool rc_IsBossLevel(uint16_t lv);            // true only for the Dragon round
 uint16_t rc_XpNeed(void);
 const char *rc_SlotName(uint16_t slot);
 uint32_t rc_SlotColor(uint16_t slot);
@@ -742,6 +843,34 @@ uint16_t rc_BeholderCadence(void);
 void rc_BeholderShoot(const Enemy *e);
 void rc_DragonBreath(const Enemy *e);
 void rc_LichSummon(const Enemy *lich, uint16_t n);
+
+// logic helpers shared with the AI (rc_logic.c)
+Obj     *rc_NewObj(uint16_t kind);
+Enemy   *rc_SpawnEnemy(uint16_t type, int16_t x, int16_t y);
+void     rc_AddSpark(int16_t x, int16_t y, int16_t z, uint16_t sc, uint16_t pal, uint16_t life);
+uint16_t rc_CountRegular(void);          // alive enemies that count for finishing a wave
+uint16_t rc_CountType(uint16_t type);
+void     rc_Explode(int16_t x, int16_t y);
+void     rc_HealEnemy(Enemy *e, int16_t amt);
+void     rc_MakeWarn(int16_t x, int16_t y, int16_t r, uint16_t life, uint16_t area, uint16_t areaLife);
+void     rc_MakeWave(int16_t x, int16_t y, int16_t speed, int16_t maxR, uint16_t flavour);
+void     rc_ShootBolt(const Enemy *e, int16_t angleOff, uint16_t kind, int16_t speed, uint16_t life);
+void     rc_EnemyLook(const Enemy *e, uint16_t *shape, uint16_t *pal);
+bool     rc_CanSee(int16_t x0, int16_t y0, int16_t x1, int16_t y1);
+bool     rc_TeleportEnemy(Enemy *e, int16_t cx, int16_t cy, int16_t rMin, int16_t rMax);
+void     rc_StartTreasure(void);
+void     rc_PlayerPush(int16_t dx, int16_t dy);
+
+extern uint16_t rc_pSlow;                // player slowed (webs, ice)
+extern uint16_t rc_nullify;              // player's magic weakened (Watcher gaze, Beholder)
+extern uint16_t rc_pull;                 // frames the Beholder's gravity eye keeps pulling
+extern int16_t  rc_pullX, rc_pullY;
+extern uint16_t rc_miniKills;            // mini-bosses beaten since the last Dragon
+extern uint16_t rc_miniAlive;
+extern uint16_t rc_miniPending;
+extern uint16_t rc_lastMini;
+extern uint16_t rc_dragonKills;
+extern uint16_t rc_chestTimer;           // treasure round: frames before the chest goes away
 extern const int16_t rc_kNbDx[4];
 extern const int16_t rc_kNbDy[4];
 void rc_EnsureFlow(void);

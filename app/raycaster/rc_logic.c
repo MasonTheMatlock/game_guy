@@ -3,9 +3,9 @@
 
 
 
-bool rc_IsBossLevel(uint16_t lv)
+bool rc_IsBossLevel(uint16_t lv)                // the Dragon round
 {
-    return ((lv + 1u) % RC_BOSS_EVERY) == 0;
+    return (rc_lv.boss != 0u) && (lv == rc_level);
 }
 
 
@@ -114,12 +114,13 @@ static void KillEnemy(Enemy *e)
 {
     const EnemyDef *d = &rc_kEnemy[e->type];
     uint16_t i, g, xp;
-    bool     summoned = (e->type == ET_SKELETON && e->aux == 1);
+    bool     mini = RC_IS_MINI(e->type);
+    int16_t  ex = e->x, ey = e->y;
 
     e->alive = 0;
     if(rc_alive) rc_alive--;
 
-    if(summoned)                                // the Lich's skeletons: tiny reward
+    if(e->sum)                                  // summoned minions: tiny reward
     {
         g  = 2;
         xp = 1;
@@ -129,27 +130,55 @@ static void KillEnemy(Enemy *e)
         g  = (uint16_t)(((uint32_t)d->gold * (100u + 20u * rc_lvGold)) / 100u);
         xp = (uint16_t)(d->xp + rc_level / 4u);
     }
-
     rc_gold += g;
     rc_kills++;
     rc_hud |= HUD_GOLD | HUD_LEFT;
     GainXp(xp);
-
     if((rc_traits & (1u << TR_VAMP)) && (rc_kills % 10u) == 0 && rc_hp < rc_maxHp)
     {
         rc_hp++;
         rc_hud |= HUD_HEARTS;
     }
-
     rc_Sfx(&sfx_explosion);
 
-    if(!summoned && (e->type == ET_LICH || e->type == ET_DRAGON || (Rand16() % 100u) < MANA_DROP_PCT))
-        DropMana(e->x, e->y);
+    if(!e->sum && (mini || e->type == ET_DRAGON || (Rand16() % 100u) < MANA_DROP_PCT))
+        DropMana(ex, ey);
 
-    if(e->type == ET_LICH || e->type == ET_DRAGON)
+    if(e->type == ET_SLIME)                     // splits into two smaller slimes
+    {
+        for(i = 0; i < 2; i++)
+        {
+            Enemy *s2 = rc_SpawnEnemy(ET_SLIME_S, (int16_t)(ex + (i ? 330 : -330)), ey);
+            if(s2 != NULL && Blocked(s2->x, s2->y, 230)) { s2->x = ex; s2->y = ey; }
+        }
+    }
+    else if(e->type == ET_IMP)
+        rc_Explode(ex, ey);
+
+    if(mini)                                    // guaranteed rewards, and the Dragon gets closer
+    {
+        if(rc_hp < rc_maxHp) { rc_hp++; rc_hud |= HUD_HEARTS; }
+        if(rc_miniAlive) rc_miniAlive--;
+        rc_miniKills++;
+        rc_hud |= HUD_LEFT;
+    }
+
+    if(mini || e->type == ET_NECRO)             // their summoned minions vanish with them
+    {
+        for(i = 0; i < RC_MAX_ENEMIES; i++)
+            if(rc_en[i].alive && rc_en[i].sum)
+            {
+                rc_en[i].alive = 0;
+                if(rc_alive) rc_alive--;
+            }
+    }
+
+    if(e->type == ET_DRAGON)
     {
         rc_bossAlive = 0;
-        for(i = 0; i < RC_MAX_ENEMIES; i++)         // minions die with their master
+        rc_miniKills = 0;                       // three more mini-bosses wake it again
+        rc_dragonKills++;
+        for(i = 0; i < RC_MAX_ENEMIES; i++)     // minions die with their master
             rc_en[i].alive = 0;
         rc_alive = 0;
     }
@@ -157,8 +186,23 @@ static void KillEnemy(Enemy *e)
 
 
 // quiet = damage-over-time / splash tick: no knockback, no frost, no blip.
+void rc_HealEnemy(Enemy *e, int16_t amt)
+{
+    e->hp = (int16_t)(e->hp + amt);
+    if(e->hp > e->mhp) e->hp = e->mhp;
+    rc_hud |= HUD_LEFT;
+}
+
+
 void rc_DamageEnemyEx(Enemy *e, uint16_t dmg, int16_t c, int16_t s, bool quiet)
 {
+    if(e->type == ET_GHOST && e->st == 1) return;                       // intangible
+    if(e->type == ET_HOBGOB && e->st != 3 && dmg > 1u) dmg--;           // shield (down while recovering)
+    if(e->type == ET_GOLEM)
+    {
+        if(e->st == 5)      dmg = (uint16_t)((dmg + 1u) >> 1);          // Fortification
+        else if(e->st == 4) dmg = (uint16_t)(dmg * 2u);                 // weak point exposed
+    }
     e->hp   -= (int16_t)dmg;
     e->flash = 3;
     rc_hud   |= HUD_LEFT;
@@ -171,7 +215,7 @@ void rc_DamageEnemyEx(Enemy *e, uint16_t dmg, int16_t c, int16_t s, bool quiet)
 
     if(quiet) return;
 
-    if((rc_traits & (1u << TR_KNOCK)) && e->type != ET_LICH && e->type != ET_DRAGON)
+    if((rc_traits & (1u << TR_KNOCK)) && !RC_IS_MINI(e->type) && e->type != ET_DRAGON)
     {
         int16_t nx = e->x + (int16_t)(((int32_t)c * 260L) >> 14);
         int16_t ny = e->y + (int16_t)(((int32_t)s * 260L) >> 14);
@@ -203,7 +247,7 @@ static uint16_t ScaledDmg(uint16_t base)
 //-----------------------------------------------------------------------------
 // Objects (flasks in flight, clouds, sparks, enemy laser bolts)
 //-----------------------------------------------------------------------------
-static Obj *NewObj(uint16_t kind)
+Obj *rc_NewObj(uint16_t kind)
 {
     uint16_t i, pick = 0xFFFFu, oldest = 0;
     Obj     *o;
@@ -215,7 +259,7 @@ static Obj *NewObj(uint16_t kind)
     {
         for(i = 0; i < RC_MAX_OBJ; i++)
         {
-            if(rc_obj[i].kind != OB_SPARK && rc_obj[i].kind != OB_CLOUD) continue;
+            if(rc_obj[i].kind != OB_SPARK && rc_obj[i].kind != OB_CLOUD && rc_obj[i].kind != OB_AREA) continue;
             if(pick == 0xFFFFu || rc_obj[i].kind == OB_SPARK ||
                rc_obj[i].age > oldest)
             {
@@ -228,7 +272,7 @@ static Obj *NewObj(uint16_t kind)
     }
 
     o = &rc_obj[pick];
-    o->x = o->y = o->vx = o->vy = o->z = 0;
+    o->x = o->y = o->vx = o->vy = o->z = o->r = 0;
     o->kind = kind;
     o->pal  = 0;
     o->sc   = 0;
@@ -242,7 +286,7 @@ static Obj *NewObj(uint16_t kind)
 
 static void DropMana(int16_t x, int16_t y)
 {
-    Obj *o = NewObj(OB_MANA);
+    Obj *o = rc_NewObj(OB_MANA);
 
     if(o == NULL) return;                       // object list full: no bottle this time
     o->x    = x;
@@ -253,9 +297,9 @@ static void DropMana(int16_t x, int16_t y)
 }
 
 
-static void AddSpark(int16_t x, int16_t y, int16_t z, uint16_t sc, uint16_t pal, uint16_t life)
+void rc_AddSpark(int16_t x, int16_t y, int16_t z, uint16_t sc, uint16_t pal, uint16_t life)
 {
-    Obj *o = NewObj(OB_SPARK);
+    Obj *o = rc_NewObj(OB_SPARK);
 
     if(o == NULL) return;
     o->x = x;  o->y = y;  o->z = z;
@@ -332,19 +376,100 @@ void rc_UpdateObjects(void)
                 if(o->kind == OB_FLASK && o->age >= o->life) Shatter(o);
                 break;
 
-            case OB_BOLT:                       // enemy laser or dragon flame: dodge it
+            case OB_BOLT:                       // enemy projectile: dodge it
                 nx = o->x + o->vx;
                 ny = o->y + o->vy;
-                if(Blocked(nx, ny, 80)) { o->alive = 0; break; }
+                if(Blocked(nx, ny, 80))
+                {
+                    if(o->aux == BK_WEB)                    // a web that hits the floor leaves a sticky patch
+                    {
+                        o->kind = OB_AREA;
+                        o->aux  = AR_WEB;
+                        o->r    = 450;
+                        o->age  = 0;
+                        o->life = 140;
+                    }
+                    else o->alive = 0;
+                    break;
+                }
                 o->x = nx;
                 o->y = ny;
-                if(Dist10(rc_px - o->x, rc_py - o->y) < (o->aux ? 360 : 300))
+                if(Dist10(rc_px - o->x, rc_py - o->y) < ((o->aux == BK_FLAME) ? 360 : 300))
                 {
                     o->alive = 0;
-                    rc_HurtPlayer();               // (does nothing during invulnerability / Aegis)
+                    if(o->aux == BK_WEB)
+                    {
+                        rc_pSlow = 120;                         // webs only slow you
+                        rc_hud  |= HUD_HINT;
+                    }
+                    else
+                    {
+                        bool hit = (rc_invuln == 0 && rc_hp != 0 && rc_aegis == 0);
+
+                        if(o->aux == BK_ICE) { rc_pSlow = 100; rc_hud |= HUD_HINT; }
+                        if(o->aux == BK_DRAIN && hit)           // blood drain heals the caster
+                        {
+                            for(j = 0; j < RC_MAX_ENEMIES; j++)
+                                if(rc_en[j].alive && (rc_en[j].type == ET_VAMPIRE || rc_en[j].type == ET_LICH))
+                                    rc_HealEnemy(&rc_en[j], 10);
+                        }
+                        rc_HurtPlayer();               // (does nothing during invulnerability / Aegis)
+                    }
                     break;
                 }
                 if(++o->age >= o->life) o->alive = 0;
+                break;
+
+            case OB_WARN:                       // red ring, then the hazard appears
+                if(++o->age >= o->life)
+                {
+                    if(o->vx)                   // vx = how long the hazard lasts (0 = ring only)
+                    {
+                        o->kind = OB_AREA;
+                        o->life = (uint16_t)o->vx;
+                        o->age  = 0;
+                        o->vx   = 0;
+                        if(o->aux == AR_BLAST) rc_Sfx(&sfx_explosion);
+                    }
+                    else o->alive = 0;
+                }
+                break;
+
+            case OB_AREA:                       // floor hazard: hurts or slows while you stand in it
+                if(++o->age >= o->life) { o->alive = 0; break; }
+                if(Dist10(rc_px - o->x, rc_py - o->y) < o->r)
+                {
+                    if(o->aux == AR_WEB)
+                    {
+                        if(rc_pSlow < 20u) { rc_pSlow = 20; rc_hud |= HUD_HINT; }
+                    }
+                    else if((o->age % 12u) == 0) rc_HurtPlayer();
+                }
+                break;
+
+            case OB_WAVE:                       // expanding ring: hurts once when it crosses you
+                o->r = (int16_t)(o->r + o->vx);
+                if(o->r >= o->vy) { o->alive = 0; break; }
+                if(!o->sc && Abs16((int16_t)(Dist10(rc_px - o->x, rc_py - o->y) - o->r)) < 260)
+                {
+                    o->sc = 1;
+                    rc_HurtPlayer();
+                    if(o->aux == WV_ICE) { rc_pSlow = 100; rc_hud |= HUD_HINT; }
+                }
+                break;
+
+            case OB_CHEST:                      // treasure: walk into it
+                if(Dist10(rc_px - o->x, rc_py - o->y) < 750)
+                {
+                    rc_gold += (uint16_t)(50u + 12u * rc_level);
+                    if(rc_hp < rc_maxHp) { rc_hp++; rc_hud |= HUD_HEARTS; }
+                    rc_hud |= HUD_GOLD;
+                    DropMana(o->x, o->y);
+                    rc_AddSpark(o->x, o->y, 4, 14, PT_PUFF_ARCANE, 10);
+                    rc_Sfx(&sfx_coin);
+                    o->alive = 0;
+                    rc_chestTimer = 0;
+                }
                 break;
 
             case OB_CLOUD:
@@ -412,6 +537,7 @@ static void FireBeam(int16_t angle, uint16_t st)
         for(i = 0; i < RC_MAX_ENEMIES; i++)
         {
             if(!rc_en[i].alive || (hitMask & (1u << i))) continue;
+            if(rc_en[i].type == ET_GHOST && rc_en[i].st == 1u) continue;     // intangible
 
             rx    = rc_en[i].x - rc_px;
             ry    = rc_en[i].y - rc_py;
@@ -472,7 +598,7 @@ static bool ThrowFlask(uint16_t kind)
     int16_t c = COS(rc_ang);
     int16_t s = SIN(rc_ang);
     int16_t sx, sy;
-    Obj    *o = NewObj(OB_FLASK);
+    Obj    *o = rc_NewObj(OB_FLASK);
 
     if(o == NULL) return false;
 
@@ -508,6 +634,7 @@ static uint16_t AcquireTargets(uint16_t maxN, uint16_t *out)
         uint16_t wd;
 
         if(!e->alive) continue;
+        if(e->type == ET_GHOST && e->st == 1u) continue;
         rx    = e->x - rc_px;
         ry    = e->y - rc_py;
         along = (int16_t)(((int32_t)rx * c + (int32_t)ry * s) >> 14);
@@ -555,7 +682,7 @@ static bool CastTome(void)
     {
         Enemy *e = &rc_en[idx[i]];
 
-        AddSpark(e->x, e->y, 6, 8, PT_PUFF_ARCANE, 8);
+        rc_AddSpark(e->x, e->y, 6, 8, PT_PUFF_ARCANE, 8);
         DamageEnemy(e, dmg, 0, 0);
     }
     Buzzer_PlaySfx(&sfx_staff_prism);
@@ -657,6 +784,7 @@ void rc_UseEquipped(void)
     uint16_t it;
     uint16_t cost = rc_SlotMana(slot);
 
+    if(rc_nullify) cost = (uint16_t)(cost * 2u);          // magic weakened
     if(rc_cd[slot]) return;
 
     if(rc_mana < cost)                                   // not enough mana
@@ -691,39 +819,48 @@ void rc_UseEquipped(void)
 //-----------------------------------------------------------------------------
 // Spawning
 //-----------------------------------------------------------------------------
-static Enemy *SpawnEnemy(uint16_t type, int16_t x, int16_t y)
+#define RAND(n)   ((uint16_t)(Rand16() % (uint16_t)(n)))
+
+Enemy *rc_SpawnEnemy(uint16_t type, int16_t x, int16_t y)
 {
     uint16_t i;
 
     for(i = 0; i < RC_MAX_ENEMIES; i++)
     {
-        if(!rc_en[i].alive)
+        Enemy *e = &rc_en[i];
+
+        if(!e->alive)
         {
             int16_t hp = rc_kEnemy[type].hp;
 
-            if(type == ET_LICH)                         // each Lich is tougher than the last
-                hp = (int16_t)(hp + 50 * (int16_t)((rc_level + 1u) / RC_BOSS_EVERY - 1u));
-            else if(type == ET_DRAGON)
-                hp = (int16_t)(hp + 100 * (int16_t)((rc_level + 1u) / (RC_BOSS_EVERY * 2u) - 1u));
+            if(RC_IS_MINI(type))                        // mini-bosses grow with the round
+                hp = (int16_t)(((int32_t)hp * (12 + (int16_t)rc_level)) / 12);
+            else if(type == ET_DRAGON)                  // each Dragon is tougher than the last
+                hp = (int16_t)(hp + 100 * (int16_t)rc_dragonKills);
             else                                        // later rounds are tougher
-                hp = (int16_t)(((int32_t)hp * (8 + rc_level)) / 8);
+                hp = (int16_t)(((int32_t)hp * (8 + (int16_t)rc_level)) / 8);
 
-            rc_en[i].x = x;      rc_en[i].y = y;
-            rc_en[i].hp = hp;    rc_en[i].type = type;
-            rc_en[i].flash = 0;  rc_en[i].slow = 0;
-            rc_en[i].freeze = 0; rc_en[i].burn = 0;
-            rc_en[i].aux = 0;    rc_en[i].aux2 = 0;
-            rc_en[i].alive = 1;
+            e->x = x;       e->y = y;
+            e->hp = hp;     e->mhp = hp;
+            e->type = type;
+            e->flash = 0;   e->slow = 0;
+            e->freeze = 0;  e->burn = 0;
+            e->aux = 0;     e->aux2 = 0;
+            e->st = 0;      e->an = 0;
+            e->cnt = 0;     e->sum = 0;
+            e->tx = 0;      e->ty = 0;
+            e->tm = (type == ET_BAT) ? 0u : (uint16_t)(60u + RAND(120));   // first special move not at once
+            e->alive = 1;
             rc_alive++;
             rc_hud |= HUD_LEFT;
-            return &rc_en[i];
+            return e;
         }
     }
     return NULL;
 }
 
 
-static uint16_t CountType(uint16_t type)
+uint16_t rc_CountType(uint16_t type)
 {
     uint16_t i, n = 0;
 
@@ -733,146 +870,209 @@ static uint16_t CountType(uint16_t type)
 }
 
 
-void rc_TrySpawn(void)
+// Enemies that must die before the wave counts as cleared. Summons, mini-bosses and the
+// Dragon do not count (a mini-boss does not hold the next round back).
+uint16_t rc_CountRegular(void)
 {
-    uint16_t tries, idx = 0, type, r, gap;
-    uint16_t behCap;
-    bool     found = false;
+    uint16_t i, n = 0;
 
-    if(rc_spawnTimer) { rc_spawnTimer--; return; }
-    if(!rc_toSpawn || rc_alive >= rc_lv.maxAlive || rc_spCount == 0) return;
+    for(i = 0; i < RC_MAX_ENEMIES; i++)
+    {
+        const Enemy *e = &rc_en[i];
 
-    // First marker in an UNLOCKED section that is not right on top of the player.
+        if(e->alive && !e->sum && !RC_IS_MINI(e->type) && e->type != ET_DRAGON) n++;
+    }
+    return n;
+}
+
+
+// First marker in an UNLOCKED section that is not right on top of the player.
+static bool PickMarker(bool arenaOnly, int16_t *x, int16_t *y)
+{
+    uint16_t tries, idx;
+
     for(tries = 0; tries < rc_spCount; tries++)
     {
         idx = rc_spawnIdx;
         rc_spawnIdx = (rc_spawnIdx + 1u) % rc_spCount;
         if(!rc_secOpen[rc_spSec[idx]]) continue;
-        if(rc_lv.boss && (rc_level + 1u) >= (RC_BOSS_EVERY * 2u) && rc_spSec[idx] != 6u) continue;
+        if(arenaOnly && rc_spSec[idx] != 6u) continue;
         if(Dist10(rc_spX[idx] - rc_px, rc_spY[idx] - rc_py) > SPAWN_MIN_DIST)
         {
-            found = true;
-            break;
+            *x = rc_spX[idx];
+            *y = rc_spY[idx];
+            return true;
         }
     }
-    if(!found) { rc_spawnTimer = 20; return; }
+    return false;
+}
 
-    gap = rc_lv.gap;
 
-    if(rc_lv.boss)
+// Weighted pick for the regular wave (see rc_kSpawn).
+static uint16_t PickType(void)
+{
+    uint16_t w[NUM_SPAWN], total = 0, i, r, wt, cap;
+
+    for(i = 0; i < NUM_SPAWN; i++)
     {
-        type = ((rc_level + 1u) >= (RC_BOSS_EVERY * 2u)) ? ET_DRAGON : ET_LICH;
+        const SpawnDef *sd = &rc_kSpawn[i];
+
+        w[i] = 0;
+        if(rc_level < sd->unlock) continue;
+        wt = (uint16_t)(sd->w0 + sd->wStep * (rc_level - sd->unlock));
+        if(wt > sd->wMax) wt = sd->wMax;
+        if(sd->cap < 99u)
+        {
+            cap = (uint16_t)(1u + (rc_level - sd->unlock) / 6u);
+            if(cap > sd->cap) cap = sd->cap;
+            if(rc_CountType(sd->type) >= cap) continue;
+        }
+        w[i]   = wt;
+        total += wt;
+    }
+    if(total == 0u) return ET_GOBLIN;
+    r = RAND(total);
+    for(i = 0; i < NUM_SPAWN; i++)
+    {
+        if(r < w[i]) return rc_kSpawn[i].type;
+        r -= w[i];
+    }
+    return ET_GOBLIN;
+}
+
+
+// A random mini-boss, never the same one twice in a row.
+static uint16_t PickMini(void)
+{
+    uint16_t k = RAND(RC_NUM_MINI);
+
+    if(rc_kMini[k] == rc_lastMini) k = (uint16_t)((k + 1u) % RC_NUM_MINI);
+    rc_lastMini = rc_kMini[k];
+    return rc_kMini[k];
+}
+
+
+void rc_TrySpawn(void)
+{
+    int16_t x, y;
+
+    if(rc_spawnTimer) { rc_spawnTimer--; return; }
+    if(rc_spCount == 0 || rc_lv.treasure) return;
+
+    // The mini-boss for this round walks in once the wave is half done.
+    if(rc_miniPending && !rc_lv.boss && rc_toSpawn <= rc_lv.total / 2u)
+    {
+        if(!PickMarker(false, &x, &y)) { rc_spawnTimer = 20; return; }
+        if(rc_SpawnEnemy(PickMini(), x, y) != NULL)
+        {
+            rc_miniAlive++;
+            rc_Sfx(&sfx_level_up);
+        }
+        rc_miniPending = 0;
+        rc_spawnTimer  = 30;
+        return;
+    }
+
+    if(!rc_toSpawn) return;
+    if(rc_lv.boss)                                  // Dragon round: only the Dragon, in its arena
+    {
+        if(!PickMarker(true, &x, &y)) { rc_spawnTimer = 20; return; }
+        rc_SpawnEnemy(ET_DRAGON, x, y);
         rc_bossSpawned = 1;
         rc_bossAlive   = 1;
-        rc_toSpawn     = 1;                              // (decremented below -> 0)
+        rc_toSpawn     = 0;
+        rc_spawnTimer  = rc_lv.gap;
+        return;
     }
-    else
-    {
-        behCap = 1u + rc_level / 6u;
-        if(behCap > 3u) behCap = 3u;
-
-        r    = Rand16() % 100u;
-        type = ET_GOBLIN;
-        if(r < rc_lv.pBeh)
-        {
-            if(CountType(ET_BEHOLDER) < behCap) type = ET_BEHOLDER;
-        }
-        else if(r < rc_lv.pBeh + rc_lv.pBrute)                         type = ET_HOBGOB;
-        else if(r < rc_lv.pBeh + rc_lv.pBrute + rc_lv.pBat)             type = ET_BAT;
-        else if(r < rc_lv.pBeh + rc_lv.pBrute + rc_lv.pBat + rc_lv.pSkel) type = ET_SKELETON;
-    }
-
-    SpawnEnemy(type, rc_spX[idx], rc_spY[idx]);
+    if(rc_CountRegular() >= rc_lv.maxAlive) return;
+    if(!PickMarker(false, &x, &y)) { rc_spawnTimer = 20; return; }
+    rc_SpawnEnemy(PickType(), x, y);
     rc_toSpawn--;
-    rc_spawnTimer = gap;
+    rc_spawnTimer = rc_lv.gap;
+}
+
+
+// Treasure round: one chest in an open room, and 1 time in 4 it is a Mimic.
+void rc_StartTreasure(void)
+{
+    int16_t x, y;
+    Obj    *o;
+
+    if(!PickMarker(false, &x, &y))
+    {
+        x = rc_spX[0];
+        y = rc_spY[0];
+    }
+    rc_chestTimer = 900;                            // 30 s, then the chest is gone
+    if(RAND(4) == 0)
+    {
+        (void)rc_SpawnEnemy(ET_MIMIC, x, y);
+        return;
+    }
+    o = rc_NewObj(OB_CHEST);
+    if(o == NULL) { rc_gold += 50u; rc_chestTimer = 0; return; }
+    o->x = x;
+    o->y = y;
 }
 
 
 //-----------------------------------------------------------------------------
-// Enemy behaviour
+// Hazards shared by several enemies
 //-----------------------------------------------------------------------------
-uint16_t rc_BeholderCadence(void)
+// A red ring on the floor; after `life` frames it becomes a hazard of kind `area`
+// that lasts areaLife frames (areaLife 0 = just the warning ring).
+void rc_MakeWarn(int16_t x, int16_t y, int16_t r, uint16_t life, uint16_t area, uint16_t areaLife)
 {
-    uint16_t cut = (uint16_t)(2u * rc_level);
+    Obj *o = rc_NewObj(OB_WARN);
 
-    if(cut > 45u) cut = 45u;
-    return (uint16_t)(100u - cut);                      // frames between shots
+    if(o == NULL) return;
+    o->x    = x;
+    o->y    = y;
+    o->r    = r;
+    o->life = life;
+    o->aux  = area;
+    o->vx   = (int16_t)areaLife;
 }
 
 
-// Beholders aim at where you ARE: strafe and the red lasers miss.
-void rc_BeholderShoot(const Enemy *e)
+// Expanding shockwave: outruns nobody who keeps moving away, hurts once when it crosses you.
+void rc_MakeWave(int16_t x, int16_t y, int16_t speed, int16_t maxR, uint16_t flavour)
 {
-    int16_t dx   = rc_px - e->x;
-    int16_t dy   = rc_py - e->y;
-    int16_t dist = Dist10(dx, dy);
-    int16_t vx, vy, k, kmax;
+    Obj *o = rc_NewObj(OB_WAVE);
 
-    if(dist < 400) return;
-
-    vx = (int16_t)(((int32_t)dx * RC_BOLT_SPEED) / dist);
-    vy = (int16_t)(((int32_t)dy * RC_BOLT_SPEED) / dist);
-    kmax = (rc_level >= 8) ? 1 : 0;                      // deeper: three-way fan
-
-    for(k = -kmax; k <= kmax; k++)
-    {
-        Obj *o = NewObj(OB_BOLT);
-
-        if(o == NULL) break;
-        o->x    = e->x;
-        o->y    = e->y;
-        o->vx   = (int16_t)(vx - (int16_t)(((int32_t)vy * k * 56L) >> 8));
-        o->vy   = (int16_t)(vy + (int16_t)(((int32_t)vx * k * 56L) >> 8));
-        o->z    = 6;
-        o->life = 130;
-        o->pal  = PT_BOLT;
-    }
-    rc_SfxSoft(&sfx_laser);
+    if(o == NULL) return;
+    o->x   = x;
+    o->y   = y;
+    o->r   = 200;
+    o->vx  = speed;
+    o->vy  = maxR;
+    o->aux = flavour;
+    o->sc  = 0;                                     // 1 = already hit the player
+    rc_Sfx(&sfx_explosion);
 }
 
 
-void rc_DragonBreath(const Enemy *e)
+// Bomb Imp blast: hurts the player and every enemy close by, and leaves scorched ground.
+void rc_Explode(int16_t x, int16_t y)
 {
-    int16_t dx = rc_px - e->x;
-    int16_t dy = rc_py - e->y;
-    int16_t dist = Dist10(dx, dy);
-    int16_t vx, vy, k;
+    uint16_t i;
+    Obj     *o;
 
-    if(dist < 400) return;
-    vx = (int16_t)(((int32_t)dx * 68L) / dist);
-    vy = (int16_t)(((int32_t)dy * 68L) / dist);
-    for(k = -1; k <= 1; k++)
+    rc_AddSpark(x, y, 4, 20, PT_PUFF_FIRE, 12);
+    rc_AddSpark((int16_t)(x + 300), y, 6, 14, PT_PUFF_FIRE, 10);
+    rc_AddSpark((int16_t)(x - 300), y, 6, 14, PT_PUFF_FIRE, 10);
+    if(Dist10((int16_t)(rc_px - x), (int16_t)(rc_py - y)) < 1300) rc_HurtPlayer();
+    for(i = 0; i < RC_MAX_ENEMIES; i++)
     {
-        Obj *o = NewObj(OB_BOLT);
-        if(o == NULL) break;
-        o->x = e->x; o->y = e->y;
-        o->vx = (int16_t)(vx - (int16_t)(((int32_t)vy * k * 52L) >> 8));
-        o->vy = (int16_t)(vy + (int16_t)(((int32_t)vx * k * 52L) >> 8));
-        o->z = 4; o->life = 115; o->pal = PT_PUFF_FIRE; o->aux = 1;
+        Enemy *e = &rc_en[i];
+
+        if(!e->alive) continue;
+        if(Dist10((int16_t)(e->x - x), (int16_t)(e->y - y)) < 1300)
+            rc_DamageEnemyEx(e, 4, 0, 0, true);
     }
-    rc_SfxSoft(&sfx_laser);
-}
-
-
-void rc_LichSummon(const Enemy *lich, uint16_t n)
-{
-    uint16_t k;
-
-    for(k = 0; k < n; k++)
-    {
-        int16_t sx = lich->x + ((k == 0) ? 520 : (k == 1) ? -520 : 0);
-        int16_t sy = lich->y + ((k == 2) ? 520 : 0);
-        Enemy  *p;
-
-        if(rc_alive >= RC_MAX_ENEMIES - 1) break;
-        if(Blocked(sx, sy, 230)) { sx = lich->x; sy = lich->y; }
-
-        p = SpawnEnemy(ET_SKELETON, sx, sy);
-        if(p == NULL) break;
-        p->aux = 1;                                     // marks "summoned"
-        AddSpark(sx, sy, 6, 10, PT_PUFF_ARCANE, 10);
-    }
-    rc_SfxSoft(&sfx_powerup);
+    o = rc_NewObj(OB_AREA);
+    if(o != NULL) { o->x = x; o->y = y; o->r = 800; o->life = 45; o->aux = AR_BLAST; }
+    rc_Sfx(&sfx_explosion);
 }
 
 

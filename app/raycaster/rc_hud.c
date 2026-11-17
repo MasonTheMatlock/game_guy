@@ -51,6 +51,8 @@ static void DrawHint(void)
     }
     else if(rc_aegis) rc_DrawText("SHIELD UP!", SCREEN_W / 2, 229, COLOR_SKY_BLUE);
     else if(rc_haste) rc_DrawText("HASTE!", SCREEN_W / 2, 229, C_GOLD);
+    else if(rc_nullify) rc_DrawText("MAGIC WEAKENED!", SCREEN_W / 2, 229, C_XP);
+    else if(rc_pSlow)   rc_DrawText("SLOWED!", SCREEN_W / 2, 229, COLOR_SKY_BLUE);
     else             rc_DrawText("U:use  D:swap  L/R:turn", SCREEN_W / 2, 229, C_DKGRAY);
 }
 
@@ -75,6 +77,8 @@ void rc_DrawHud(void)
 
         if(rc_IsBossLevel(rc_level))
             rc_DrawSmall("BOSS", 140, 8, C_RED, C_BLACK);
+        else if(rc_lv.treasure)
+            rc_DrawSmall("TREASURE", 140, 8, C_GOLD, C_BLACK);
         else
         {
             n  = rc_Cat(buf, 0, "ROUND ", 6);
@@ -119,18 +123,22 @@ void rc_DrawHud(void)
         }
         else
         {
-            if(rc_lv.boss)
+            int16_t bhp = 0;
+
+            for(i = 0; i < RC_MAX_ENEMIES; i++)         // a mini-boss or the Dragon is alive
+                if(rc_en[i].alive && (RC_IS_MINI(rc_en[i].type) || rc_en[i].type == ET_DRAGON))
+                    { bhp = rc_en[i].hp; break; }
+            if(bhp > 0)
             {
-                int16_t hp = 0;
-                for(i = 0; i < RC_MAX_ENEMIES; i++)
-                    if(rc_en[i].alive && (rc_en[i].type == ET_LICH || rc_en[i].type == ET_DRAGON)) hp = rc_en[i].hp;
                 n  = rc_Cat(buf, 0, "Boss HP ", 8);
-                rc_Itoa(buf + n, (uint16_t)((hp > 0) ? hp : 0));
+                rc_Itoa(buf + n, (uint16_t)bhp);
             }
+            else if(rc_lv.treasure)
+                rc_Cat(buf, 0, "Find treasure", 13);
             else
             {
                 n  = rc_Cat(buf, 0, "Left ", 5);
-                rc_Itoa(buf + n, rc_toSpawn + rc_alive);
+                rc_Itoa(buf + n, rc_toSpawn + rc_CountRegular());
             }
             rc_DrawText(buf, 255, 203, C_WHITE);
         }

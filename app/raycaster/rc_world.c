@@ -15,13 +15,22 @@ static uint32_t ScaleRgb(uint32_t rgb, uint16_t m)      // m is Q8
 }
 
 
-static char ArtAt(const char *row, uint16_t x)
+// All sprite colours share one id table (ids ID_SPR..), de-duplicated by RGB value:
+// palettes are free to repeat colours and there is no 8-colours-per-palette id limit.
+static uint16_t s_nCol;
+
+static uint16_t ColorId(uint32_t rgb)
 {
     uint16_t i;
 
-    for(i = 0; i < x; i++)
-        if(row[i] == 0) return '.';             // short row: rest is transparent
-    return row[x] ? row[x] : '.';
+    for(i = 0; i < s_nCol; i++)
+        if(rc_sprRgb[i] == rgb) return (uint16_t)(ID_SPR + i);
+    if(s_nCol < SPR_COLORS)
+    {
+        rc_sprRgb[s_nCol] = rgb;
+        return (uint16_t)(ID_SPR + s_nCol++);
+    }
+    return (uint16_t)(ID_SPR + SPR_COLORS - 1);         // table full: reuse the last colour
 }
 
 
@@ -29,16 +38,16 @@ static void SetPal(uint16_t type, const PalEnt *list)
 {
     uint16_t i;
 
-    for(i = 0; i < PAL_N; i++) rc_pal[type][i] = COLOR_MAGENTA;    // magenta = missing
+    for(i = 0; i < PAL_N; i++) rc_palId[type][i] = ColorId(COLOR_MAGENTA);   // magenta = missing
     for(i = 0; list[i].ch; i++)
         if((uint16_t)(list[i].ch - 'a') < PAL_N)
-            rc_pal[type][list[i].ch - 'a'] = list[i].rgb;
+            rc_palId[type][list[i].ch - 'a'] = ColorId(list[i].rgb);
 }
 
 
 void rc_BuildTables(void)
 {
-    uint16_t i, c, sh, x, y, n;
+    uint16_t i, c, sh;
     float    s, f;
 
     if(rc_tablesReady) return;
@@ -72,34 +81,8 @@ void rc_BuildTables(void)
             rc_wallCol[i][sh][1] = ScaleRgb(rc_wallCol[i][sh][0], 200);
         }
 
+    s_nCol = 0;
     for(i = 0; i < PT_COUNT; i++) SetPal(i, rc_kPal[i]);
-
-    // Sprite art -> per-column vertical runs.
-    for(sh = 0; sh < SH_COUNT; sh++)
-        for(x = 0; x < SPR_N; x++)
-        {
-            n = 0;
-            y = 0;
-            while(y < SPR_N)
-            {
-                char ch = ArtAt(rc_kArt[sh][y], x);
-
-                if(ch == '.') { y++; continue; }
-
-                if(n < SPR_MAXRUNS)
-                {
-                    uint16_t y1 = y;
-                    while(y1 + 1 < SPR_N && ArtAt(rc_kArt[sh][y1 + 1], x) == ch) y1++;
-                    rc_run[sh][x][n] = (uint16_t)(y | (y1 << 4) |
-                                      ((uint16_t)(ch - 'a') << 8));
-                    n++;
-                    y = y1 + 1;
-                }
-                else
-                    break;
-            }
-            rc_runCnt[sh][x] = n;
-        }
 
     rc_tablesReady = true;
 }

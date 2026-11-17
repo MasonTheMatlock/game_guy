@@ -212,20 +212,584 @@ static const char *const kArtDragonAttack[SPR_N] =
 };
 
 
+static const char *const kArtHobgob[SPR_N] =
+{
+    "................",
+    ".....aaaaaa.....",
+    "....aeeeeeea....",
+    "...aeebbbbeea...",
+    "...aebhffhbea...",
+    "....abddddba....",
+    "...aaabbbbaaa...",
+    "..acccaaaacccca.",
+    "..acdccccccdcca.",
+    ".aacdceeeecdcaa.",
+    ".aecdceddeecdcea",
+    ".aecdccccccdcea.",
+    "..aabbccccbbaa..",
+    "....bba..abb....",
+    "....bba..abb....",
+    "...aaaa..aaaa..."
+};
+
+static const char *const kArtSlime[SPR_N] =
+{
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "......aaaa......",
+    "....aabbbbaa....",
+    "...abbbbbbbba...",
+    "..abbhhbbbbbba..",
+    "..abhhbbbbbbba..",
+    ".abbbbcbbcbbbba.",
+    ".abbbbcbbcbbbba.",
+    ".abbbbbbbbbbbba.",
+    ".abbbbbccbbbbba.",
+    "..aabbbbbbbbaa..",
+    "...aaaaaaaaaa..."
+};
+
+static const char *const kArtSpider[SPR_N] =
+{
+    "................",
+    "................",
+    ".a............a.",
+    ".aa..........aa.",
+    "..aa...aa...aa..",
+    "...aa.abba.aa...",
+    ".a..aaabbaaa..a.",
+    "..aaaabbbbaaaa..",
+    "...a.abccba.a...",
+    "..a..abbbbba.a..",
+    ".a....abbba..a..",
+    ".a...aabbbaa..a.",
+    ".a..a..aaa..a.a.",
+    "....a......a....",
+    "................",
+    "................"
+};
+
+static const char *const kArtGhost[SPR_N] =
+{
+    "................",
+    ".....aaaaaa.....",
+    "....aabbbbaa....",
+    "...abbbbbbbba...",
+    "...abccbbccba...",
+    "...abccbbccba...",
+    "...abbbbbbbba...",
+    "...abbbccbbba...",
+    "...abbbccbbba...",
+    "..aabbbbbbbbaa..",
+    "..abbbbbbbbbba..",
+    "..abbbbbbbbbba..",
+    "..abbabbbbabba..",
+    "..aba.abba.aba..",
+    "..aa...aa...aa..",
+    "................"
+};
+
+static const char *const kArtGhostFade[SPR_N] =
+{
+    "................",
+    ".....a.a.a......",
+    "....a.b.b.a.....",
+    "...a.b.b.b.a....",
+    "....bcc.bcc.a...",
+    "...a.cc.bcc.b...",
+    "....b.b.b.b.a...",
+    "...a.b.ccb.b....",
+    "....b.b.ccb.a...",
+    "..a.b.b.b.b.b.a.",
+    "...b.b.b.b.b.b..",
+    "..a.b.b.b.b.b.a.",
+    "...b.a.b.b.a.b..",
+    "..a.a.a.ba.a.a..",
+    "...a...a.a...a..",
+    "................"
+};
+
+static const char *const kArtImp[SPR_N] =
+{
+    "................",
+    ".......ff.......",
+    "......ff........",
+    ".....aaaa.......",
+    "...a.bbbb.a.....",
+    "..aa.bbbb.aa....",
+    "..a.bbbbbb.a....",
+    "...bbdbbdbb.....",
+    "...bbbbbbbb.....",
+    "...bddddddb.....",
+    "..bbbbbbbbbb....",
+    ".abbbcccbbbba...",
+    ".a.bbbcccbbb.a..",
+    "...bbbbbbbb.....",
+    "...bb....bb.....",
+    "..aaa....aaa...."
+};
+
+static const char *const kArtNecro[SPR_N] =
+{
+    "......f.........",
+    ".....fff........",
+    "......f..eeee...",
+    "....eeeeeedde...",
+    "...eeaaaaeedde..",
+    "..eeaabbaaee.e..",
+    "..eeabeebaee.e..",
+    "..eeaaaaaaee.e..",
+    "...eeeccceee.e..",
+    "..eecccccceeee..",
+    "..ecccddcccce...",
+    ".eccccddccccce..",
+    ".ecccccccccce...",
+    ".eccccccccccce..",
+    ".eeccccccccee...",
+    "..eeeeeeeeee...."
+};
+
+static const char *const kArtEyeA[SPR_N] =
+{
+    ".h..h..h..h..h..",
+    ".h..h..h..h..h..",
+    "..f..f.hh.f..f..",
+    "...f..f..f..f...",
+    "....ffccccff....",
+    "...ccccccccc....",
+    "..cccgggggccc...",
+    ".cccgggddgggccc.",
+    ".cccgddaaddgccc.",
+    ".cccgddaaddgccc.",
+    ".cccgggddgggccc.",
+    "..cccgggggccc...",
+    "...ccccccccc....",
+    "....cebebec.....",
+    ".....cccccc.....",
+    "......ffff......"
+};
+
+static const char *const kArtEyeB[SPR_N] =
+{
+    "h..h..h..h..h..h",
+    "h..h..h..h..h..h",
+    ".f..f..hh..f..f.",
+    "..f..f.hh.f..f..",
+    "....ffccccff....",
+    "...ccccccccc....",
+    "..cccgggggccc...",
+    ".cccgggddgggccc.",
+    ".cccgdaaaaaggcc.",
+    ".cccgdaaaaaggcc.",
+    ".cccgggddgggccc.",
+    "..cccgggggccc...",
+    "...ccccccccc....",
+    "....cebebec.....",
+    ".....cccccc.....",
+    ".....ffffff....."
+};
+
+static const char *const kArtFireEl[SPR_N] =
+{
+    ".......a........",
+    "......aba.......",
+    "......abba..a...",
+    ".....aabbba.a...",
+    "..a..abbcbba....",
+    "..aa.abbccba.a..",
+    "...aaabbccbbaa..",
+    "....abbbcccbbaa.",
+    "....abbcddcbbba.",
+    "...aabbcddcbbaa.",
+    "...abbbcccbbba..",
+    "...aabbbccbbaa..",
+    "....aabbbbbba...",
+    ".....aabbbbaa...",
+    "......aabbaa....",
+    ".......aaaa....."
+};
+
+static const char *const kArtSlimeKingA[SPR_N] =
+{
+    "................",
+    "...g.g.g.g.g....",
+    "...gggggggggg...",
+    "....aaaaaaaa....",
+    "...abbbbbbbba...",
+    "..abbhhbbbbbba..",
+    "..abhhbbbbbbba..",
+    ".abbbccbbccbbba.",
+    ".abbbccbbccbbba.",
+    ".abbbbbbbbbbbba.",
+    ".abbbbbcccbbbba.",
+    ".abbbbbbbbbbbba.",
+    "..abbbbbbbbbba..",
+    "..aabbbbbbbbaa..",
+    "...aaaaaaaaaa...",
+    "................"
+};
+
+static const char *const kArtSlimeKingB[SPR_N] =
+{
+    "................",
+    "................",
+    "...g.g.g.g.g....",
+    "...gggggggggg...",
+    ".....aaaaaa.....",
+    "...aabbbbbbaa...",
+    "..abbhhbbbbbba..",
+    ".abbhhbbbbbbbba.",
+    "abbbbccbbccbbbba",
+    "abbbbccbbccbbbba",
+    "abbbbbbbbbbbbbba",
+    "abbbbbbcccbbbbba",
+    ".abbbbbbbbbbbba.",
+    ".aabbbbbbbbbbaa.",
+    "..aaaaaaaaaaaa..",
+    "................"
+};
+
+static const char *const kArtGolemA[SPR_N] =
+{
+    "................",
+    "....dddddddd....",
+    "...daaaaaaaad...",
+    "...dabbbbbbad...",
+    "...dabeebbeaad..",
+    "...dabbbbbbad...",
+    ".dddaabbbbaaddd.",
+    "daaadaaccaadaaad",
+    "dabbdabccbadbbad",
+    "dabbdabccbadbbad",
+    "daaadaabbaadaaad",
+    ".ddd.daaaad.ddd.",
+    ".....dbbbbd.....",
+    "....dbbddbbd....",
+    "....daad.daad...",
+    "....dddd.dddd..."
+};
+
+static const char *const kArtGolemB[SPR_N] =
+{
+    "................",
+    "................",
+    "....dddddddd....",
+    "...daaaaaaaad...",
+    "...dabbbbbbad...",
+    "...dabeebbead...",
+    ".dddaabbbbaaddd.",
+    "daaadaaccaadaaad",
+    "dabbdabccbadbbad",
+    "dabbdabccbadbbad",
+    "daaadaabbaadaaad",
+    ".ddd.daaaad.ddd.",
+    ".....dbbbbd.....",
+    "....dbbddbbd....",
+    "...daad...daad..",
+    "...dddd...dddd.."
+};
+
+static const char *const kArtVampA[SPR_N] =
+{
+    "................",
+    ".....eeeeee.....",
+    "....eaaaaaae....",
+    "....eabbbbae....",
+    "....ebebbebe....",
+    "....ebbbbbbe....",
+    "....ebbffbbe....",
+    "..eeccebbeccee..",
+    ".ecccccddcccccce",
+    ".eccdcccddcccdce",
+    ".ecccdccddccdcce",
+    "..eccccddccccce.",
+    "..ecccceecccce..",
+    "...ecccceeccce..",
+    "....ecc..ccee...",
+    ".....ee..ee....."
+};
+
+static const char *const kArtVampB[SPR_N] =
+{
+    "................",
+    "................",
+    ".....eeeeee.....",
+    "....eaaaaaae....",
+    "....eabbbbae....",
+    "....ebebbebe....",
+    "....ebbbbbbe....",
+    "...eebbffbbee...",
+    "..ecceebbeecce..",
+    ".eccccddddcccce.",
+    "ecccdcddddcdccce",
+    "eccdccddddccdcce",
+    ".ecccceddeccce..",
+    "..eccceddeccce..",
+    "...eccee.eccee..",
+    "....ee....ee...."
+};
+
+static const char *const kArtLichB[SPR_N] =
+{
+    "....a.a..a.a....",
+    "....aaaaaaaa....",
+    "....bbbbbbbb....",
+    "....bccbbccb....",
+    "....bbbbbbbb....",
+    ".....bbffbb.....",
+    "...dddeeeeddd...",
+    "..deeeeeeeeeed..",
+    ".deeeeeeeeeeeed.",
+    ".deebeeeeeebeed.",
+    ".deeeeeeeeeeeed.",
+    "..deeeeeeeeeed..",
+    "..deeeeeeeeeed..",
+    "...deeeeeeeed...",
+    "..dddeeeeeeddd..",
+    ".dddddddddddddd."
+};
+
+static const char *const kArtChest[SPR_N] =
+{
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "....aaaaaaaa....",
+    "..aabbbbbbbbaa..",
+    ".abbbbbbbbbbbba.",
+    ".abbddddddddbba.",
+    ".aaaaaaccaaaaaa.",
+    ".abbbbbcacbbbba.",
+    ".abbbbbbbbbbbba.",
+    ".abbbbbbbbbbbba.",
+    ".adddddddddddda.",
+    "..aaaaaaaaaaaa..",
+    "................"
+};
+
+static const char *const kArtMimic[SPR_N] =
+{
+    "................",
+    "................",
+    "................",
+    "....aaaaaaaa....",
+    "..aabbbbbbbbaa..",
+    ".abbbbbbbbbbbba.",
+    ".abbddddddddbba.",
+    ".aaaaaaaaaaaaaa.",
+    ".aeeaeeaeeaeeea.",
+    ".aeeaeeaeeaeeea.",
+    ".aaaeaeaeaeaaaa.",
+    "..aacccccccaa...",
+    ".abbccccccccbba.",
+    ".adddddddddddda.",
+    "..aaaaaaaaaaaa..",
+    "................"
+};
+
+static const char *const kArtOrb[SPR_N] =
+{
+    "................",
+    "................",
+    "................",
+    "................",
+    ".....aaaaaa.....",
+    "....aabbbbaa....",
+    "...aabccccbaa...",
+    "...abbcddcbba...",
+    "...abbcddcbba...",
+    "...aabccccbaa...",
+    "....aabbbbaa....",
+    ".....aaaaaa.....",
+    "................",
+    "................",
+    "................",
+    "................"
+};
+
+static const char *const kArtWeb[SPR_N] =
+{
+    "................",
+    "................",
+    "................",
+    "....a..a..a.....",
+    ".....a.a.a......",
+    "......aaa.......",
+    "..aaaaabaaaaa...",
+    "......aaa.......",
+    ".....a.a.a......",
+    "....a..a..a.....",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................"
+};
+
+static const char *const kArtPuddle[SPR_N] =
+{
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "....aaaaaaaa....",
+    "..aabbbbbbbbaa..",
+    ".abbbbhhbbbbbba.",
+    ".abbbbbbbbbbbba.",
+    "..aabbbbbbbbaa..",
+    "....aaaaaaaa...."
+};
+
+static const char *const kArtWarn[SPR_N] =
+{
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "....aaaaaaaa....",
+    "..aa........aa..",
+    ".a............a.",
+    ".a............a.",
+    "..aa........aa..",
+    "....aaaaaaaa....",
+    "................"
+};
+
+static const char *const kArtWave[SPR_N] =
+{
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "...aaaaaaaaaa...",
+    ".aabbbbbbbbbbaa.",
+    "abb..........bba",
+    "abb..........bba",
+    ".aabbbbbbbbbbaa.",
+    "...aaaaaaaaaa...",
+    "................"
+};
+
+static const char *const kArtAlert[SPR_N] =
+{
+    "................",
+    ".......aa.......",
+    "......abba......",
+    "......abba......",
+    "......abba......",
+    "......abba......",
+    "......abba......",
+    ".......bb.......",
+    ".......bb.......",
+    "................",
+    ".......aa.......",
+    "......abba......",
+    ".......aa.......",
+    "................",
+    "................",
+    "................"
+};
+
+static const PalEnt kP_HOBGOB[] = { {'a',COLOR_TETRIS_GRID},{'b',COLOR_BROWN},{'c',COLOR_GRAY},{'d',COLOR_DARK_GRAY},{'e',COLOR_LIGHT_GRAY},{'f',COLOR_CRIMSON},{'h',COLOR_WHITE},{0,0} };
+static const PalEnt kP_SLIME[] = { {'a',COLOR_TEAL},{'b',COLOR_GREEN},{'c',COLOR_TETRIS_GRID},{'h',COLOR_MINT},{0,0} };
+static const PalEnt kP_SLIME_S[] = { {'a',COLOR_OLIVE},{'b',COLOR_MINT},{'c',COLOR_TETRIS_GRID},{'h',COLOR_WHITE},{0,0} };
+static const PalEnt kP_SPIDER[] = { {'a',COLOR_GRAY},{'b',COLOR_PURPLE},{'c',COLOR_CRIMSON},{0,0} };
+static const PalEnt kP_GHOST[] = { {'a',COLOR_SKY_BLUE},{'b',COLOR_WHITE},{'c',COLOR_NAVY},{0,0} };
+static const PalEnt kP_GHOST_FADE[] = { {'a',COLOR_TEAL},{'b',COLOR_CYAN},{'c',COLOR_NAVY},{0,0} };
+static const PalEnt kP_IMP[] = { {'a',COLOR_MAROON},{'b',COLOR_CRIMSON},{'c',COLOR_ORANGE},{'d',COLOR_BLACK},{'f',COLOR_GOLD},{0,0} };
+static const PalEnt kP_IMP_LIT[] = { {'a',COLOR_MAROON},{'b',COLOR_TETRIS_L_ORANGE},{'c',COLOR_GOLD},{'d',COLOR_BLACK},{'f',COLOR_WHITE},{0,0} };
+static const PalEnt kP_NECRO[] = { {'a',COLOR_TETRIS_GRID},{'b',COLOR_LIGHT_GRAY},{'c',COLOR_DARK_PURPLE},{'d',COLOR_MINT},{'e',COLOR_BLACK},{'f',COLOR_KHAKI},{0,0} };
+static const PalEnt kP_EYEKING[] = { {'a',COLOR_BLACK},{'b',COLOR_TETRIS_GRID},{'c',COLOR_MAROON},{'d',COLOR_CRIMSON},{'e',COLOR_WHITE},{'f',COLOR_BROWN},{'g',COLOR_WHITE},{'h',COLOR_CRIMSON},{0,0} };
+static const PalEnt kP_EYEKING_FIRE[] = { {'a',COLOR_BLACK},{'b',COLOR_TETRIS_GRID},{'c',COLOR_MAROON},{'d',COLOR_TETRIS_L_ORANGE},{'e',COLOR_WHITE},{'f',COLOR_BROWN},{'g',COLOR_WHITE},{'h',COLOR_CRIMSON},{0,0} };
+static const PalEnt kP_EYEKING_ICE[] = { {'a',COLOR_BLACK},{'b',COLOR_TETRIS_GRID},{'c',COLOR_MAROON},{'d',COLOR_SKY_BLUE},{'e',COLOR_WHITE},{'f',COLOR_BROWN},{'g',COLOR_WHITE},{'h',COLOR_CRIMSON},{0,0} };
+static const PalEnt kP_EYEKING_BOLT[] = { {'a',COLOR_BLACK},{'b',COLOR_TETRIS_GRID},{'c',COLOR_MAROON},{'d',COLOR_GOLD},{'e',COLOR_WHITE},{'f',COLOR_BROWN},{'g',COLOR_WHITE},{'h',COLOR_CRIMSON},{0,0} };
+static const PalEnt kP_EYEKING_GRAV[] = { {'a',COLOR_BLACK},{'b',COLOR_TETRIS_GRID},{'c',COLOR_MAROON},{'d',COLOR_VIOLET},{'e',COLOR_WHITE},{'f',COLOR_BROWN},{'g',COLOR_WHITE},{'h',COLOR_CRIMSON},{0,0} };
+static const PalEnt kP_EYEKING_NULL[] = { {'a',COLOR_BLACK},{'b',COLOR_TETRIS_GRID},{'c',COLOR_MAROON},{'d',COLOR_GRAY},{'e',COLOR_WHITE},{'f',COLOR_BROWN},{'g',COLOR_WHITE},{'h',COLOR_CRIMSON},{0,0} };
+static const PalEnt kP_FIREEL[] = { {'a',COLOR_MAROON},{'b',COLOR_TETRIS_L_ORANGE},{'c',COLOR_KHAKI},{'d',COLOR_WHITE},{0,0} };
+static const PalEnt kP_SLIMEKING[] = { {'a',COLOR_TEAL},{'b',COLOR_GREEN},{'c',COLOR_TETRIS_GRID},{'g',COLOR_GOLD},{'h',COLOR_MINT},{0,0} };
+static const PalEnt kP_GOLEM_FIRE[] = { {'a',COLOR_DARK_GRAY},{'b',COLOR_GRAY},{'c',COLOR_TETRIS_L_ORANGE},{'d',COLOR_TETRIS_GRID},{'e',COLOR_GOLD},{0,0} };
+static const PalEnt kP_GOLEM_ICE[] = { {'a',COLOR_DARK_GRAY},{'b',COLOR_GRAY},{'c',COLOR_SKY_BLUE},{'d',COLOR_TETRIS_GRID},{'e',COLOR_WHITE},{0,0} };
+static const PalEnt kP_GOLEM_STORM[] = { {'a',COLOR_DARK_GRAY},{'b',COLOR_GRAY},{'c',COLOR_GOLD},{'d',COLOR_TETRIS_GRID},{'e',COLOR_WHITE},{0,0} };
+static const PalEnt kP_VAMP[] = { {'a',COLOR_TETRIS_GRID},{'b',COLOR_LIGHT_GRAY},{'c',COLOR_MAROON},{'d',COLOR_CRIMSON},{'e',COLOR_BLACK},{'f',COLOR_CRIMSON},{0,0} };
+static const PalEnt kP_CHEST[] = { {'a',COLOR_BLACK},{'b',COLOR_BROWN},{'c',COLOR_KHAKI},{'d',COLOR_GOLD},{0,0} };
+static const PalEnt kP_CHEST_CURSED[] = { {'a',COLOR_BLACK},{'b',COLOR_DARK_PURPLE},{'c',COLOR_CRIMSON},{'d',COLOR_VIOLET},{0,0} };
+static const PalEnt kP_MIMIC[] = { {'a',COLOR_BLACK},{'b',COLOR_BROWN},{'c',COLOR_CRIMSON},{'d',COLOR_GOLD},{'e',COLOR_WHITE},{0,0} };
+static const PalEnt kP_ORB_PURPLE[] = { {'a',COLOR_DARK_PURPLE},{'b',COLOR_VIOLET},{'c',COLOR_PINK},{'d',COLOR_WHITE},{0,0} };
+static const PalEnt kP_ORB_GREEN[] = { {'a',COLOR_TEAL},{'b',COLOR_GREEN},{'c',COLOR_MINT},{'d',COLOR_WHITE},{0,0} };
+static const PalEnt kP_ORB_BLOOD[] = { {'a',COLOR_MAROON},{'b',COLOR_CRIMSON},{'c',COLOR_CORAL},{'d',COLOR_WHITE},{0,0} };
+static const PalEnt kP_ORB_FIRE[] = { {'a',COLOR_MAROON},{'b',COLOR_TETRIS_L_ORANGE},{'c',COLOR_GOLD},{'d',COLOR_WHITE},{0,0} };
+static const PalEnt kP_ORB_ICE[] = { {'a',COLOR_TEAL},{'b',COLOR_SKY_BLUE},{'c',COLOR_WHITE},{'d',COLOR_WHITE},{0,0} };
+static const PalEnt kP_ORB_BOLT[] = { {'a',COLOR_ORANGE},{'b',COLOR_GOLD},{'c',COLOR_KHAKI},{'d',COLOR_WHITE},{0,0} };
+static const PalEnt kP_WEB[] = { {'a',COLOR_LIGHT_GRAY},{'b',COLOR_WHITE},{0,0} };
+static const PalEnt kP_PUDDLE_SLIME[] = { {'a',COLOR_OLIVE},{'b',COLOR_GREEN},{'h',COLOR_MINT},{0,0} };
+static const PalEnt kP_PUDDLE_FIRE[] = { {'a',COLOR_MAROON},{'b',COLOR_TETRIS_L_ORANGE},{'h',COLOR_GOLD},{0,0} };
+static const PalEnt kP_PUDDLE_WEB[] = { {'a',COLOR_GRAY},{'b',COLOR_LIGHT_GRAY},{'h',COLOR_WHITE},{0,0} };
+static const PalEnt kP_PUDDLE_BLAST[] = { {'a',COLOR_BROWN},{'b',COLOR_TETRIS_L_ORANGE},{'h',COLOR_KHAKI},{0,0} };
+static const PalEnt kP_WARN[] = { {'a',COLOR_CRIMSON},{0,0} };
+static const PalEnt kP_WAVE_SLIME[] = { {'a',COLOR_OLIVE},{'b',COLOR_GREEN},{0,0} };
+static const PalEnt kP_WAVE_FIRE[] = { {'a',COLOR_MAROON},{'b',COLOR_TETRIS_L_ORANGE},{0,0} };
+static const PalEnt kP_WAVE_ICE[] = { {'a',COLOR_TEAL},{'b',COLOR_SKY_BLUE},{0,0} };
+static const PalEnt kP_WAVE_STORM[] = { {'a',COLOR_ORANGE},{'b',COLOR_GOLD},{0,0} };
+static const PalEnt kP_WAVE_NOVA[] = { {'a',COLOR_DARK_PURPLE},{'b',COLOR_VIOLET},{0,0} };
+static const PalEnt kP_ALERT[] = { {'a',COLOR_CRIMSON},{'b',COLOR_GOLD},{0,0} };
+
 const char *const *const rc_kArt[SH_COUNT] =
 {
     kArtGoblin, kArtBat, kArtSkeleton, kArtLich, kArtBeholder,
-    kArtFlask, kArtBolt, kArtPuff, kArtDragon, kArtDragonAttack
+    kArtFlask, kArtBolt, kArtPuff, kArtDragon, kArtDragonAttack,
+    kArtHobgob,
+    kArtSlime,
+    kArtSpider,
+    kArtGhost,
+    kArtGhostFade,
+    kArtImp,
+    kArtNecro,
+    kArtEyeA,
+    kArtEyeB,
+    kArtFireEl,
+    kArtSlimeKingA,
+    kArtSlimeKingB,
+    kArtGolemA,
+    kArtGolemB,
+    kArtVampA,
+    kArtVampB,
+    kArtLichB,
+    kArtChest,
+    kArtMimic,
+    kArtOrb,
+    kArtWeb,
+    kArtPuddle,
+    kArtWarn,
+    kArtWave,
+    kArtAlert
 };
       // list ends with ch = 0
 
 static const PalEnt kPalGoblin[] =
     { {'d',COLOR_OLIVE},{'b',COLOR_DARK_GRAY},{'c',COLOR_GOLD},{'h',COLOR_WHITE},{'f',COLOR_TETRIS_GRID},
       {'e',COLOR_DARK_GRAY},{'a',COLOR_TETRIS_GRID},{'g',COLOR_LIGHT_GRAY},{0,0} };
-
-static const PalEnt kPalHobgob[] =
-    { {'d',COLOR_BROWN},{'b',COLOR_BROWN},{'c',COLOR_CRIMSON},{'h',COLOR_WHITE},{'f',COLOR_TETRIS_GRID},
-      {'e',COLOR_TETRIS_GRID},{'a',COLOR_TETRIS_GRID},{'g',COLOR_KHAKI},{0,0} };
 
 static const PalEnt kPalBat[]    =
     { {'a',COLOR_GRAY},{'b',COLOR_CRIMSON},{'c',COLOR_DARK_PURPLE},{'d',COLOR_WHITE},{0,0} };
@@ -284,10 +848,21 @@ static const PalEnt kPalDragonHot[] =
 
 const PalEnt *const rc_kPal[PT_COUNT] =
 {
-    kPalGoblin, kPalBat, kPalHobgob, kPalSkel, kPalBeholder, kPalLich, kPalBeholderHot,
+    kPalGoblin, kPalBat, kP_HOBGOB, kPalSkel, kPalBeholder, kPalLich, kPalBeholderHot,
     kPalFlaskFire, kPalFlaskFrost, kPalFlaskVenom, kPalFlaskMana, kPalBolt,
     kPalPuffFire, kPalPuffFrost, kPalPuffVenom, kPalPuffArcane,
-    kPalDragon, kPalDragonHot
+    kPalDragon, kPalDragonHot,
+    kP_SLIME, kP_SLIME_S, kP_SPIDER, kP_GHOST,
+    kP_GHOST_FADE, kP_IMP, kP_IMP_LIT, kP_NECRO,
+    kP_EYEKING, kP_EYEKING_FIRE, kP_EYEKING_ICE, kP_EYEKING_BOLT,
+    kP_EYEKING_GRAV, kP_EYEKING_NULL, kP_FIREEL, kP_SLIMEKING,
+    kP_GOLEM_FIRE, kP_GOLEM_ICE, kP_GOLEM_STORM, kP_VAMP,
+    kP_CHEST, kP_CHEST_CURSED, kP_MIMIC, kP_ORB_PURPLE,
+    kP_ORB_GREEN, kP_ORB_BLOOD, kP_ORB_FIRE, kP_ORB_ICE,
+    kP_ORB_BOLT, kP_WEB, kP_PUDDLE_SLIME, kP_PUDDLE_FIRE,
+    kP_PUDDLE_WEB, kP_PUDDLE_BLAST, kP_WARN, kP_WAVE_SLIME,
+    kP_WAVE_FIRE, kP_WAVE_ICE, kP_WAVE_STORM, kP_WAVE_NOVA,
+    kP_ALERT
 };
 
 

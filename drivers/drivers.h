@@ -13,4 +13,5 @@
 #include "buzzer.h"
 #include "backlight.h"
 #include "memory.h"
+#include "Mp3.h"
 #endif // __DRIVERS_H__

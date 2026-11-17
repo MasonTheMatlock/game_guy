@@ -19,7 +19,7 @@ static uint32_t IdColor(uint16_t id)
         return steel[id - ID_TEX_MET0];
     }
     if(id < ID_SPR)  { id -= 2u;       return rc_wallCol[id >> 3][(id >> 1) & 3u][id & 1u]; }
-    if(id < ID_TINT) { id -= ID_SPR;   return rc_pal[id >> 3][id & 7u]; }
+    if(id < ID_TINT) return rc_sprRgb[id - ID_SPR];
     if(id < ID_WPN)  return rc_kTint[id - ID_TINT];
     return rc_wPal[id - ID_WPN];
 }
@@ -233,6 +233,26 @@ static void ProjectOne(int16_t wx, int16_t wy, uint16_t shape, uint16_t pal,
 }
 
 
+// How an enemy projectile (OB_BOLT, flavour in aux) is drawn: shape, palette, scale.
+static const uint16_t kBoltLook[BK_COUNT][3] =
+{
+    { SH_BOLT, PT_BOLT,       3 },      // BK_LASER  (Watcher)
+    { SH_PUFF, PT_PUFF_FIRE,  4 },      // BK_FLAME  (Dragon)
+    { SH_ORB,  PT_ORB_PURPLE, 5 },      // BK_ORB    (Necromancer, Lich, Beholder)
+    { SH_ORB,  PT_ORB_BLOOD,  5 },      // BK_DRAIN  (Vampire Lord)
+    { SH_WEB,  PT_WEB,        6 },      // BK_WEB    (Spider)
+    { SH_ORB,  PT_ORB_ICE,    5 },      // BK_ICE    (Beholder ice eye)
+    { SH_ORB,  PT_ORB_FIRE,   5 },      // BK_FIRE   (Beholder fire eye)
+    { SH_ORB,  PT_ORB_BOLT,   4 }       // BK_SPARK  (Beholder lightning eye)
+};
+
+static uint16_t DecalScale(int16_t r)           // ring / puddle of radius r (Q10) -> sprite scale
+{
+    uint16_t sc = (uint16_t)(r >> 5);
+    return (sc < 4u) ? 4u : (sc > 150u) ? 150u : sc;
+}
+
+
 // Turn every enemy and object into a screen-space sprite.
 static void ProjectSprites(void)
 {
@@ -246,26 +266,13 @@ static void ProjectSprites(void)
     {
         const Enemy    *e = &rc_en[i];
         const EnemyDef *d;
-        uint16_t        pal, tint;
+        uint16_t        shape, pal, tint;
 
         if(!e->alive) continue;
         d = &rc_kEnemy[e->type];
-
-        pal = e->type;                                  // first six types match palette ids
-        if(e->type == ET_BEHOLDER && e->aux + 25u >= rc_BeholderCadence())
-            pal = PT_BEHOLDER_HOT;                      // eye glows just before it fires
-        if(e->type == ET_DRAGON)
-        {
-            pal = (e->aux >= 48u && e->aux <= 86u) ? PT_DRAGON_HOT : PT_DRAGON;
-            if(e->aux >= 112u && e->aux <= 150u)
-                d = &rc_kEnemy[ET_DRAGON];
-        }
-
+        rc_EnemyLook(e, &shape, &pal);
         tint = e->flash ? 1u : e->freeze ? 3u : (e->burn && (e->burn & 8u)) ? 2u : 0u;
-
-        ProjectOne(e->x, e->y,
-                   (e->type == ET_DRAGON && e->aux >= 112u && e->aux <= 150u) ? SH_DRAGON_ATTACK : d->shape,
-                   pal, d->scale, d->zoff, tint);
+        ProjectOne(e->x, e->y, shape, pal, d->scale, d->zoff, tint);
     }
 
     for(i = 0; i < RC_MAX_OBJ; i++)
@@ -273,22 +280,43 @@ static void ProjectSprites(void)
         const Obj *o = &rc_obj[i];
 
         if(!o->alive) continue;
-
         switch(o->kind)
         {
             case OB_FLASK:
                 ProjectOne(o->x, o->y, SH_FLASK, o->pal, 4, (uint16_t)o->z, 0);
                 break;
+
             case OB_BOLT:
-                if(o->aux)
-                    ProjectOne(o->x, o->y, SH_PUFF, PT_PUFF_FIRE, 4, (uint16_t)o->z, 0);
-                else
-                    ProjectOne(o->x, o->y, SH_BOLT, PT_BOLT, 3, (uint16_t)o->z, 0);
+                ProjectOne(o->x, o->y, kBoltLook[o->aux][0], kBoltLook[o->aux][1],
+                           kBoltLook[o->aux][2], (uint16_t)o->z, 0);
                 break;
+
             case OB_MANA:
                 if(o->life - o->age < 90u && (o->age & 4u)) break;      // blink before it vanishes
                 ProjectOne(o->x, o->y, SH_FLASK, PT_FLASK_MANA, 5, (uint16_t)o->z, 0);
                 break;
+
+            case OB_WARN:
+                if(o->age & 4u) break;                                  // blinking warning ring
+                ProjectOne(o->x, o->y, SH_WARN, PT_WARN, DecalScale(o->r), 0, 0);
+                break;
+
+            case OB_AREA:
+                if(o->life - o->age < 30u && (o->age & 4u)) break;      // fading out
+                ProjectOne(o->x, o->y, SH_PUDDLE,
+                           (o->aux == AR_FIRE) ? PT_PUDDLE_FIRE : (o->aux == AR_BLAST) ? PT_PUDDLE_BLAST :
+                           (o->aux == AR_WEB)  ? PT_PUDDLE_WEB  : PT_PUDDLE_SLIME,
+                           DecalScale(o->r), 0, 0);
+                break;
+
+            case OB_WAVE:
+                ProjectOne(o->x, o->y, SH_WAVE, PT_WAVE_SLIME + o->aux, DecalScale(o->r), 0, 0);
+                break;
+
+            case OB_CHEST:
+                ProjectOne(o->x, o->y, SH_CHEST, PT_CHEST, 12, 0, 0);
+                break;
+
             default:                                    // cloud / spark
                 ProjectOne(o->x, o->y, SH_PUFF, o->pal,
                            (uint16_t)(o->sc + ((o->age >> 1) & 3u)),
@@ -300,31 +328,40 @@ static void ProjectSprites(void)
 
 
 // Paint one sprite's pixel column (the one under screen x = xc) into a strip.
+// The 16 art rows are scanned here, so a column may hold any number of colour runs.
 static void PaintSlice(uint16_t *nl, uint16_t *nn, const Spr *sp, int16_t xc)
 {
-    uint16_t u, n, r, v, id;
+    const char *const *art = rc_kArt[sp->shape];
+    uint16_t u, y, y1, id;
     int16_t  xs = (int16_t)(xc - sp->x0);
+    char     ch;
 
     if(xs < 0) xs = 0;
     u = (uint16_t)(((int32_t)xs * sp->uStep) >> 8);
     if(u > SPR_N - 1) u = SPR_N - 1;
 
-    n = rc_runCnt[sp->shape][u];
-
-    for(r = 0; r < n; r++)
+    y = 0;
+    while(y < SPR_N)
     {
-        int16_t y0, y1;
+        int16_t py0, py1;
 
-        v  = rc_run[sp->shape][u][r];
-        y0 = (int16_t)(sp->top + (int16_t)(((int32_t)RUN_Y0(v) * sp->size) >> 4));
-        y1 = (int16_t)(sp->top + (int16_t)(((int32_t)(RUN_Y1(v) + 1) * sp->size) >> 4) - 1);
-        if(y0 < 0) y0 = 0;
-        if(y1 > RC_VIEW_H - 1) y1 = RC_VIEW_H - 1;
-        if(y1 < y0) continue;
+        ch = art[y][u];
+        if(ch == '.') { y++; continue; }
 
-        id = sp->flash ? (uint16_t)(ID_TINT + sp->flash)
-                       : (uint16_t)(ID_SPR + sp->type * 8u + RUN_CI(v));
-        ListPaint(nl, nn, RC_MAXN, y0, y1, id);
+        y1 = y;
+        while(y1 + 1 < SPR_N && art[y1 + 1][u] == ch) y1++;
+
+        py0 = (int16_t)(sp->top + (int16_t)(((int32_t)y * sp->size) >> 4));
+        py1 = (int16_t)(sp->top + (int16_t)(((int32_t)(y1 + 1) * sp->size) >> 4) - 1);
+        if(py0 < 0) py0 = 0;
+        if(py1 > RC_VIEW_H - 1) py1 = RC_VIEW_H - 1;
+        if(py1 >= py0)
+        {
+            id = sp->flash ? (uint16_t)(ID_TINT + sp->flash)
+                           : rc_palId[sp->type][(uint16_t)(ch - 'a') & 7u];
+            ListPaint(nl, nn, RC_MAXN, py0, py1, id);
+        }
+        y = y1 + 1;
     }
 }
 

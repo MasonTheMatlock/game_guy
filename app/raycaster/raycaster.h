@@ -6,6 +6,7 @@
 //   Clear a room and its door opens; walk through it for the next one. Every
 //   6th room is the Lich. Kills give gold and XP; fill the XP bar to level
 //   up and spend gold on one of three random cards (or reroll them).
+//   Every 2nd round a mini-boss joins the wave; the Dragon wakes after 3 of them.
 //   Three hearts, contact damage.
 //
 // CONTROLS
@@ -58,8 +59,8 @@ extern const App g_raycasterApp;            // app/raycaster.c
 //*****************************************************************************
 #define RC_MAP_W            16              // MUST stay 16 (index uses a shift)
 #define RC_MAP_H            16
-#define RC_MAX_ENEMIES      12
-#define RC_MAX_OBJ          10              // flasks, clouds, sparks, enemy bolts
+#define RC_MAX_ENEMIES      16
+#define RC_MAX_OBJ          16              // flasks, clouds, sparks, enemy bolts, puddles, waves
 #define RC_MAX_SPAWNS       8               // 'e' markers per map
 
 //*****************************************************************************

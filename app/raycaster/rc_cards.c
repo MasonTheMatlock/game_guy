@@ -22,8 +22,8 @@ void rc_DrawBanner(void)
     }
     else if(rc_lv.boss)
     {
-        rc_DrawText("BOSS ROUND", SCREEN_W / 2, 105, C_RED);
-        rc_DrawText(((rc_level + 1u) >= (RC_BOSS_EVERY * 2u)) ? "FIND DRAGON DEN" : "The Lich awaits", SCREEN_W / 2, 126, C_GRAY);
+        rc_DrawText("DRAGON ROUND", SCREEN_W / 2, 105, C_RED);
+        rc_DrawText("Find the Dragon Den", SCREEN_W / 2, 126, C_GRAY);
     }
     else
     {

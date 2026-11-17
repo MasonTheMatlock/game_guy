@@ -5,14 +5,47 @@
 
 const EnemyDef rc_kEnemy[ET_COUNT] =
 {
-    //  hp  spd gold  xp  rad reach scale zoff shape
-    {    6,  26,   8,  4, 330,  540,  12,   0, SH_GOBLIN   },   // goblin
-    {    3,  44,   6,  3, 260,  480,   8,   5, SH_BAT      },   // bat
-    {   18,  17,  25, 10, 440,  620,  17,   0, SH_GOBLIN   },   // hobgoblin
-    {    8,  30,  10,  5, 330,  540,  14,   0, SH_SKELETON },   // skeleton
-    {   14,  12,  30, 14, 420,  520,  16,   4, SH_BEHOLDER },   // beholder
-    { RC_BOSS_HP, 22, 200, 80, 620, 800, 26,  0, SH_LICH   },   // lich
-    { 260,         15, 500, 180, 820, 900, 38,  0, SH_DRAGON },   // dragon
+    //  hp  spd gold  xp  rad reach scale zoff shape            pal           shapeB
+    {    6,  26,   8,  4, 330,  540,  12,   0, SH_GOBLIN,       PT_GOBLIN,    0 },                // goblin
+    {    3,  44,   6,  3, 260,  480,   8,   5, SH_BAT,          PT_BAT,       0 },                // bat
+    {   18,  17,  25, 10, 440,  620,  17,   0, SH_HOBGOB,       PT_HOBGOB,    0 },                // hobgoblin
+    {    8,  30,  10,  5, 330,  540,  14,   0, SH_SKELETON,     PT_SKELETON,  0 },                // skeleton
+    {   10,  12,  18,  9, 420,  520,  16,   4, SH_BEHOLDER,     PT_BEHOLDER,  0 },                // watcher
+    {  140,  22, 200, 80, 620,  800,  26,   0, SH_LICH,         PT_LICH,      SH_LICH_B },        // lich (mini-boss)
+    {  260,  15, 500,180, 820,  900,  38,   0, SH_DRAGON,       PT_DRAGON,    0 },                // dragon
+    {   14,  10,  12,  7, 380,  560,  14,   0, SH_SLIME,        PT_SLIME,     0 },                // slime
+    {    5,  20,   5,  2, 260,  420,   9,   0, SH_SLIME,        PT_SLIME_S,   0 },                // small slime
+    {   10,  20,  15,  8, 300,  500,  10,   6, SH_SPIDER,       PT_SPIDER,    0 },                // spider (hangs from the ceiling: zoff = 16 - scale)
+    {   12,  24,  20, 10, 360,  520,  14,   3, SH_GHOST,        PT_GHOST,     0 },                // ghost
+    {    5,  38,  10,  6, 280,  500,  10,   0, SH_IMP,          PT_IMP,       0 },                // bomb imp
+    {   24,  12,  35, 15, 380,  520,  15,   0, SH_NECRO,        PT_NECRO,     0 },                // necromancer
+    {   22,  26,  80, 25, 420,  620,  12,   0, SH_CHEST,        PT_CHEST,     0 },                // mimic (looks like a chest until it wakes)
+    {   12,  26,  20,  8, 300,  500,  13,   0, SH_FIREEL,       PT_FIREEL,    0 },                // fire elemental
+    {  100,   9, 100, 50, 620,  800,  24,   0, SH_SLIMEKING_A,  PT_SLIMEKING, SH_SLIMEKING_B },   // slime king (mini-boss)
+    {  120,   8, 120, 55, 640,  820,  26,   0, SH_GOLEM_A,      PT_GOLEM_FIRE,SH_GOLEM_B },       // elemental golem (mini-boss)
+    {   90,  28, 130, 60, 420,  620,  20,   0, SH_VAMP_A,       PT_VAMP,      SH_VAMP_B },        // vampire lord (mini-boss)
+    {  180,  12, 250,100, 700,  820,  26,   4, SH_EYEKING_A,    PT_EYEKING,   SH_EYEKING_B },     // beholder (mini-boss)
+};
+
+
+// The five mini-bosses; one is picked at random (never the same twice in a row).
+const uint16_t rc_kMini[RC_NUM_MINI] = { ET_SLIMEKING, ET_GOLEM, ET_VAMPIRE, ET_EYEKING, ET_LICH };
+
+
+// Regular wave mix (see SpawnDef in rc_priv.h). Goblins fill whatever is left over.
+const SpawnDef rc_kSpawn[NUM_SPAWN] =
+{
+    //  type          unlock w0 step max cap
+    { ET_GOBLIN,        0,  40,  0,  40, 99 },
+    { ET_BAT,           1,  12,  2,  22, 99 },
+    { ET_SKELETON,      1,   8,  4,  26, 99 },
+    { ET_HOBGOB,        2,   6,  5,  24,  4 },
+    { ET_SLIME,         2,   8,  3,  18,  3 },
+    { ET_WATCHER,       3,   4,  3,  14,  3 },
+    { ET_SPIDER,        3,   5,  2,  12,  3 },
+    { ET_IMP,           3,   5,  3,  14,  4 },
+    { ET_GHOST,         4,   4,  2,  12,  3 },
+    { ET_NECRO,         5,   3,  1,   8,  2 },
 };
 
 

@@ -48,7 +48,7 @@ void rc_EnsureFlow(void)
 
 
 // Is the straight line between two points free of walls?
-static bool LineClear(int16_t x0, int16_t y0, int16_t x1, int16_t y1)
+bool rc_CanSee(int16_t x0, int16_t y0, int16_t x1, int16_t y1)
 {
     int16_t dx = (int16_t)(x1 - x0);
     int16_t dy = (int16_t)(y1 - y0);
@@ -77,7 +77,7 @@ static void SteerTarget(int16_t ex, int16_t ey, int16_t *tdx, int16_t *tdy)
     if((uint16_t)etx >= RC_MAP_W || (uint16_t)ety >= RC_MAP_H) return;
     d = rc_flow[((uint16_t)ety << RC_MAP_SHIFT) + (uint16_t)etx];
     if(d <= 1u || d == 0xFFFFu) return;                 // next to the player / no route
-    if(LineClear(ex, ey, rc_px, rc_py)) return;           // can see the player
+    if(rc_CanSee(ex, ey, rc_px, rc_py)) return;           // can see the player
 
     for(i = 0; i < 4; i++)                              // step to the tile that is closer
     {
@@ -94,21 +94,807 @@ static void SteerTarget(int16_t ex, int16_t ey, int16_t *tdx, int16_t *tdy)
 }
 
 
+//*****************************************************************************
+// Enemy helpers
+//*****************************************************************************
+#define RAND(n)   ((uint16_t)(Rand16() % (uint16_t)(n)))
+
+// Slide an enemy by (mx, my); walls stop each axis separately. Counts walk-animation steps.
+static void Slide(Enemy *e, int16_t mx, int16_t my)
+{
+    int16_t nx = (int16_t)(e->x + mx);
+    int16_t ny = (int16_t)(e->y + my);
+    bool    moved = false;
+
+    if(!Blocked(nx, e->y, 230)) { e->x = nx; moved = true; }
+    if(!Blocked(e->x, ny, 230)) { e->y = ny; moved = true; }
+    if(moved) e->an++;
+}
+
+
+// Move at speed sp along the vector (vx, vy).
+static void MoveAlong(Enemy *e, int16_t vx, int16_t vy, int16_t sp)
+{
+    int16_t d = Dist10(vx, vy);
+
+    if(d < 1) return;
+    Slide(e, (int16_t)(((int32_t)vx * sp) / d), (int16_t)(((int32_t)vy * sp) / d));
+}
+
+
+// Walk toward the player (straight if visible, else along the flow field).
+// side = +1 / -1 adds a sideways drift when close (goblins surround you).
+static void Chase(Enemy *e, int16_t sp, int16_t side, int16_t dx, int16_t dy, int16_t dist)
+{
+    int16_t sdx, sdy, sd, mx, my;
+
+    SteerTarget(e->x, e->y, &sdx, &sdy);
+    sd = Dist10(sdx, sdy);
+    if(sd < 1) sd = 1;
+    mx = (int16_t)(((int32_t)sdx * sp) / sd);
+    my = (int16_t)(((int32_t)sdy * sp) / sd);
+    if(side && dist > 0 && dist < 3400)
+    {
+        mx = (int16_t)(mx + (int16_t)(((int32_t)(-dy) * (sp / 3) * side) / dist));
+        my = (int16_t)(my + (int16_t)(((int32_t)( dx) * (sp / 3) * side) / dist));
+    }
+    Slide(e, mx, my);
+}
+
+
+// Ranged spacing: close in beyond `far`, back off inside `near`, drift sideways between.
+static void KeepRange(Enemy *e, int16_t sp, int16_t neer, int16_t faar, int16_t sgn,
+                      int16_t dx, int16_t dy, int16_t dist)
+{
+    if(dist < 1) return;
+    if(dist > faar)
+        Chase(e, sp, 0, dx, dy, dist);
+    else if(dist < neer)
+        Slide(e, (int16_t)(-(((int32_t)dx * (sp + (sp >> 1))) / dist)),
+                 (int16_t)(-(((int32_t)dy * (sp + (sp >> 1))) / dist)));
+    else
+        Slide(e, (int16_t)(sgn * (((int32_t)-dy * (sp >> 1)) / dist)),
+                 (int16_t)(sgn * (((int32_t) dx * (sp >> 1)) / dist)));
+}
+
+
+static int16_t SgnOf(const Enemy *e)
+{
+    return (int16_t)((e->an & 64u) ? 1 : -1);        // flips slowly so strafing changes side
+}
+
+
+// A random valid spot on a ring around (cx, cy). Returns false if no free spot was found.
+bool rc_TeleportEnemy(Enemy *e, int16_t cx, int16_t cy, int16_t rMin, int16_t rMax)
+{
+    uint16_t k;
+    int16_t  a, r, nx, ny;
+
+    for(k = 0; k < 10; k++)
+    {
+        a  = (int16_t)RAND(RC_ANGLES);
+        r  = (int16_t)(rMin + (int16_t)RAND((uint16_t)(rMax - rMin + 1)));
+        nx = (int16_t)(cx + (int16_t)(((int32_t)COS(a) * r) >> 14));
+        ny = (int16_t)(cy + (int16_t)(((int32_t)SIN(a) * r) >> 14));
+        if(Blocked(nx, ny, 260)) continue;
+        if(Dist10((int16_t)(nx - rc_px), (int16_t)(ny - rc_py)) < 900) continue;
+        rc_AddSpark(e->x, e->y, 6, 10, PT_PUFF_ARCANE, 8);
+        e->x = nx;
+        e->y = ny;
+        rc_AddSpark(nx, ny, 6, 10, PT_PUFF_ARCANE, 8);
+        return true;
+    }
+    return false;
+}
+
+
+// Fire one projectile at the player. angleOff rotates the aim (angle units, 1024 = full turn).
+void rc_ShootBolt(const Enemy *e, int16_t angleOff, uint16_t kind, int16_t speed, uint16_t life)
+{
+    int16_t dx   = (int16_t)(rc_px - e->x);
+    int16_t dy   = (int16_t)(rc_py - e->y);
+    int16_t dist = Dist10(dx, dy);
+    int16_t vx, vy, c, s;
+    Obj    *o;
+
+    if(dist < 300) return;
+    vx = (int16_t)(((int32_t)dx * speed) / dist);
+    vy = (int16_t)(((int32_t)dy * speed) / dist);
+    if(angleOff)
+    {
+        c = COS(angleOff);
+        s = SIN(angleOff);
+        {
+            int16_t rx = (int16_t)((((int32_t)vx * c) - ((int32_t)vy * s)) >> 14);
+            int16_t ry = (int16_t)((((int32_t)vx * s) + ((int32_t)vy * c)) >> 14);
+            vx = rx;
+            vy = ry;
+        }
+    }
+    o = rc_NewObj(OB_BOLT);
+    if(o == NULL) return;
+    o->x    = e->x;
+    o->y    = e->y;
+    o->vx   = vx;
+    o->vy   = vy;
+    o->z    = (kind == BK_FLAME) ? 4 : 6;
+    o->life = life;
+    o->aux  = kind;
+}
+
+
+static uint16_t SummonCount(uint16_t type)
+{
+    uint16_t i, n = 0;
+
+    for(i = 0; i < RC_MAX_ENEMIES; i++)
+        if(rc_en[i].alive && rc_en[i].sum && rc_en[i].type == type) n++;
+    return n;
+}
+
+
+// Summon n minions of `type` around the master (they die with it).
+static void SummonAround(const Enemy *m, uint16_t type, uint16_t n)
+{
+    uint16_t k;
+
+    for(k = 0; k < n; k++)
+    {
+        int16_t sx = (int16_t)(m->x + ((k == 0) ? 520 : (k == 1) ? -520 : 0));
+        int16_t sy = (int16_t)(m->y + ((k == 2) ? 520 : (k == 3) ? -520 : 0));
+        Enemy  *p;
+
+        if(rc_alive >= RC_MAX_ENEMIES - 1) break;
+        if(Blocked(sx, sy, 230)) { sx = m->x; sy = m->y; }
+        p = rc_SpawnEnemy(type, sx, sy);
+        if(p == NULL) break;
+        p->sum = 1;
+        rc_AddSpark(sx, sy, 6, 10, PT_PUFF_ARCANE, 10);
+    }
+    rc_SfxSoft(&sfx_powerup);
+}
+
+
+void rc_LichSummon(const Enemy *lich, uint16_t n)
+{
+    SummonAround(lich, ET_SKELETON, n);
+}
+
+
+void rc_BeholderShoot(const Enemy *e)               // Watcher laser (name kept)
+{
+    int16_t k, kmax = (rc_level >= 8) ? 1 : 0;       // deeper: three-way fan
+
+    for(k = -kmax; k <= kmax; k++)
+        rc_ShootBolt(e, (int16_t)(k * 36), BK_LASER, RC_BOLT_SPEED, 130);
+    rc_SfxSoft(&sfx_laser);
+}
+
+
+void rc_DragonBreath(const Enemy *e)
+{
+    int16_t k;
+
+    for(k = -1; k <= 1; k++)
+        rc_ShootBolt(e, (int16_t)(k * 33), BK_FLAME, 68, 115);
+    rc_SfxSoft(&sfx_laser);
+}
+
+
+uint16_t rc_BeholderCadence(void)
+{
+    uint16_t cut = (uint16_t)(2u * rc_level);
+    if(cut > 45u) cut = 45u;
+    return (uint16_t)(100u - cut);                      // frames between shots
+}
+
+
+// Which sprite frame / palette an enemy is drawn with (used by the renderer).
+void rc_EnemyLook(const Enemy *e, uint16_t *shape, uint16_t *pal)
+{
+    const EnemyDef *d = &rc_kEnemy[e->type];
+
+    *shape = d->shape;
+    *pal   = d->pal;
+    if(d->shapeB && ((e->an >> 3) & 1u)) *shape = d->shapeB;
+
+    switch(e->type)
+    {
+        case ET_WATCHER:
+            if(e->st == 1 || e->aux + 25u >= rc_BeholderCadence()) *pal = PT_BEHOLDER_HOT;
+            break;
+
+        case ET_GHOST:
+            if(e->st == 1) { *shape = SH_GHOST_FADE; *pal = PT_GHOST_FADE; }
+            break;
+
+        case ET_IMP:
+            if(e->st == 1 && (e->tm & 2u)) *pal = PT_IMP_LIT;
+            break;
+
+        case ET_MIMIC:
+            if(e->st != 0) { *shape = SH_MIMIC; *pal = PT_MIMIC; }
+            break;
+
+        case ET_GOLEM:
+            *pal = (uint16_t)(PT_GOLEM_FIRE + e->aux2 % 3u);
+            if(e->st == 1 || e->st == 2 || e->st == 4) *shape = SH_GOLEM_B;
+            break;
+
+        case ET_EYEKING:
+            if(e->st >= 1 && e->st <= 3)                // charging / firing: eye shows the element
+            {
+                static const uint16_t kEye[6] = { PT_EYEKING_FIRE, PT_EYEKING_ICE, PT_EYEKING_BOLT,
+                                                  PT_EYEKING_GRAV, PT_EYEKING_NULL, PT_EYEKING };
+                *pal = kEye[e->aux2 % 6u];
+            }
+            break;
+
+        case ET_DRAGON:
+            *pal = (e->aux >= 48u && e->aux <= 86u) ? PT_DRAGON_HOT : PT_DRAGON;
+            if(e->aux >= 112u && e->aux <= 150u) *shape = SH_DRAGON_ATTACK;
+            break;
+
+        default:
+            break;
+    }
+}
+
+
+// Shove the player (collision checked per axis).
+void rc_PlayerPush(int16_t dx, int16_t dy)
+{
+    if(!Blocked((int16_t)(rc_px + dx), rc_py, RC_PLAYER_R)) rc_px = (int16_t)(rc_px + dx);
+    if(!Blocked(rc_px, (int16_t)(rc_py + dy), RC_PLAYER_R)) rc_py = (int16_t)(rc_py + dy);
+    rc_flowTx = -1;
+}
+//*****************************************************************************
+// Per-type behaviour. Each returns true if touching the player hurts.
+//*****************************************************************************
+static uint16_t Phase(const Enemy *e)               // 0 = healthy, 1 = below 2/3, 2 = below 1/3
+{
+    if((int32_t)e->hp * 3L > (int32_t)e->mhp * 2L) return 0u;
+    if((int32_t)e->hp * 3L > (int32_t)e->mhp)      return 1u;
+    return 2u;
+}
+
+
+// Aim a straight dash at the player (speed 4x walking).
+static void AimCharge(Enemy *e, int16_t sp, int16_t dx, int16_t dy)
+{
+    int16_t d = Dist10(dx, dy);
+
+    if(d < 1) d = 1;
+    e->tx = (int16_t)(((int32_t)dx * sp * 4L) / d);
+    e->ty = (int16_t)(((int32_t)dy * sp * 4L) / d);
+}
+
+
+static bool ChargeStep(Enemy *e)
+{
+    int16_t nx = (int16_t)(e->x + e->tx);
+    int16_t ny = (int16_t)(e->y + e->ty);
+
+    if(Blocked(nx, ny, 230)) return false;          // stops at a wall
+    e->x = nx;
+    e->y = ny;
+    e->an++;
+    return true;
+}
+
+
+static void BehindPlayer(int16_t *bx, int16_t *by)   // a spot behind the player's back
+{
+    *bx = (int16_t)(rc_px - (int16_t)(((int32_t)COS(rc_ang) * 1400L) >> 14));
+    *by = (int16_t)(rc_py - (int16_t)(((int32_t)SIN(rc_ang) * 1400L) >> 14));
+}
+
+
+static bool ThinkHobgob(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t dist)
+{
+    switch(e->st)
+    {
+        case 0:                                     // walk, now and then charge
+            Chase(e, sp, 0, dx, dy, dist);
+            if(e->tm) e->tm--;
+            else if(dist > 1500 && dist < 4200 && rc_CanSee(e->x, e->y, rc_px, rc_py))
+            {
+                e->st = 1;
+                e->tm = 24;                         // telegraph ("!" frames)
+            }
+            else e->tm = 20;
+            break;
+        case 1:
+            if(--e->tm == 0) { AimCharge(e, sp, dx, dy); e->st = 2; e->tm = 14; }
+            break;
+        case 2:
+            if(!ChargeStep(e) || --e->tm == 0) { e->st = 3; e->tm = 30; }
+            break;
+        default:                                    // recovery: shield down, takes full damage
+            if(--e->tm == 0) { e->st = 0; e->tm = (uint16_t)(100u + RAND(120)); }
+            break;
+    }
+    return true;
+}
+
+
+static bool ThinkBat(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t dist)
+{
+    int16_t sdx, sdy, off, c, s, vx, vy;
+
+    (void)dx; (void)dy;
+    if(e->tm == 0)                                  // pick a new angle of attack
+    {
+        e->tm = (uint16_t)(18u + RAND(24));
+        e->tx = (int16_t)((RAND(2) ? 1 : -1) * (int16_t)(60u + RAND(180)));
+    }
+    e->tm--;
+
+    SteerTarget(e->x, e->y, &sdx, &sdy);
+    off = (dist < 1100) ? (int16_t)(e->tx >> 2) : e->tx;     // close in: fly straighter
+    c = COS(off);
+    s = SIN(off);
+    vx = (int16_t)((((int32_t)sdx * c) - ((int32_t)sdy * s)) >> 14);
+    vy = (int16_t)((((int32_t)sdx * s) + ((int32_t)sdy * c)) >> 14);
+    MoveAlong(e, vx, vy, sp);
+    return true;
+}
+
+
+static bool ThinkWatcher(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t dist)
+{
+    KeepRange(e, sp, 2600, 3800, SgnOf(e), dx, dy, dist);
+
+    if(e->st == 1)                                  // gaze: eye glows, then weakens your magic
+    {
+        if(--e->tm == 0)
+        {
+            e->st = 0;
+            if(dist < 5200 && rc_CanSee(e->x, e->y, rc_px, rc_py)) { rc_nullify = 150; rc_hud |= HUD_HINT; }
+        }
+        return true;
+    }
+    if(++e->aux >= rc_BeholderCadence())
+    {
+        e->aux = 0;
+        if((++e->cnt % 6u) == 0) { e->st = 1; e->tm = 28; }
+        else                    rc_BeholderShoot(e);
+    }
+    return true;
+}
+
+
+static bool ThinkLich(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t dist)
+{
+    uint16_t p = Phase(e);
+
+    if(p) sp = (int16_t)(sp + (sp >> 2));
+    switch(e->st)
+    {
+        case 0:
+            Chase(e, sp, 0, dx, dy, dist);
+            if(++e->aux >= (uint16_t)(180u - 35u * p))          // summon skeletons
+            {
+                e->aux = 0;
+                if(SummonCount(ET_SKELETON) < 4u) SummonAround(e, ET_SKELETON, p ? 3u : 2u);
+            }
+            if(++e->aux2 >= (uint16_t)(80u - 10u * p))          // soul bolts (every 3rd drains)
+            {
+                e->aux2 = 0;
+                rc_ShootBolt(e, 0, ((++e->cnt % 3u) == 0) ? BK_DRAIN : BK_ORB, 62, 130);
+                rc_SfxSoft(&sfx_laser);
+            }
+            if(e->tm) e->tm--;
+            else if(p == 2 && (e->cnt & 1u))                    // Death Nova
+            {
+                e->st = 3;
+                e->tm = 40;
+                rc_MakeWarn(e->x, e->y, 2200, 40, AR_SLIME, 0);
+            }
+            else { e->st = 1; e->tm = 24; }                     // charge
+            break;
+        case 1:
+            if(--e->tm == 0) { AimCharge(e, sp, dx, dy); e->st = 2; e->tm = 16; }
+            break;
+        case 2:
+            if(!ChargeStep(e) || --e->tm == 0) { e->st = 4; e->tm = 30; }
+            break;
+        case 3:
+            if(--e->tm == 0) { rc_MakeWave(e->x, e->y, 50, 3600, WV_NOVA); e->st = 4; e->tm = 40; e->cnt++; }
+            break;
+        default:
+            if(--e->tm == 0) { e->st = 0; e->tm = (uint16_t)(200u - 30u * p + RAND(60)); }
+            break;
+    }
+    return true;
+}
+
+
+static bool ThinkDragon(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t dist)
+{
+    uint16_t p   = Phase(e);
+    uint16_t len = (uint16_t)(180u - 20u * p);
+
+    if(p) sp = (int16_t)(sp + (sp >> 2));                       // enraged
+    if(++e->aux >= len) { e->aux = 0; e->cnt++; }
+
+    if(e->aux == 58u || e->aux == 72u) rc_DragonBreath(e);      // two fire volleys
+    if(p >= 1u && e->aux == 20u && (e->cnt & 1u) && SummonCount(ET_FIREEL) < 2u)
+        SummonAround(e, ET_FIREEL, 2u);                         // phase 2: fire elementals
+    if(p >= 1u && e->aux == 120u && dist < 2800 && dist > 0)    // wing gust
+        rc_PlayerPush((int16_t)(((int32_t)dx * 650L) / dist), (int16_t)(((int32_t)dy * 650L) / dist));
+    if(p == 2u && e->aux == 90u)                                // phase 3: inferno
+    {
+        rc_MakeWarn(rc_px, rc_py, 900, 40, AR_FIRE, 150);
+        rc_MakeWarn((int16_t)(rc_px + 1500), (int16_t)(rc_py - 700), 900, 40, AR_FIRE, 150);
+        rc_MakeWarn((int16_t)(rc_px - 1300), (int16_t)(rc_py + 900), 900, 40, AR_FIRE, 150);
+    }
+
+    if(dist > 200) Chase(e, sp, 0, dx, dy, dist);
+    if(e->aux == 132u && dist < 2050) rc_HurtPlayer();          // tail-whip impact frame
+    return false;
+}
+
+
+static bool ThinkSlime(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t dist)
+{
+    Chase(e, sp, 0, dx, dy, dist);
+    if(e->type == ET_SLIME && ++e->aux >= 45u)                  // leaves a damaging puddle
+    {
+        Obj *o = rc_NewObj(OB_AREA);
+
+        e->aux = 0;
+        if(o != NULL) { o->x = e->x; o->y = e->y; o->r = 420; o->life = 150; o->aux = AR_SLIME; }
+    }
+    return true;
+}
+
+
+static bool ThinkSpider(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t dist)
+{
+    uint16_t cad = (rc_level > 10u) ? 65u : (uint16_t)(85u - 2u * rc_level);
+
+    KeepRange(e, sp, 2600, 4200, SgnOf(e), dx, dy, dist);
+    if(++e->aux >= cad && dist < 5400 && rc_CanSee(e->x, e->y, rc_px, rc_py))
+    {
+        e->aux = 0;
+        rc_ShootBolt(e, 0, BK_WEB, 66, 110);
+        rc_SfxSoft(&sfx_laser);
+    }
+    return true;
+}
+
+
+static bool ThinkGhost(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t dist)
+{
+    int16_t bx, by, vx, vy, d;
+
+    switch(e->st)
+    {
+        case 0:
+            Chase(e, sp, 0, dx, dy, dist);
+            if(e->tm) e->tm--; else { e->st = 1; e->tm = 40; }
+            return true;
+        case 1:                                     // intangible: glides through walls
+            BehindPlayer(&bx, &by);
+            vx = (int16_t)(bx - e->x);
+            vy = (int16_t)(by - e->y);
+            d  = Dist10(vx, vy);
+            if(d > 1)
+            {
+                e->x = (int16_t)(e->x + (int16_t)(((int32_t)vx * sp * 2L) / d));
+                e->y = (int16_t)(e->y + (int16_t)(((int32_t)vy * sp * 2L) / d));
+                e->an++;
+            }
+            if(--e->tm == 0) e->st = 2;
+            return false;
+        case 2:                                     // reappear behind the player
+            BehindPlayer(&bx, &by);
+            if(!rc_TeleportEnemy(e, bx, by, 0, 500))
+                (void)rc_TeleportEnemy(e, rc_px, rc_py, 2200, 3600);
+            e->st = 3;
+            e->tm = 15;
+            return true;
+        default:
+            if(--e->tm == 0) { e->st = 0; e->tm = (uint16_t)(90u + RAND(70)); }
+            return true;
+    }
+}
+
+
+static bool ThinkImp(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t dist)
+{
+    if(e->st == 0)
+    {
+        Chase(e, sp, 0, dx, dy, dist);
+        if(dist < 950 && rc_CanSee(e->x, e->y, rc_px, rc_py)) { e->st = 1; e->tm = 16; }   // fuse lit
+    }
+    else if(--e->tm == 0)
+    {
+        rc_Explode(e->x, e->y);
+        e->alive = 0;
+        if(rc_alive) rc_alive--;
+    }
+    return false;
+}
+
+
+static bool ThinkNecro(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t dist)
+{
+    KeepRange(e, sp, 3000, 5200, SgnOf(e), dx, dy, dist);
+
+    if(e->aux2) e->aux2--;
+    else if(dist < 1800 && rc_TeleportEnemy(e, rc_px, rc_py, 3200, 5000)) e->aux2 = 180;   // blink away
+
+    if(++e->aux >= 110u)
+    {
+        e->aux = 0;
+        if(dist < 6500 && rc_CanSee(e->x, e->y, rc_px, rc_py))
+        {
+            rc_ShootBolt(e, 0, BK_ORB, 60, 130);
+            rc_SfxSoft(&sfx_laser);
+        }
+    }
+    if(e->tm) e->tm--;
+    else
+    {
+        e->tm = 260;
+        if(SummonCount(ET_SKELETON) < 3u) SummonAround(e, ET_SKELETON, 2u);
+    }
+    return true;
+}
+
+
+static bool ThinkMimic(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t dist)
+{
+    if(e->st == 0)                                  // disguised as a chest
+    {
+        if(dist < 1500 || e->flash) { e->st = 1; e->tm = 12; rc_Sfx(&sfx_hit); }
+        return false;
+    }
+    if(e->st == 1) { if(--e->tm == 0) e->st = 2; return true; }
+    Chase(e, sp, 0, dx, dy, dist);
+    return true;
+}
+
+
+static bool ThinkSlimeKing(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t dist)
+{
+    uint16_t p = Phase(e), k, a;
+
+    if(!(e->cnt & 0x100u) && (int32_t)e->hp * 2L < (int32_t)e->mhp)     // splits in two at half health
+    {
+        e->cnt |= 0x100u;
+        for(k = 0; k < 2; k++)
+        {
+            Enemy *s = rc_SpawnEnemy(ET_SLIME_S, (int16_t)(e->x + (k ? 600 : -600)), e->y);
+            if(s != NULL) s->tm = 0;
+        }
+    }
+    switch(e->st)
+    {
+        case 0:
+            Chase(e, (int16_t)(p == 2u ? sp + (sp >> 1) : sp), 0, dx, dy, dist);
+            if(e->tm) { e->tm--; break; }
+            a = e->cnt & 3u;
+            e->cnt = (uint16_t)((e->cnt & 0x100u) | ((a + 1u) % 3u));
+            if(a == 0u)                             // ground slam
+            {
+                e->st = 1;
+                e->tm = 40;
+                rc_MakeWarn(e->x, e->y, 1900, 40, AR_SLIME, 0);
+            }
+            else if(a == 1u)                        // toxic rain
+            {
+                e->st = 5;
+                e->tm = 40;
+                for(k = 0; k < 5; k++)
+                {
+                    int16_t rx = (int16_t)(rc_px + (int16_t)RAND(4000) - 2000);
+                    int16_t ry = (int16_t)(rc_py + (int16_t)RAND(4000) - 2000);
+
+                    if(!Blocked(rx, ry, 100)) rc_MakeWarn(rx, ry, 650, 40, AR_SLIME, 170);
+                }
+            }
+            else { e->st = 2; e->tm = 24; }         // royal bounce
+            break;
+        case 1:
+            if(--e->tm == 0) { rc_MakeWave(e->x, e->y, 45, 3000, WV_SLIME); e->st = 4; e->tm = 34; }
+            break;
+        case 2:
+            if(--e->tm == 0) { AimCharge(e, sp, dx, dy); e->st = 3; e->tm = 16; }
+            break;
+        case 3:
+            if(!ChargeStep(e) || --e->tm == 0) { e->st = 4; e->tm = 30; }
+            break;
+        case 5:
+            if(--e->tm == 0) { e->st = 4; e->tm = 30; }
+            break;
+        default:
+            if(--e->tm == 0) { e->st = 0; e->tm = (uint16_t)((p == 2u ? 60u : 95u) + RAND(40)); }
+            break;
+    }
+    return true;
+}
+
+
+static bool ThinkGolem(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t dist)
+{
+    uint16_t p = Phase(e);
+
+    if(p == 2u) sp = (int16_t)(sp * 2);             // Overload: faster at low health
+    switch(e->st)
+    {
+        case 0:
+            Chase(e, sp, 0, dx, dy, dist);
+            if(p >= 1u && !(e->cnt & 1u))    { e->cnt |= 1u; e->st = 5; e->tm = 90; break; }   // Fortification
+            if(p == 2u && !(e->cnt & 2u))    { e->cnt |= 2u; e->st = 5; e->tm = 90; break; }
+            if(e->tm) { e->tm--; break; }
+            if(dist < 1500)      { e->st = 1; e->tm = 30; }                                     // Iron Fist
+            else if(dist > 2300) { e->st = 2; e->tm = 36; rc_MakeWarn(e->x, e->y, 2000, 36, AR_SLIME, 0); }  // Earthquake
+            else e->tm = 10;
+            break;
+        case 1:
+            if(--e->tm == 0)
+            {
+                if(dist < 1750)
+                {
+                    rc_HurtPlayer();
+                    if(e->aux2 % 3u == 1u) { rc_pSlow = 90; rc_hud |= HUD_HINT; }   // ice fist slows
+                }
+                rc_AddSpark(e->x, e->y, 2, 14, PT_PUFF_FIRE, 8);
+                e->aux2++;
+                e->st = 4;
+                e->tm = 70;                         // weak point is exposed
+            }
+            break;
+        case 2:
+            if(--e->tm == 0)
+            {
+                uint16_t el = e->aux2 % 3u;
+
+                rc_MakeWave(e->x, e->y, (int16_t)(el == 2u ? 60 : 40), 4800,
+                            (uint16_t)(el == 0u ? WV_FIRE : el == 1u ? WV_ICE : WV_STORM));
+                if(el == 0u) rc_MakeWarn(rc_px, rc_py, 800, 30, AR_FIRE, 130);
+                e->aux2++;
+                e->st = 6;
+                e->tm = 50;
+            }
+            break;
+        default:                                    // 4 exposed, 5 fortified, 6 recovering
+            if(--e->tm == 0) { e->st = 0; e->tm = (uint16_t)(60u + RAND(40)); }
+            break;
+    }
+    return true;
+}
+
+
+static bool ThinkVampire(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t dist)
+{
+    bool frenzy = ((int32_t)e->hp * 5L < (int32_t)e->mhp * 2L);          // below 40%
+    int16_t bx, by;
+
+    if(frenzy) sp = (int16_t)(sp + sp / 3);
+    switch(e->st)
+    {
+        case 0:
+            KeepRange(e, sp, 2400, 3600, SgnOf(e), dx, dy, dist);
+            if(e->tm) { e->tm--; break; }
+            e->aux2 = RAND(3);
+            if(e->aux2 == 2u && SummonCount(ET_BAT) >= 4u) e->aux2 = 0;
+            e->st = 1;
+            e->tm = 20;
+            break;
+        case 1:
+            if(--e->tm == 0)
+            {
+                if(e->aux2 == 0u)                   // blood drain
+                {
+                    rc_ShootBolt(e, 0, BK_DRAIN, 75, 120);
+                    if(frenzy) { rc_ShootBolt(e, 30, BK_DRAIN, 75, 120); rc_ShootBolt(e, -30, BK_DRAIN, 75, 120); }
+                }
+                else if(e->aux2 == 1u)              // shadow step, then strike
+                {
+                    BehindPlayer(&bx, &by);
+                    (void)rc_TeleportEnemy(e, bx, by, 0, 500);
+                    rc_ShootBolt(e, 0, BK_DRAIN, 75, 120);
+                }
+                else SummonAround(e, ET_BAT, 3u);   // bat swarm
+                rc_SfxSoft(&sfx_laser);
+                e->st = 2;
+                e->tm = frenzy ? 40u : 70u;
+            }
+            break;
+        default:
+            if(--e->tm == 0) { e->st = 0; e->tm = (uint16_t)((frenzy ? 30u : 60u) + RAND(40)); }
+            break;
+    }
+    return true;
+}
+
+
+static bool ThinkEye(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t dist)
+{
+    uint16_t p = Phase(e), n, a;
+    int16_t  off;
+
+    switch(e->st)
+    {
+        case 0:
+            KeepRange(e, (int16_t)(sp + (int16_t)(p * 3u)), 3200, 4800, SgnOf(e), dx, dy, dist);
+            if(e->tm) { e->tm--; break; }
+            n = (p == 0u) ? 3u : (p == 1u) ? 5u : 6u;
+            a = RAND(n);
+            if(a == e->aux2) a = (a + 1u) % n;
+            e->aux2 = a;
+            e->st = 1;
+            e->tm = (uint16_t)(26u - 6u * p);
+            break;
+        case 1:                                     // eye glows in the colour of the attack
+            if(--e->tm != 0) break;
+            switch(e->aux2)
+            {
+                case 0:                             // fire eye: three-way fan
+                    rc_ShootBolt(e, -38, BK_FIRE, 70, 120);
+                    rc_ShootBolt(e,   0, BK_FIRE, 70, 120);
+                    rc_ShootBolt(e,  38, BK_FIRE, 70, 120);
+                    break;
+                case 1:                             // ice eye: slows
+                    rc_ShootBolt(e, 0, BK_ICE, 66, 130);
+                    break;
+                case 2:                             // lightning eye: sweeping bolts
+                    e->st = 2;
+                    e->tm = 18;
+                    return true;
+                case 3:                             // gravity eye: pulls you in
+                    rc_pull  = 70;
+                    rc_pullX = e->x;
+                    rc_pullY = e->y;
+                    break;
+                case 4:                             // nullifying gaze
+                    if(rc_CanSee(e->x, e->y, rc_px, rc_py)) { rc_nullify = 180; rc_hud |= HUD_HINT; }
+                    break;
+                default:                            // eye barrage
+                    for(off = -64; off <= 64; off += 32) rc_ShootBolt(e, off, BK_ORB, 58, 130);
+                    break;
+            }
+            rc_SfxSoft(&sfx_laser);
+            e->st = 3;
+            e->tm = 12;
+            break;
+        case 2:
+            if((e->tm % 3u) == 0u)
+                rc_ShootBolt(e, (int16_t)(-40 + (int16_t)((18u - e->tm) * 80u / 18u)), BK_SPARK, 85, 80);
+            if(--e->tm == 0) { e->st = 3; e->tm = 12; }
+            break;
+        default:
+            if(--e->tm == 0) { e->st = 0; e->tm = (uint16_t)(110u - 25u * p + RAND(30)); }
+            break;
+    }
+    return true;
+}
+
+
+//*****************************************************************************
+// The update loop
+//*****************************************************************************
 void rc_UpdateEnemies(void)
 {
     uint16_t i, j;
-    int16_t  dx, dy, dist, sp, mx, my, nx, ny;
+    int16_t  dx, dy, dist, sp;
 
     for(i = 0; i < RC_MAX_ENEMIES; i++)
     {
         Enemy          *e = &rc_en[i];
         const EnemyDef *d;
+        bool            hurts = true;
 
         if(!e->alive) continue;
         d = &rc_kEnemy[e->type];
 
         if(e->flash) e->flash--;
 
+        if(e->type == ET_FIREEL) e->burn = 0;           // fire elementals are fireproof
         if(e->burn)                                     // burning: 1 damage every 16 frames
         {
             e->burn--;
@@ -124,101 +910,34 @@ void rc_UpdateEnemies(void)
         sp = d->speed;
         if(e->slow) { e->slow--; sp >>= 1; }
 
-        if(e->type == ET_LICH)
-        {
-            bool angry = (e->hp < RC_BOSS_HP / 2);
-
-            e->aux++;
-            if(angry) sp += (sp >> 2);
-            if(e->aux >= 220)                           // charge!
-            {
-                sp *= 3;
-                if(e->aux >= 265) e->aux = 0;
-            }
-
-            e->aux2++;
-            if(e->aux2 >= (angry ? 110u : 170u))        // summon skeletons
-            {
-                e->aux2 = 0;
-                rc_LichSummon(e, angry ? 3u : 2u);
-            }
-        }
-        else if(e->type == ET_BEHOLDER)
-        {
-            e->aux++;
-            if(e->aux >= rc_BeholderCadence())
-            {
-                e->aux = 0;
-                rc_BeholderShoot(e);
-            }
-        }
-        else if(e->type == ET_DRAGON)
-        {
-            e->aux++;
-            if(e->aux >= 180u) e->aux = 0;
-            /* Two short breath volleys, then a telegraphed tail sweep. */
-            if(e->aux == 58u || e->aux == 72u) rc_DragonBreath(e);
-        }
-
-        dx   = rc_px - e->x;
-        dy   = rc_py - e->y;
+        dx   = (int16_t)(rc_px - e->x);
+        dy   = (int16_t)(rc_py - e->y);
         dist = Dist10(dx, dy);
 
-        if(e->type == ET_BEHOLDER)
+        switch(e->type)
         {
-            // Keeps 2.6 - 3.8 tiles away: closes in, backs off, or drifts sideways.
-            if(dist > 0)
-            {
-                if(dist > 3800)
-                {
-                    int16_t sdx, sdy, sd;
-
-                    SteerTarget(e->x, e->y, &sdx, &sdy);
-                    sd = Dist10(sdx, sdy);
-                    if(sd < 1) sd = 1;
-                    mx = (int16_t)(((int32_t)sdx * sp) / sd);
-                    my = (int16_t)(((int32_t)sdy * sp) / sd);
-                }
-                else if(dist < 2600)
-                {
-                    mx = (int16_t)(-(((int32_t)dx * (sp + (sp >> 1))) / dist));
-                    my = (int16_t)(-(((int32_t)dy * (sp + (sp >> 1))) / dist));
-                }
-                else
-                {
-                    int16_t sgn = (i & 1u) ? 1 : -1;
-
-                    mx = (int16_t)(sgn * (((int32_t)-dy * (sp >> 1)) / dist));
-                    my = (int16_t)(sgn * (((int32_t) dx * (sp >> 1)) / dist));
-                }
-
-                nx = e->x + mx;
-                if(!Blocked(nx, e->y, 230)) e->x = nx;
-                ny = e->y + my;
-                if(!Blocked(e->x, ny, 230)) e->y = ny;
-            }
-        }
-        else if(dist > 200)
-        {
-            int16_t sdx, sdy, sd;
-
-            SteerTarget(e->x, e->y, &sdx, &sdy);
-            sd = Dist10(sdx, sdy);
-            if(sd < 1) sd = 1;
-            mx = (int16_t)(((int32_t)sdx * sp) / sd);
-            my = (int16_t)(((int32_t)sdy * sp) / sd);
-
-            nx = e->x + mx;
-            if(!Blocked(nx, e->y, 230)) e->x = nx;
-            ny = e->y + my;
-            if(!Blocked(e->x, ny, 230)) e->y = ny;
+            case ET_HOBGOB:    hurts = ThinkHobgob(e, sp, dx, dy, dist);    break;
+            case ET_BAT:       hurts = ThinkBat(e, sp, dx, dy, dist);       break;
+            case ET_WATCHER:   hurts = ThinkWatcher(e, sp, dx, dy, dist);   break;
+            case ET_LICH:      hurts = ThinkLich(e, sp, dx, dy, dist);      break;
+            case ET_DRAGON:    hurts = ThinkDragon(e, sp, dx, dy, dist);    break;
+            case ET_SLIME:
+            case ET_SLIME_S:   hurts = ThinkSlime(e, sp, dx, dy, dist);     break;
+            case ET_SPIDER:    hurts = ThinkSpider(e, sp, dx, dy, dist);    break;
+            case ET_GHOST:     hurts = ThinkGhost(e, sp, dx, dy, dist);     break;
+            case ET_IMP:       hurts = ThinkImp(e, sp, dx, dy, dist);       break;
+            case ET_NECRO:     hurts = ThinkNecro(e, sp, dx, dy, dist);     break;
+            case ET_MIMIC:     hurts = ThinkMimic(e, sp, dx, dy, dist);     break;
+            case ET_SLIMEKING: hurts = ThinkSlimeKing(e, sp, dx, dy, dist); break;
+            case ET_GOLEM:     hurts = ThinkGolem(e, sp, dx, dy, dist);     break;
+            case ET_VAMPIRE:   hurts = ThinkVampire(e, sp, dx, dy, dist);   break;
+            case ET_EYEKING:   hurts = ThinkEye(e, sp, dx, dy, dist);       break;
+            default:                                    // goblin, skeleton, fire elemental: plain pursuit
+                Chase(e, sp, (e->type == ET_GOBLIN) ? (int16_t)((i & 1u) ? 1 : -1) : 0, dx, dy, dist);
+                break;
         }
 
-        if(e->type == ET_DRAGON)
-        {
-            if(e->aux == 132u && dist < 2050) rc_HurtPlayer();   // tail-whip impact frame
-        }
-        else if(dist < d->reach) rc_HurtPlayer();
+        if(e->alive && hurts && dist < d->reach) rc_HurtPlayer();
     }
 
     // Keep them from stacking into one blob.
@@ -228,8 +947,8 @@ void rc_UpdateEnemies(void)
         for(j = i + 1; j < RC_MAX_ENEMIES; j++)
         {
             if(!rc_en[j].alive) continue;
-            dx = rc_en[i].x - rc_en[j].x;
-            dy = rc_en[i].y - rc_en[j].y;
+            dx = (int16_t)(rc_en[i].x - rc_en[j].x);
+            dy = (int16_t)(rc_en[i].y - rc_en[j].y);
             if(Abs16(dx) < 300 && Abs16(dy) < 300)
             {
                 int16_t px = (dx >= 0) ? 5 : -5;
