@@ -113,7 +113,8 @@ void main(void)
     //         enabled here, last, once every vector is in place.
     Buzzer_Init();
 
-    MP3_init(20);              // from Mp3.h, already included via drivers.h
+         
+    MP3_init(20);
 
     EALLOW;
     GpioCtrlRegs.GPAMUX1.bit.GPIO0 = 0;  // Force back to standard GPIO first
@@ -131,17 +132,11 @@ void main(void)
     EINT;
     ERTM;
 
-     MP3_playTrack(2);          // /MP3/0001.mp3
+     MP3_playTrack(2);          // /MP3/0002.mp3
      DELAY_US(10000);
 
-    Buzzer_PlaySfx(&sfx_coin);
+    Buzzer_PlaySfx(&sfx_level_up);
     Splash_Show();
-
-    // --- TEMP: MP3 HAL test, remove when it works ---
-  
-       
-    // ------------------------------------------------
-    
 
     // Step 6. Menu -> app -> menu -> ... (never returns)
     App_Loop();

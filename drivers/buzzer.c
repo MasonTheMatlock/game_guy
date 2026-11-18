@@ -59,11 +59,11 @@ interrupt void Buzzer_PwmISR(void);                     // carrier tick (ePWM4, 
 //*****************************************************************************
 static const uint16_t s_ampQ16[BUZZER_NUM_VOLUMES] =
 {
-     0,      // level 0: -24 dB (6.25%)
-     8192,      // level 1: -18 dB (12.5%)
-    16384,      // level 2: -12 dB (25%)
-    32768,      // level 3:  -6 dB (50%)
-    65535       // level 4:   0 dB (~100%)
+    16384,      // level 0: 25%  (-12 dB)  quiet but audible
+    50000,      // level 1: 35%  (-9 dB)
+    60000,      // level 2: 50%  (-6 dB)
+    62000,      // level 3: 71%  (-3 dB)
+    65535       // level 4: 100% ( 0 dB)
 };
 
 static uint16_t          s_cmpTab[BUZZER_NUM_VOLUMES];  // CMPA for the "on" half, per level

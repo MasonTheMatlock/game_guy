@@ -50,13 +50,13 @@
 #include "F2806x_Examples.h"    // DELAY_US(), CPU_RATE
 #include "grlib.h"              // Graphics_* drawing functions
 #include "drivers/drivers.h"    // joystick + dpad: g_joy, g_dpad, ...
-#include "hal/kitronix320x240x16_ssd2119_spi.h"
+//#include "hal/kitronix320x240x16_ssd2119_spi.h"
 
 //*****************************************************************************
 // Screen geometry
 //*****************************************************************************
-#define SCREEN_H      LCD_VERTICAL_MAX       // LCD is 320 x 240, landscape
-#define SCREEN_W     LCD_HORIZONTAL_MAX
+#define SCREEN_H     240        // LCD is 320 x 240, landscape
+#define SCREEN_W     320
 
 //*****************************************************************************
 // Shared services (defined in app/apps.c, used by every app)

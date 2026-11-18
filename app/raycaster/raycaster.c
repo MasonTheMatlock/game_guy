@@ -53,6 +53,42 @@ static uint16_t TicksOwed(void)
 }
 
 
+// ---- MP3 theme: buzzer song until round 2, then track 10 loops ---------------
+// rc_level counts rounds from 0, so round 2 is rc_level == 1.
+#define RC_THEME_TRACK   10      // plays /MP3/0010.mp3
+#define RC_THEME_SEC     120     // EDIT: length of 0010.mp3 in seconds (round up 1-2 s)
+#define RC_THEME_FPS     400     // EDIT: frames per second (a guess); see note below
+#define RC_THEME_ROUND   1       // rc_level value at which the MP3 takes over (1 = round 2)
+
+static bool     s_rcThemeOn;     // true once the MP3 has taken over
+static uint32_t s_rcThemeTimer;  // frames left in the current play of the track
+
+static void RcTheme_Start(void)
+{
+    MP3_playTrack(RC_THEME_TRACK);
+    s_rcThemeTimer = (uint32_t)RC_THEME_SEC * RC_THEME_FPS;
+}
+
+// Once per frame. Switches to the MP3 at round 2, then loops it.
+static void RcTheme_Update(void)
+{
+    if(!s_rcThemeOn)
+    {
+        if(rc_level >= RC_THEME_ROUND)
+        {
+            s_rcThemeOn = true;
+            Buzzer_Stop();                     // stop the buzzer song (and any sfx)
+            RcTheme_Start();
+        }
+        return;
+    }
+
+    MP3_poll();                                // reads the module's "track done" message
+    if(s_rcThemeTimer > 0) s_rcThemeTimer--;
+    if(MP3_trackFinished() || s_rcThemeTimer == 0) RcTheme_Start();
+}
+
+
 static void RC_Init(void)
 {
     uint16_t i;
@@ -66,6 +102,9 @@ static void RC_Init(void)
     rc_hud = 0;
     rc_StartLevel(0);
 
+    s_rcThemeOn = false;                       // new run: buzzer song first
+    MP3_stop();
+
     /* Loop the main theme; SFX temporarily take the buzzer and music resumes. */
     Buzzer_PlaySong(&song_corridor_run, 1);
 }
@@ -74,6 +113,8 @@ static void RC_Init(void)
 static AppStatus RC_Update(void)
 {
     uint16_t n, i;
+
+    RcTheme_Update();
 
     switch(rc_mode)
     {
@@ -194,13 +235,17 @@ static void RC_Redraw(void)
     PaceInit();                                 // don't "catch up" after the pause
     rc_dirtyFull = true;
     if(rc_mode != MODE_OVER)
-        Buzzer_PlaySong(&song_corridor_run, 1);
+    {
+        if(s_rcThemeOn) RcTheme_Start();                    // Settings interrupted the MP3
+        else            Buzzer_PlaySong(&song_corridor_run, 1);
+    }
 }
 
 
 static void RC_Exit(void)
 {
     Buzzer_Stop();
+    MP3_stop();
 }
 
 

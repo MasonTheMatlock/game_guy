@@ -19,11 +19,10 @@
 
 #include "F2806x_Device.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
 
-#define MP3_VOLUME_MAX      25      // module range is 0..30
+
+#define MP3_VOLUME_MAX          25      // game cap (module range is 0..30)
+#define MP3_LEVEL_TO_VOLUME(l)  (((l) * MP3_VOLUME_MAX) / (BUZZER_NUM_VOLUMES - 1))
 
 // Equalizer presets for MP3_setEQ()
 #define MP3_EQ_NORMAL       0

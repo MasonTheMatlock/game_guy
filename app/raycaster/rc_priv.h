@@ -42,7 +42,7 @@
 
 #include <math.h>
 
-
+#define DOOM_song 2
 /* Performance configuration: 60 strips x 5 pixels = 300 pixels. */
 #undef RC_COLS
 
@@ -171,6 +171,7 @@ extern const Song song_corridor_run;
 #define RC_BOSS_HP      140
 
 #define RC_MINI_EVERY   2               // a mini-boss joins the wave every 2nd round
+
 #define RC_TREASURE_AT  5               // treasure round: round 5, 15, 25 ... ((round+1) % 10 == 5)
 #define RC_DRAGON_MINIS 3               // mini-bosses to beat (with all 6 doors bought) before the Dragon wakes
 

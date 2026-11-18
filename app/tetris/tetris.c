@@ -7,6 +7,59 @@
 // 6. APP CALLBACKS
 //*****************************************************************************
 
+// ---- MP3 playlist: 6, 6, 7, 6, 8, 6, 9, 6, then repeat --------------------
+static const uint16_t s_playlist[] = { 6, 6, 7, 6, 8, 6, 9, 6 };
+#define PLAYLIST_LEN   (sizeof(s_playlist) / sizeof(s_playlist[0]))
+#define PLAYLIST_LOOP  0        // index to wrap to; change to 2 to skip the opening "6, 6" on later passes
+
+// Length of each track in SECONDS. EDIT THESE to match your files.
+#define TRK6_SEC   84
+#define TRK7_SEC   120
+#define TRK8_SEC   50
+#define TRK9_SEC   120
+#define PLAYLIST_FPS  60        // frames per second (nominal; tune if the timing drifts)
+
+// Same order as s_playlist[]: 6, 6, 7, 6, 8, 6, 9, 6
+static const uint16_t s_playlistSec[] =
+    { TRK6_SEC, TRK6_SEC, TRK7_SEC, TRK6_SEC, TRK8_SEC, TRK6_SEC, TRK9_SEC, TRK6_SEC };
+
+static uint16_t s_plIdx;
+static uint32_t s_plTimer;      // frames left in the current track
+
+static void Playlist_Play(void)
+{
+    MP3_playTrack(s_playlist[s_plIdx]);
+    s_plTimer = (uint32_t)s_playlistSec[s_plIdx] * PLAYLIST_FPS;
+}
+
+static void Playlist_Start(void)
+{
+    s_plIdx = 0;
+    Playlist_Play();
+}
+
+// Once per frame. Advances when the module says "track done" OR the timer runs out.
+static void Playlist_Update(void)
+{
+    MP3_poll();
+
+    if(s_plTimer > 0) s_plTimer--;
+
+    if(MP3_trackFinished() || s_plTimer == 0)
+    {
+        s_plIdx++;
+        if(s_plIdx >= PLAYLIST_LEN) s_plIdx = PLAYLIST_LOOP;
+        Playlist_Play();
+    }
+}
+
+// Runs when the player leaves Tetris to the main menu.
+static void Tetris_Exit(void)
+{
+    MP3_stop();
+}
+
+
 // Begin a new game: reset state AND draw the playfield from scratch.
 // (Called when the player picks Start on the title screen.)
 static void StartGame(void)
@@ -44,7 +97,7 @@ static void StartGame(void)
 
     tet_DrawTetrisLayout();                 // also invalidates the screen cache
     tet_SpawnPiece();                       // an empty board always has room
-    Buzzer_PlaySong(&song_tetris, 1);   // background music (stopped by the app loop on exit)
+    // (Playlist keeps playing from the title screen; it is not restarted here.)
     // The first render() paints the board, preview and stats because the
     // cache was just invalidated.
 }
@@ -59,6 +112,7 @@ static void Tetris_Init(void)
     tet_nameActive   = false;
     tet_inTitle = true;
     tet_TitleInit();
+    Playlist_Start();                     // music starts on the title screen
 }
 
 
@@ -76,7 +130,8 @@ static void TetrisGameOver(void)
         tet_bannerErase = true;
     }
 
-    Buzzer_Stop();                              // silence on game over
+    Buzzer_Stop();                              // silence sound effects on game over
+    // (MP3 playlist keeps playing so the title screen has music afterwards.)
 
     // Save the score (blank name) if it made the top 5. Blocks briefly
     // (flash). The name is typed afterwards.
@@ -93,6 +148,8 @@ static AppStatus Tetris_Update(void)
     int16_t  moveEdge;                  // moveDir, but only on the frame it starts
     bool     softDrop;
     bool     rotate;
+
+    Playlist_Update();                              // every frame: title, game, game over
 
     // ---- Title screen: Start / High Scores ---------------------------------
     if(tet_inTitle)
@@ -250,6 +307,8 @@ static void Tetris_Render(void)
 // redraw: called after the Settings overlay. Repaint only; keep game state.
 static void Tetris_Redraw(void)
 {
+    Playlist_Start();                       // Settings interrupted the MP3; restart the list (all screens)
+
     if(tet_inTitle)
     {
         tet_TitleRedraw();           // title screen: just repaint it
@@ -267,8 +326,6 @@ static void Tetris_Redraw(void)
     tet_gameOverDrawn = false;            // if the game was over, render() redraws the overlay
     tet_bannerDirty = (tet_bannerKind != BANNER_NONE);  // the wipe removed the banner box
     tet_bannerErase = false;
-    if(!tet_gameOver)
-        Buzzer_PlaySong(&song_tetris, 1);   // the runner stopped the music; restart it
 }
 
 
@@ -280,10 +337,10 @@ const App g_tetrisApp =
 {
     "TETRIS",                           // name (first letter = menu tile icon)
     "Stick: move/drop  Btn: rotate",    // hint shown under the menu
-    COLOR_TETRIS_T_PURPLE,                // menu tile color
+    COLOR_TETRIS_T_PURPLE,              // menu tile color
     TETRIS_FRAME_US,                    // frame period
         Tetris_Init, Tetris_Update, Tetris_Render,
-    NULL,                               // no exit() cleanup needed
+    Tetris_Exit,                        // stop the MP3 when leaving Tetris
     NULL,                               // not a legacy app
     Tetris_Redraw                       // repaint after Settings overlay
 };

@@ -20,6 +20,8 @@
 #include "settings.h"
 #include "drivers/backlight.h"
 
+
+static const uint16_t s_mp3Vol[6] = { 2, 4, 6, 8, 10, 13 };   // DFPlayer volume (0..30) per level
 //*****************************************************************************
 // Screens and layout
 //*****************************************************************************
@@ -478,7 +480,9 @@ static AppStatus Settings_Update(void)
             if(right && level < BUZZER_NUM_VOLUMES - 1) level++;
             if(left  && level > 0)                      level--;
             if(level != old)
-            {
+            {   
+               MP3_setVolume(s_mp3Vol[level]);
+                MP3_playTrack(0005);
                 Buzzer_SetVolume(level);
                 Buzzer_PlaySfx(&sfx_coin);              // hear the new level
                 s_dirtyValue = true;
