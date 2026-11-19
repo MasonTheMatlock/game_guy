@@ -172,6 +172,8 @@ extern const Song song_corridor_run;
 
 #define RC_MINI_EVERY   2               // a mini-boss joins the wave every 2nd round
 #define RC_TREASURE_AT  5               // treasure round: round 5, 15, 25 ... ((round+1) % 10 == 5)
+#define RC_WALL_DECOR   1               // 1 = stone blocks and boss patterns on close walls, 0 = flat colour only
+#define RC_WALL_THEMES  1               // 1 = walls, floor and ceiling take on each mini-boss's look
 #define RC_TREASURE_ROUNDS 1            // treasure rounds (a chest in a room) as well as the hallway chests
 #define RC_DRAGON_MINIS 3               // mini-bosses to beat (with all 6 doors bought) before the Dragon wakes
 

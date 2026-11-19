@@ -48,6 +48,9 @@ static void SetPal(uint16_t type, const PalEnt *list)
 // Switch the wall theme: recolours the stone, mortar and accent colours and the floor and ceiling.
 void rc_ApplyTheme(uint16_t t)
 {
+#if !RC_WALL_THEMES
+    if(t != TH_BASEMENT) t = TH_BASEMENT;               // boss themes switched off
+#endif
     const Theme *th = &rc_kTheme[t];
     uint16_t     sh;
 
@@ -56,7 +59,7 @@ void rc_ApplyTheme(uint16_t t)
     {
         rc_wallCol[1][sh][0] = ScaleRgb(th->base, rc_kShadeMul[sh]);
         rc_wallCol[1][sh][1] = ScaleRgb(rc_wallCol[1][sh][0], 200);
-        rc_wallCol[2][sh][0] = ScaleRgb(th->accent, (uint16_t)((rc_kShadeMul[sh] * 3u) >> 2));   // pillars: accent tinted
+        rc_wallCol[2][sh][0] = ScaleRgb(th->base, (uint16_t)((rc_kShadeMul[sh] * 5u) >> 2));     // pillars: lighter stone
         rc_wallCol[2][sh][1] = ScaleRgb(rc_wallCol[2][sh][0], 200);
         rc_themeCol[0][sh][0] = ScaleRgb(th->mortar, rc_kShadeMul[sh]);
         rc_themeCol[0][sh][1] = ScaleRgb(rc_themeCol[0][sh][0], 200);

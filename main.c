@@ -114,7 +114,7 @@ void main(void)
     Buzzer_Init();
 
          
-    MP3_init(20);
+    MP3_init(30);
 
     EALLOW;
     GpioCtrlRegs.GPAMUX1.bit.GPIO0 = 0;  // Force back to standard GPIO first

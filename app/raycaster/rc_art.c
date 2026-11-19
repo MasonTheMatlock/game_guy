@@ -1417,13 +1417,13 @@ const uint16_t rc_kShadeMul[4] = { 256, 190, 130, 84 };
 const Theme rc_kTheme[TH_COUNT] =
 {
     //   base        mortar      accent      floor       ceiling
-    { 0x00606972UL, 0x00282C32UL, 0x00566B4AUL, 0x002A2724UL, 0x00101216UL },   // basement dungeon (grey stone, moss)
-    { 0x003F7A3AUL, 0x001C381AUL, 0x008BD35AUL, 0x00213820UL, 0x000C160CUL },   // Slime King: green stone, drips
-    { 0x006B6B73UL, 0x00303036UL, 0x00E0782AUL, 0x002B2B30UL, 0x00131318UL },   // Elemental Golem: stone, glowing cracks
-    { 0x005A1A24UL, 0x00260A10UL, 0x00C0303FUL, 0x002C1016UL, 0x00120508UL },   // Vampire Lord: dark red, veins
-    { 0x004B2A66UL, 0x00221238UL, 0x00E6DC6AUL, 0x00241532UL, 0x000D0715UL },   // Beholder: purple, watching eyes
-    { 0x004F6B66UL, 0x001B2B28UL, 0x00D8E0C8UL, 0x001A2927UL, 0x00091110UL },   // Lich: teal bone, white bands
-    { 0x00402018UL, 0x00180C08UL, 0x00FF6A18UL, 0x00281008UL, 0x00100604UL },   // Dragon Den: basalt, lava veins
+    { 0x008E939BUL, 0x004D525AUL, 0x007C9468UL, 0x003B3128UL, 0x0015171DUL },   // basement dungeon (grey stone, moss)
+    { 0x004E9448UL, 0x00234A20UL, 0x00A6E070UL, 0x002A4326UL, 0x000E1A0EUL },   // Slime King: green stone, drips
+    { 0x008A8A94UL, 0x0045454CUL, 0x00FF8A2EUL, 0x0034343AUL, 0x0016161CUL },   // Elemental Golem: stone, glowing cracks
+    { 0x008C2A38UL, 0x003E1018UL, 0x00D84A5AUL, 0x003A161CUL, 0x00160609UL },   // Vampire Lord: dark red, veins
+    { 0x006E3F96UL, 0x00331B50UL, 0x00F0E680UL, 0x002F1B42UL, 0x00100A1CUL },   // Beholder: purple, watching eyes
+    { 0x006F9C94UL, 0x002E4742UL, 0x00E4ECD2UL, 0x0024403BUL, 0x000C1816UL },   // Lich: teal bone, white bands
+    { 0x006A3A28UL, 0x002A140CUL, 0x00FF7A20UL, 0x003A1A0CUL, 0x00140806UL },   // Dragon Den: basalt, lava veins
 };
 
 const char rc_kWpnArm[] =

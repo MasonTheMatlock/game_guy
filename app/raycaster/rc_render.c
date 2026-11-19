@@ -535,13 +535,17 @@ static void WallDecor(uint16_t *nl, uint16_t *nn, int16_t top, uint16_t lineH,
     int16_t  y0, y1;
     uint16_t pu = (uint16_t)(u & 63u), q = (uint16_t)((u >> 6) + v * 3u);
 
-    if(shade > 1u || lineH < 24u) return;               // far away: plain colour
+#if !RC_WALL_DECOR
+    (void)nl; (void)nn; (void)top; (void)lineH; (void)u; (void)v; (void)shade; (void)side;
+    return;
+#endif
+    if(shade > 1u || lineH < 40u) return;               // far away: plain colour (thin lines would only shimmer)
 
     // moss / stained blocks, then the vertical seams, then the horizontal seam
-    if((blk0 % 5u) == 0u) ListPaint(nl, nn, RC_MAXN, top, (int16_t)(mid - seam - 1), accent);
-    if((blk1 % 5u) == 2u) ListPaint(nl, nn, RC_MAXN, (int16_t)(mid + 1), bot, accent);
-    if((u & 511u) < 34u)                 ListPaint(nl, nn, RC_MAXN, top, (int16_t)(mid - seam - 1), mortar);
-    if(((u + 256u) & 511u) < 34u)        ListPaint(nl, nn, RC_MAXN, (int16_t)(mid + 1), bot, mortar);
+    if((blk0 % 9u) == 0u) ListPaint(nl, nn, RC_MAXN, top, (int16_t)(mid - seam - 1), accent);
+    if((blk1 % 9u) == 4u) ListPaint(nl, nn, RC_MAXN, (int16_t)(mid + 1), bot, accent);
+    if((u & 511u) < 52u)                 ListPaint(nl, nn, RC_MAXN, top, (int16_t)(mid - seam - 1), mortar);
+    if(((u + 256u) & 511u) < 52u)        ListPaint(nl, nn, RC_MAXN, (int16_t)(mid + 1), bot, mortar);
     ListPaint(nl, nn, RC_MAXN, (int16_t)(mid - seam), (int16_t)(mid + seam), mortar);
 
     switch(rc_theme)
@@ -643,20 +647,21 @@ void rc_RenderView(void)
         shade  = (perp < 512) ? 0 : (perp < 1024) ? 1 : (perp < 1792) ? 2 : 3;
         if(tile == TILE_PORTAL && rc_portalPhase) tile = TILE_PORTAL + 1u;   // pulse
 
-        /* Door faces use inexpensive column-pattern textures instead of flat fills.
-         * The three colours create plank seams/grain on wood and panel seams on steel.
-         * Keep the existing raycast, collision, and strip renderer unchanged. */
-        if(tile == TILE_DOOR)
+        /* Door faces: wood planks / steel panels. The pattern is tied to the position along the
+         * door (not the screen column), so it moves with the door when you turn. Far away the
+         * door is one flat colour, because thin stripes would only shimmer. */
+        if(tile == TILE_DOOR || tile == TILE_METAL_DOOR)
         {
-            uint16_t pattern = (uint16_t)c & 7u;
-            wallId = (uint16_t)(ID_TEX_WOOD0 + ((pattern == 0u || pattern == 1u) ? 2u :
-                                                 ((pattern == 4u) ? 0u : 1u)));
-        }
-        else if(tile == TILE_METAL_DOOR)
-        {
-            uint16_t pattern = (uint16_t)c & 15u;
-            wallId = (uint16_t)(ID_TEX_MET0 + ((pattern == 0u || pattern == 1u || pattern == 8u) ? 2u :
-                                                 ((pattern == 4u || pattern == 12u) ? 1u : 0u)));
+            uint16_t du, dv;
+
+            WallUV((int16_t)(rc_ang + rc_colOff[c]), dist, side, &du, &dv);
+            (void)dv;
+            if(tile == TILE_DOOR)
+                wallId = (uint16_t)(ID_TEX_WOOD0 + ((shade > 1u) ? 1u :
+                                     ((du & 127u) < 14u) ? 2u : (((du >> 7) & 1u) ? 0u : 1u)));
+            else
+                wallId = (uint16_t)(ID_TEX_MET0 + ((shade > 1u) ? 0u :
+                                     ((du & 255u) < 18u) ? 2u : (((du & 255u) >= 128u && (du & 255u) < 146u) ? 1u : 0u)));
         }
         else
             wallId = ID_WALL(tile, shade, side);
