@@ -142,14 +142,14 @@ static void Chase(Enemy *e, int16_t sp, int16_t side, int16_t dx, int16_t dy, in
 }
 
 
-// Ranged spacing: close in beyond `far`, back off inside `near`, drift sideways between.
-static void KeepRange(Enemy *e, int16_t sp, int16_t neer, int16_t faar, int16_t sgn,
+// Ranged spacing: close in beyond farD, back off inside nearD, drift sideways between.
+static void KeepRange(Enemy *e, int16_t sp, int16_t nearD, int16_t farD, int16_t sgn,
                       int16_t dx, int16_t dy, int16_t dist)
 {
     if(dist < 1) return;
-    if(dist > faar)
+    if(dist > farD)
         Chase(e, sp, 0, dx, dy, dist);
-    else if(dist < neer)
+    else if(dist < nearD)
         Slide(e, (int16_t)(-(((int32_t)dx * (sp + (sp >> 1))) / dist)),
                  (int16_t)(-(((int32_t)dy * (sp + (sp >> 1))) / dist)));
     else

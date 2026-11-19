@@ -5,8 +5,13 @@
 
 static uint32_t IdColor(uint16_t id)
 {
-    if(id == ID_CEIL)  return COL_CEIL;
-    if(id == ID_FLOOR) return COL_FLOOR;
+    if(id == ID_CEIL)  return rc_colCeil;
+    if(id == ID_FLOOR) return rc_colFloor;
+    if(id >= ID_THEME0 && id < ID_THEME0 + 16u)
+    {
+        id -= ID_THEME0;
+        return rc_themeCol[id >> 3][(id >> 1) & 3u][id & 1u];
+    }
     /* Tiny procedural door textures: no bitmap assets or extra flash use. */
     if(id >= ID_TEX_WOOD0 && id <= 60u)
     {
@@ -314,7 +319,11 @@ static void ProjectSprites(void)
                 break;
 
             case OB_CHEST:
-                ProjectOne(o->x, o->y, SH_CHEST, PT_CHEST, 12, 0, 0);
+                ProjectOne(o->x, o->y, SH_CHEST, (o->aux == CH_CURSED) ? PT_CHEST_CURSED : PT_CHEST, 12, 0, 0);
+                break;
+
+            case OB_MERCHANT:
+                ProjectOne(o->x, o->y, SH_MERCHANT, PT_MERCHANT, 15, 0, 0);
                 break;
 
             default:                                    // cloud / spark
@@ -331,25 +340,26 @@ static void ProjectSprites(void)
 // The 16 art rows are scanned here, so a column may hold any number of colour runs.
 static void PaintSlice(uint16_t *nl, uint16_t *nn, const Spr *sp, int16_t xc)
 {
-    const char *const *art = rc_kArt[sp->shape];
-    uint16_t u, y, y1, id;
+    const uint16_t *art = rc_kArt[sp->shape];
+    uint16_t u, y, y1, id, px, sh, wi;
     int16_t  xs = (int16_t)(xc - sp->x0);
-    char     ch;
 
     if(xs < 0) xs = 0;
     u = (uint16_t)(((int32_t)xs * sp->uStep) >> 8);
     if(u > SPR_N - 1) u = SPR_N - 1;
+    wi = (uint16_t)(u >> 2);                            // which word of a row holds this column
+    sh = (uint16_t)((u & 3u) << 2);                     // and which nibble of it
 
     y = 0;
     while(y < SPR_N)
     {
         int16_t py0, py1;
 
-        ch = art[y][u];
-        if(ch == '.') { y++; continue; }
+        px = (uint16_t)((art[(y << 2) + wi] >> sh) & 15u);
+        if(px == 0) { y++; continue; }
 
         y1 = y;
-        while(y1 + 1 < SPR_N && art[y1 + 1][u] == ch) y1++;
+        while(y1 + 1 < SPR_N && (uint16_t)((art[((y1 + 1) << 2) + wi] >> sh) & 15u) == px) y1++;
 
         py0 = (int16_t)(sp->top + (int16_t)(((int32_t)y * sp->size) >> 4));
         py1 = (int16_t)(sp->top + (int16_t)(((int32_t)(y1 + 1) * sp->size) >> 4) - 1);
@@ -358,7 +368,7 @@ static void PaintSlice(uint16_t *nl, uint16_t *nn, const Spr *sp, int16_t xc)
         if(py1 >= py0)
         {
             id = sp->flash ? (uint16_t)(ID_TINT + sp->flash)
-                           : rc_palId[sp->type][(uint16_t)(ch - 'a') & 7u];
+                           : rc_palId[sp->type][px - 1u];
             ListPaint(nl, nn, RC_MAXN, py0, py1, id);
         }
         y = y1 + 1;
@@ -499,6 +509,88 @@ static void DrawFx(void)
 }
 
 
+// Where a ray hit the wall: u = distance along the wall face, v = the wall's own tile row / column.
+static void WallUV(int16_t ang, uint16_t dist, uint16_t side, uint16_t *u, uint16_t *v)
+{
+    int16_t hx = (int16_t)(rc_px + (int16_t)(((int32_t)COS(ang) * (int32_t)dist) >> 12));
+    int16_t hy = (int16_t)(rc_py + (int16_t)(((int32_t)SIN(ang) * (int32_t)dist) >> 12));
+
+    if(side == 0) { *u = (uint16_t)hy & 0x7FFFu; *v = (uint16_t)(hx >> 10) & 31u; }
+    else          { *u = (uint16_t)hx & 0x7FFFu; *v = (uint16_t)(hy >> 10) & 31u; }
+}
+
+
+// Paint stone blocks (running bond) plus the current boss theme's pattern over a plain wall strip.
+// Only close walls get the pattern; far walls stay flat so they don't shimmer.
+static void WallDecor(uint16_t *nl, uint16_t *nn, int16_t top, uint16_t lineH,
+                      uint16_t u, uint16_t v, uint16_t shade, uint16_t side)
+{
+    uint16_t mortar = (uint16_t)(ID_THEME0 + shade * 2u + side);
+    uint16_t accent = (uint16_t)(ID_THEME0 + 8u + shade * 2u + side);
+    uint16_t blk0   = (uint16_t)((u >> 9) * 5u + v * 13u + side * 3u);
+    uint16_t blk1   = (uint16_t)(((u + 256u) >> 9) * 7u + v * 11u + side * 5u);
+    int16_t  mid    = (int16_t)(top + (int16_t)(lineH >> 1));
+    int16_t  bot    = (int16_t)(top + (int16_t)lineH - 1);
+    int16_t  seam   = (lineH >= 60u) ? 1 : 0;           // seam is 1 or 2 rows thick
+    int16_t  y0, y1;
+    uint16_t pu = (uint16_t)(u & 63u), q = (uint16_t)((u >> 6) + v * 3u);
+
+    if(shade > 1u || lineH < 24u) return;               // far away: plain colour
+
+    // moss / stained blocks, then the vertical seams, then the horizontal seam
+    if((blk0 % 5u) == 0u) ListPaint(nl, nn, RC_MAXN, top, (int16_t)(mid - seam - 1), accent);
+    if((blk1 % 5u) == 2u) ListPaint(nl, nn, RC_MAXN, (int16_t)(mid + 1), bot, accent);
+    if((u & 511u) < 34u)                 ListPaint(nl, nn, RC_MAXN, top, (int16_t)(mid - seam - 1), mortar);
+    if(((u + 256u) & 511u) < 34u)        ListPaint(nl, nn, RC_MAXN, (int16_t)(mid + 1), bot, mortar);
+    ListPaint(nl, nn, RC_MAXN, (int16_t)(mid - seam), (int16_t)(mid + seam), mortar);
+
+    switch(rc_theme)
+    {
+        case TH_SLIME:                                  // slime drips from the top
+            if((q & 3u) == 0u && pu < 20u)
+            {
+                y1 = (int16_t)(top + (int16_t)(((uint32_t)lineH * (22u + (q * 7u) % 40u)) / 100u));
+                ListPaint(nl, nn, RC_MAXN, top, y1, accent);
+            }
+            break;
+
+        case TH_GOLEM:                                  // glowing cracks
+        case TH_DRAGON:                                 // lava veins
+            if(((q % ((rc_theme == TH_DRAGON) ? 3u : 5u)) == 0u) && pu < 9u)
+            {
+                y0 = (int16_t)(top + (int16_t)(((uint32_t)lineH * ((pu < 4u) ? 12u : 24u)) / 100u));
+                y1 = (int16_t)(top + (int16_t)(((uint32_t)lineH * ((pu < 4u) ? 80u : 68u)) / 100u));
+                ListPaint(nl, nn, RC_MAXN, y0, y1, accent);
+            }
+            break;
+
+        case TH_VAMPIRE:                                // blood veins
+            if(((q % 6u) == 1u) && pu < 7u)
+                ListPaint(nl, nn, RC_MAXN, top, bot, accent);
+            break;
+
+        case TH_EYE:                                    // watching eyes
+            if((blk0 % 4u) == 1u && (u & 511u) > 190u && (u & 511u) < 322u)
+            {
+                y0 = (int16_t)(top + (int16_t)(((uint32_t)lineH * 22u) / 100u));
+                y1 = (int16_t)(top + (int16_t)(((uint32_t)lineH * 38u) / 100u));
+                ListPaint(nl, nn, RC_MAXN, y0, y1, accent);
+            }
+            break;
+
+        case TH_LICH:                                   // bone bands
+            y0 = (int16_t)(top + (int16_t)(((uint32_t)lineH * 12u) / 100u));
+            ListPaint(nl, nn, RC_MAXN, y0, (int16_t)(y0 + 1 + seam), accent);
+            y0 = (int16_t)(top + (int16_t)(((uint32_t)lineH * 82u) / 100u));
+            ListPaint(nl, nn, RC_MAXN, y0, (int16_t)(y0 + 1 + seam), accent);
+            break;
+
+        default:
+            break;
+    }
+}
+
+
 void rc_RenderView(void)
 {
     uint16_t c, k, tile, side, dist, perp, lineH, shade, h, nStrips, nn, si, wallId;
@@ -584,6 +676,14 @@ void rc_RenderView(void)
             nl[nn++] = RUN_MAKE(bot, wallId);
             if(bot < RC_VIEW_H - 1)
                 nl[nn++] = RUN_MAKE(RC_VIEW_H - 1, ID_FLOOR);
+
+            if(tile == TILE_WALL_STONE)
+            {
+                uint16_t wu, wv;
+
+                WallUV((int16_t)(rc_ang + rc_colOff[c]), dist, side, &wu, &wv);
+                WallDecor(nl, &nn, top, lineH, wu, wv, shade, side);
+            }
 
             // sprites, far to near, hidden behind nearer wall
             for(k = 0; k < rc_nSpr; k++)

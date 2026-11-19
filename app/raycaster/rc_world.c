@@ -45,6 +45,45 @@ static void SetPal(uint16_t type, const PalEnt *list)
 }
 
 
+// Switch the wall theme: recolours the stone, mortar and accent colours and the floor and ceiling.
+void rc_ApplyTheme(uint16_t t)
+{
+    const Theme *th = &rc_kTheme[t];
+    uint16_t     sh;
+
+    rc_theme = t;
+    for(sh = 0; sh < 4; sh++)
+    {
+        rc_wallCol[1][sh][0] = ScaleRgb(th->base, rc_kShadeMul[sh]);
+        rc_wallCol[1][sh][1] = ScaleRgb(rc_wallCol[1][sh][0], 200);
+        rc_wallCol[2][sh][0] = ScaleRgb(th->accent, (uint16_t)((rc_kShadeMul[sh] * 3u) >> 2));   // pillars: accent tinted
+        rc_wallCol[2][sh][1] = ScaleRgb(rc_wallCol[2][sh][0], 200);
+        rc_themeCol[0][sh][0] = ScaleRgb(th->mortar, rc_kShadeMul[sh]);
+        rc_themeCol[0][sh][1] = ScaleRgb(rc_themeCol[0][sh][0], 200);
+        rc_themeCol[1][sh][0] = ScaleRgb(th->accent, rc_kShadeMul[sh]);
+        rc_themeCol[1][sh][1] = ScaleRgb(rc_themeCol[1][sh][0], 200);
+    }
+    rc_colFloor = th->floor;
+    rc_colCeil  = th->ceil;
+    rc_invalidate = true;                       // everything on screen has a new colour
+    rc_viewDirty  = 2;
+}
+
+
+uint16_t rc_ThemeOfMini(uint16_t type)
+{
+    switch(type)
+    {
+        case ET_SLIMEKING: return TH_SLIME;
+        case ET_GOLEM:     return TH_GOLEM;
+        case ET_VAMPIRE:   return TH_VAMPIRE;
+        case ET_EYEKING:   return TH_EYE;
+        case ET_LICH:      return TH_LICH;
+        default:           return TH_BASEMENT;
+    }
+}
+
+
 void rc_BuildTables(void)
 {
     uint16_t i, c, sh;
@@ -83,6 +122,7 @@ void rc_BuildTables(void)
 
     s_nCol = 0;
     for(i = 0; i < PT_COUNT; i++) SetPal(i, rc_kPal[i]);
+    rc_ApplyTheme(TH_BASEMENT);
 
     rc_tablesReady = true;
 }
@@ -95,6 +135,8 @@ void rc_LoadMap(void)
     uint16_t cnt[RC_NUM_DOORS + 1];
 
     rc_spCount = 0;
+    rc_evX[0] = rc_evX[1] = 0;
+    rc_evY[0] = rc_evY[1] = 0;
     for(k = 0; k <= RC_NUM_DOORS; k++) { sx[k] = 0; sy[k] = 0; cnt[k] = 0; }
 
     for(y = 0; y < RC_MAP_H; y++)
@@ -113,6 +155,12 @@ void rc_LoadMap(void)
                     rc_spSec[rc_spCount] = (uint16_t)(ch - 'a');
                     rc_spCount++;
                 }
+            }
+            else if(ch == '*')                         // hallway alcove: merchant / chest spot
+            {
+                k = (x < RC_MAP_W / 2u) ? 0u : 1u;
+                rc_evX[k] = (int16_t)((x << 10) + 512);
+                rc_evY[k] = (int16_t)((y << 10) + 512);
             }
             else if(ch == '7')                         // special metal Dragon Den door
             {

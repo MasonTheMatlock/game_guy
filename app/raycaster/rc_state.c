@@ -126,6 +126,17 @@ uint16_t rc_lastMini = 0xFFFFu;
 uint16_t rc_dragonKills;
 uint16_t rc_chestTimer;
 
+uint32_t rc_themeCol[2][4][2];
+uint32_t rc_colFloor;
+uint32_t rc_colCeil;
+uint16_t rc_theme;
+uint16_t rc_denState;
+int16_t  rc_evX[2];
+int16_t  rc_evY[2];
+uint16_t rc_curses;
+uint16_t rc_merchNear;
+uint16_t rc_shopMode;
+
 uint16_t rc_alive;
 uint16_t rc_toSpawn;
 uint16_t rc_spawnTimer;

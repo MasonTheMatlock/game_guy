@@ -271,10 +271,15 @@ void rc_DrawCardsFull(void)
 
     Graphics_FillRect(0, 0, SCREEN_W - 1, SCREEN_H - 1, C_BLACK);
 
-    n  = rc_Cat(buf, 0, "LEVEL UP!  Lv ", 14);
-    n += rc_Itoa(buf + n, rc_xpLv);
-    rc_DrawText(buf, 105, 15, C_XP);
-    if(rc_lvPending > 1)
+    if(rc_shopMode)
+        rc_DrawText("MERCHANT", 105, 15, C_GOLD);
+    else
+    {
+        n  = rc_Cat(buf, 0, "LEVEL UP!  Lv ", 14);
+        n += rc_Itoa(buf + n, rc_xpLv);
+        rc_DrawText(buf, 105, 15, C_XP);
+    }
+    if(rc_lvPending > 1 && !rc_shopMode)
     {
         n  = rc_Cat(buf, 0, "x", 1);
         rc_Itoa(buf + n, rc_lvPending);
@@ -312,6 +317,15 @@ void rc_EnterCards(void)
     rc_stX = rc_stY = 1;                  // ignore a stick that is already pushed
     RollCards();
     rc_Sfx(&sfx_level_up);
+}
+
+
+// The merchant reuses the card screen as his shop.
+void rc_EnterShop(void)
+{
+    rc_shopMode = 1;
+    rc_lvPending++;
+    rc_EnterCards();
 }
 
 
@@ -412,6 +426,7 @@ static void LeaveCards(void)
     }
     else
     {
+        rc_shopMode  = 0;
         rc_mode      = MODE_PLAY;
         rc_dirtyFull = true;
     }

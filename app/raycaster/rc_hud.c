@@ -49,6 +49,8 @@ static void DrawHint(void)
         rc_Cat(buf, n, "G - press stick", 15);
         rc_DrawText(buf, SCREEN_W / 2, 229, (rc_gold >= cost) ? C_GREEN : C_BAD);
     }
+    else if(rc_merchNear) rc_DrawText("MERCHANT - press stick", SCREEN_W / 2, 229, C_GOLD);
+    else if(rc_denState == DEN_OPEN) rc_DrawText("THE DRAGON DEN IS OPEN!", SCREEN_W / 2, 229, C_RED);
     else if(rc_aegis) rc_DrawText("SHIELD UP!", SCREEN_W / 2, 229, COLOR_SKY_BLUE);
     else if(rc_haste) rc_DrawText("HASTE!", SCREEN_W / 2, 229, C_GOLD);
     else if(rc_nullify) rc_DrawText("MAGIC WEAKENED!", SCREEN_W / 2, 229, C_XP);

@@ -3,714 +3,14 @@
 
 
 
-static const char *const kArtGoblin[SPR_N] =
-{
-    "................",
-    "................",
-    "..dd.bbbbbb.dd..",
-    "..ddbbddddbbdd..",
-    "...dbdcddcdbd...",
-    "....bddddddb....",
-    "....bdhffhdb....",
-    ".....bdddddb....",
-    "...deeeeeeeed.g.",
-    "..dbeeaaaaeebdg.",
-    "..dbeeeeeeeebdg.",
-    "..db.eeeeee.bda.",
-    ".....ee..ee.....",
-    ".....ee..ee.....",
-    "....aaa..aaa....",
-    "................"
-};
 
 
-static const char *const kArtBat[SPR_N] =
-{
-    "................",
-    "................",
-    ".aa..........aa.",
-    ".aaa...aa...aaa.",
-    ".aaaa.aaaa.aaaa.",
-    "aaaaaaabbaaaaaaa",
-    ".accaaaaaaaacca.",
-    "..ac.aaaaaa.ca..",
-    "...a..adda..a...",
-    "......aaaa......",
-    ".......aa.......",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................"
-};
 
 
-static const char *const kArtSkeleton[SPR_N] =
-{
-    "................",
-    ".....dddddd.....",
-    "....dddddddd....",
-    "....dbbddbbd....",
-    "....dddaaddd....",
-    ".....dddddd.....",
-    "......dadad.....",
-    ".dd.dddddddd.dd.",
-    "..d..daddad..d.c",
-    "..d..dddddd..d.c",
-    "..d..daddad..d.c",
-    "..d..dddddd..dcc",
-    ".....dddddd.....",
-    ".....dd..dd.....",
-    ".....dd..dd.....",
-    "....ddd..ddd...."
-};
 
 
-static const char *const kArtLich[SPR_N] =
-{
-    "....a.a..a.a....",
-    "....aaaaaaaa....",
-    "....bbbbbbbb....",
-    "....bccbbccb....",
-    "....bbbbbbbb....",
-    ".....bbffbb.....",
-    "...dddeeeeddd...",
-    "..deeeeeeeeeed..",
-    ".deeeeeeeeeeeed.",
-    ".deebeeeeeebeed.",
-    ".deeeeeeeeeeeed.",
-    "..deeeeeeeeeed..",
-    "..deeeeeeeeeed..",
-    "...deeeeeeeed...",
-    "...dddeeeeddd...",
-    "....dddddddd...."
-};
 
 
-static const char *const kArtBeholder[SPR_N] =
-{
-    "..h..h....h..h..",
-    "..h..h....h..h..",
-    "...f.f....f.f...",
-    "....f.f..f.f....",
-    ".....fccccf.....",
-    "....cccccccc....",
-    "...ccggggggcc...",
-    "...ccgddddgcc...",
-    "...ccgdaadgcc...",
-    "...ccgddddgcc...",
-    "...ccggggggcc...",
-    "....cccccccc....",
-    "....cebebecc....",
-    ".....cccccc.....",
-    "......ffff......",
-    "................"
-};
-
-
-static const char *const kArtFlask[SPR_N] =
-{
-    "................",
-    "................",
-    "................",
-    "................",
-    ".......bb.......",
-    "......bddb......",
-    "......bccb......",
-    ".....bcaacb.....",
-    "....bcaaaacb....",
-    "....baaaaaab....",
-    "....baaaaaab....",
-    ".....baaaab.....",
-    "......bbbb......",
-    "................",
-    "................",
-    "................"
-};
-
-
-static const char *const kArtBolt[SPR_N] =
-{
-    "................",
-    "................",
-    "................",
-    "................",
-    ".......aa.......",
-    "......aaaa......",
-    ".....aabbaa.....",
-    "....aabbbbaa....",
-    "....aabbbbaa....",
-    ".....aabbaa.....",
-    "......aaaa......",
-    ".......aa.......",
-    "................",
-    "................",
-    "................",
-    "................"
-};
-
-
-static const char *const kArtPuff[SPR_N] =
-{
-    "................",
-    "................",
-    ".....aabbaa.....",
-    "...aabbbbbbaa...",
-    "..aabbccbbbbaa..",
-    ".aabbbccbbbbbaa.",
-    ".abbbbbbbbccbba.",
-    "aabbccbbbbbbbbaa",
-    "abbbbbbbccbbbbba",
-    "abbbccbbbbbbbbba",
-    ".abbbbbbbbbccba.",
-    ".aabbbccbbbbbaa.",
-    "..aabbbbbbbbaa..",
-    "...aabbbbbbaa...",
-    ".....aaaaaa.....",
-    "................"
-};
-
-
-static const char *const kArtDragon[SPR_N] =
-{
-    "................",
-    ".......aa.......",
-    "......abca......",
-    ".....abbbca.....",
-    "....abbbbbca....",
-    "...abbbddbbca...",
-    "..abbbbdcbbbc...",
-    ".abbbbbbbbbbbba.",
-    ".abbbbbbbbbbbba.",
-    "..abbbbbbbbbba..",
-    "...abbbbbbba....",
-    "....abbbbbba....",
-    "...aa..bb..aa...",
-    "..aa...bb...aa..",
-    "................",
-    "................"
-};
-
-static const char *const kArtDragonAttack[SPR_N] =
-{
-    "................",
-    ".......aa.......",
-    "......abca......",
-    ".....abbbca.....",
-    "....abbbbbca....",
-    "...abbbddbbca...",
-    "..abbbbdcbbbc...",
-    ".abbbbbbbbbbbba.",
-    ".abbbbbbbbbbbba.",
-    "..abbbbbbbbcba..",
-    "...abbbbbeeea...",
-    "....abbbbeeea...",
-    ".....abbeeea....",
-    "......aeee......",
-    ".......ee.......",
-    "................"
-};
-
-
-static const char *const kArtHobgob[SPR_N] =
-{
-    "................",
-    ".....aaaaaa.....",
-    "....aeeeeeea....",
-    "...aeebbbbeea...",
-    "...aebhffhbea...",
-    "....abddddba....",
-    "...aaabbbbaaa...",
-    "..acccaaaacccca.",
-    "..acdccccccdcca.",
-    ".aacdceeeecdcaa.",
-    ".aecdceddeecdcea",
-    ".aecdccccccdcea.",
-    "..aabbccccbbaa..",
-    "....bba..abb....",
-    "....bba..abb....",
-    "...aaaa..aaaa..."
-};
-
-static const char *const kArtSlime[SPR_N] =
-{
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "......aaaa......",
-    "....aabbbbaa....",
-    "...abbbbbbbba...",
-    "..abbhhbbbbbba..",
-    "..abhhbbbbbbba..",
-    ".abbbbcbbcbbbba.",
-    ".abbbbcbbcbbbba.",
-    ".abbbbbbbbbbbba.",
-    ".abbbbbccbbbbba.",
-    "..aabbbbbbbbaa..",
-    "...aaaaaaaaaa..."
-};
-
-static const char *const kArtSpider[SPR_N] =
-{
-    "................",
-    "................",
-    ".a............a.",
-    ".aa..........aa.",
-    "..aa...aa...aa..",
-    "...aa.abba.aa...",
-    ".a..aaabbaaa..a.",
-    "..aaaabbbbaaaa..",
-    "...a.abccba.a...",
-    "..a..abbbbba.a..",
-    ".a....abbba..a..",
-    ".a...aabbbaa..a.",
-    ".a..a..aaa..a.a.",
-    "....a......a....",
-    "................",
-    "................"
-};
-
-static const char *const kArtGhost[SPR_N] =
-{
-    "................",
-    ".....aaaaaa.....",
-    "....aabbbbaa....",
-    "...abbbbbbbba...",
-    "...abccbbccba...",
-    "...abccbbccba...",
-    "...abbbbbbbba...",
-    "...abbbccbbba...",
-    "...abbbccbbba...",
-    "..aabbbbbbbbaa..",
-    "..abbbbbbbbbba..",
-    "..abbbbbbbbbba..",
-    "..abbabbbbabba..",
-    "..aba.abba.aba..",
-    "..aa...aa...aa..",
-    "................"
-};
-
-static const char *const kArtGhostFade[SPR_N] =
-{
-    "................",
-    ".....a.a.a......",
-    "....a.b.b.a.....",
-    "...a.b.b.b.a....",
-    "....bcc.bcc.a...",
-    "...a.cc.bcc.b...",
-    "....b.b.b.b.a...",
-    "...a.b.ccb.b....",
-    "....b.b.ccb.a...",
-    "..a.b.b.b.b.b.a.",
-    "...b.b.b.b.b.b..",
-    "..a.b.b.b.b.b.a.",
-    "...b.a.b.b.a.b..",
-    "..a.a.a.ba.a.a..",
-    "...a...a.a...a..",
-    "................"
-};
-
-static const char *const kArtImp[SPR_N] =
-{
-    "................",
-    ".......ff.......",
-    "......ff........",
-    ".....aaaa.......",
-    "...a.bbbb.a.....",
-    "..aa.bbbb.aa....",
-    "..a.bbbbbb.a....",
-    "...bbdbbdbb.....",
-    "...bbbbbbbb.....",
-    "...bddddddb.....",
-    "..bbbbbbbbbb....",
-    ".abbbcccbbbba...",
-    ".a.bbbcccbbb.a..",
-    "...bbbbbbbb.....",
-    "...bb....bb.....",
-    "..aaa....aaa...."
-};
-
-static const char *const kArtNecro[SPR_N] =
-{
-    "......f.........",
-    ".....fff........",
-    "......f..eeee...",
-    "....eeeeeedde...",
-    "...eeaaaaeedde..",
-    "..eeaabbaaee.e..",
-    "..eeabeebaee.e..",
-    "..eeaaaaaaee.e..",
-    "...eeeccceee.e..",
-    "..eecccccceeee..",
-    "..ecccddcccce...",
-    ".eccccddccccce..",
-    ".ecccccccccce...",
-    ".eccccccccccce..",
-    ".eeccccccccee...",
-    "..eeeeeeeeee...."
-};
-
-static const char *const kArtEyeA[SPR_N] =
-{
-    ".h..h..h..h..h..",
-    ".h..h..h..h..h..",
-    "..f..f.hh.f..f..",
-    "...f..f..f..f...",
-    "....ffccccff....",
-    "...ccccccccc....",
-    "..cccgggggccc...",
-    ".cccgggddgggccc.",
-    ".cccgddaaddgccc.",
-    ".cccgddaaddgccc.",
-    ".cccgggddgggccc.",
-    "..cccgggggccc...",
-    "...ccccccccc....",
-    "....cebebec.....",
-    ".....cccccc.....",
-    "......ffff......"
-};
-
-static const char *const kArtEyeB[SPR_N] =
-{
-    "h..h..h..h..h..h",
-    "h..h..h..h..h..h",
-    ".f..f..hh..f..f.",
-    "..f..f.hh.f..f..",
-    "....ffccccff....",
-    "...ccccccccc....",
-    "..cccgggggccc...",
-    ".cccgggddgggccc.",
-    ".cccgdaaaaaggcc.",
-    ".cccgdaaaaaggcc.",
-    ".cccgggddgggccc.",
-    "..cccgggggccc...",
-    "...ccccccccc....",
-    "....cebebec.....",
-    ".....cccccc.....",
-    ".....ffffff....."
-};
-
-static const char *const kArtFireEl[SPR_N] =
-{
-    ".......a........",
-    "......aba.......",
-    "......abba..a...",
-    ".....aabbba.a...",
-    "..a..abbcbba....",
-    "..aa.abbccba.a..",
-    "...aaabbccbbaa..",
-    "....abbbcccbbaa.",
-    "....abbcddcbbba.",
-    "...aabbcddcbbaa.",
-    "...abbbcccbbba..",
-    "...aabbbccbbaa..",
-    "....aabbbbbba...",
-    ".....aabbbbaa...",
-    "......aabbaa....",
-    ".......aaaa....."
-};
-
-static const char *const kArtSlimeKingA[SPR_N] =
-{
-    "................",
-    "...g.g.g.g.g....",
-    "...gggggggggg...",
-    "....aaaaaaaa....",
-    "...abbbbbbbba...",
-    "..abbhhbbbbbba..",
-    "..abhhbbbbbbba..",
-    ".abbbccbbccbbba.",
-    ".abbbccbbccbbba.",
-    ".abbbbbbbbbbbba.",
-    ".abbbbbcccbbbba.",
-    ".abbbbbbbbbbbba.",
-    "..abbbbbbbbbba..",
-    "..aabbbbbbbbaa..",
-    "...aaaaaaaaaa...",
-    "................"
-};
-
-static const char *const kArtSlimeKingB[SPR_N] =
-{
-    "................",
-    "................",
-    "...g.g.g.g.g....",
-    "...gggggggggg...",
-    ".....aaaaaa.....",
-    "...aabbbbbbaa...",
-    "..abbhhbbbbbba..",
-    ".abbhhbbbbbbbba.",
-    "abbbbccbbccbbbba",
-    "abbbbccbbccbbbba",
-    "abbbbbbbbbbbbbba",
-    "abbbbbbcccbbbbba",
-    ".abbbbbbbbbbbba.",
-    ".aabbbbbbbbbbaa.",
-    "..aaaaaaaaaaaa..",
-    "................"
-};
-
-static const char *const kArtGolemA[SPR_N] =
-{
-    "................",
-    "....dddddddd....",
-    "...daaaaaaaad...",
-    "...dabbbbbbad...",
-    "...dabeebbeaad..",
-    "...dabbbbbbad...",
-    ".dddaabbbbaaddd.",
-    "daaadaaccaadaaad",
-    "dabbdabccbadbbad",
-    "dabbdabccbadbbad",
-    "daaadaabbaadaaad",
-    ".ddd.daaaad.ddd.",
-    ".....dbbbbd.....",
-    "....dbbddbbd....",
-    "....daad.daad...",
-    "....dddd.dddd..."
-};
-
-static const char *const kArtGolemB[SPR_N] =
-{
-    "................",
-    "................",
-    "....dddddddd....",
-    "...daaaaaaaad...",
-    "...dabbbbbbad...",
-    "...dabeebbead...",
-    ".dddaabbbbaaddd.",
-    "daaadaaccaadaaad",
-    "dabbdabccbadbbad",
-    "dabbdabccbadbbad",
-    "daaadaabbaadaaad",
-    ".ddd.daaaad.ddd.",
-    ".....dbbbbd.....",
-    "....dbbddbbd....",
-    "...daad...daad..",
-    "...dddd...dddd.."
-};
-
-static const char *const kArtVampA[SPR_N] =
-{
-    "................",
-    ".....eeeeee.....",
-    "....eaaaaaae....",
-    "....eabbbbae....",
-    "....ebebbebe....",
-    "....ebbbbbbe....",
-    "....ebbffbbe....",
-    "..eeccebbeccee..",
-    ".ecccccddcccccce",
-    ".eccdcccddcccdce",
-    ".ecccdccddccdcce",
-    "..eccccddccccce.",
-    "..ecccceecccce..",
-    "...ecccceeccce..",
-    "....ecc..ccee...",
-    ".....ee..ee....."
-};
-
-static const char *const kArtVampB[SPR_N] =
-{
-    "................",
-    "................",
-    ".....eeeeee.....",
-    "....eaaaaaae....",
-    "....eabbbbae....",
-    "....ebebbebe....",
-    "....ebbbbbbe....",
-    "...eebbffbbee...",
-    "..ecceebbeecce..",
-    ".eccccddddcccce.",
-    "ecccdcddddcdccce",
-    "eccdccddddccdcce",
-    ".ecccceddeccce..",
-    "..eccceddeccce..",
-    "...eccee.eccee..",
-    "....ee....ee...."
-};
-
-static const char *const kArtLichB[SPR_N] =
-{
-    "....a.a..a.a....",
-    "....aaaaaaaa....",
-    "....bbbbbbbb....",
-    "....bccbbccb....",
-    "....bbbbbbbb....",
-    ".....bbffbb.....",
-    "...dddeeeeddd...",
-    "..deeeeeeeeeed..",
-    ".deeeeeeeeeeeed.",
-    ".deebeeeeeebeed.",
-    ".deeeeeeeeeeeed.",
-    "..deeeeeeeeeed..",
-    "..deeeeeeeeeed..",
-    "...deeeeeeeed...",
-    "..dddeeeeeeddd..",
-    ".dddddddddddddd."
-};
-
-static const char *const kArtChest[SPR_N] =
-{
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "....aaaaaaaa....",
-    "..aabbbbbbbbaa..",
-    ".abbbbbbbbbbbba.",
-    ".abbddddddddbba.",
-    ".aaaaaaccaaaaaa.",
-    ".abbbbbcacbbbba.",
-    ".abbbbbbbbbbbba.",
-    ".abbbbbbbbbbbba.",
-    ".adddddddddddda.",
-    "..aaaaaaaaaaaa..",
-    "................"
-};
-
-static const char *const kArtMimic[SPR_N] =
-{
-    "................",
-    "................",
-    "................",
-    "....aaaaaaaa....",
-    "..aabbbbbbbbaa..",
-    ".abbbbbbbbbbbba.",
-    ".abbddddddddbba.",
-    ".aaaaaaaaaaaaaa.",
-    ".aeeaeeaeeaeeea.",
-    ".aeeaeeaeeaeeea.",
-    ".aaaeaeaeaeaaaa.",
-    "..aacccccccaa...",
-    ".abbccccccccbba.",
-    ".adddddddddddda.",
-    "..aaaaaaaaaaaa..",
-    "................"
-};
-
-static const char *const kArtOrb[SPR_N] =
-{
-    "................",
-    "................",
-    "................",
-    "................",
-    ".....aaaaaa.....",
-    "....aabbbbaa....",
-    "...aabccccbaa...",
-    "...abbcddcbba...",
-    "...abbcddcbba...",
-    "...aabccccbaa...",
-    "....aabbbbaa....",
-    ".....aaaaaa.....",
-    "................",
-    "................",
-    "................",
-    "................"
-};
-
-static const char *const kArtWeb[SPR_N] =
-{
-    "................",
-    "................",
-    "................",
-    "....a..a..a.....",
-    ".....a.a.a......",
-    "......aaa.......",
-    "..aaaaabaaaaa...",
-    "......aaa.......",
-    ".....a.a.a......",
-    "....a..a..a.....",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................"
-};
-
-static const char *const kArtPuddle[SPR_N] =
-{
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "....aaaaaaaa....",
-    "..aabbbbbbbbaa..",
-    ".abbbbhhbbbbbba.",
-    ".abbbbbbbbbbbba.",
-    "..aabbbbbbbbaa..",
-    "....aaaaaaaa...."
-};
-
-static const char *const kArtWarn[SPR_N] =
-{
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "....aaaaaaaa....",
-    "..aa........aa..",
-    ".a............a.",
-    ".a............a.",
-    "..aa........aa..",
-    "....aaaaaaaa....",
-    "................"
-};
-
-static const char *const kArtWave[SPR_N] =
-{
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "................",
-    "...aaaaaaaaaa...",
-    ".aabbbbbbbbbbaa.",
-    "abb..........bba",
-    "abb..........bba",
-    ".aabbbbbbbbbbaa.",
-    "...aaaaaaaaaa...",
-    "................"
-};
-
-static const char *const kArtAlert[SPR_N] =
-{
-    "................",
-    ".......aa.......",
-    "......abba......",
-    "......abba......",
-    "......abba......",
-    "......abba......",
-    "......abba......",
-    ".......bb.......",
-    ".......bb.......",
-    "................",
-    ".......aa.......",
-    "......abba......",
-    ".......aa.......",
-    "................",
-    "................",
-    "................"
-};
 
 static const PalEnt kP_HOBGOB[] = { {'a',COLOR_TETRIS_GRID},{'b',COLOR_BROWN},{'c',COLOR_GRAY},{'d',COLOR_DARK_GRAY},{'e',COLOR_LIGHT_GRAY},{'f',COLOR_CRIMSON},{'h',COLOR_WHITE},{0,0} };
 static const PalEnt kP_SLIME[] = { {'a',COLOR_TEAL},{'b',COLOR_GREEN},{'c',COLOR_TETRIS_GRID},{'h',COLOR_MINT},{0,0} };
@@ -755,35 +55,1273 @@ static const PalEnt kP_WAVE_STORM[] = { {'a',COLOR_ORANGE},{'b',COLOR_GOLD},{0,0
 static const PalEnt kP_WAVE_NOVA[] = { {'a',COLOR_DARK_PURPLE},{'b',COLOR_VIOLET},{0,0} };
 static const PalEnt kP_ALERT[] = { {'a',COLOR_CRIMSON},{'b',COLOR_GOLD},{0,0} };
 
-const char *const *const rc_kArt[SH_COUNT] =
+static const PalEnt kP_MERCHANT[] = { {'a',COLOR_DARK_PURPLE},{'b',COLOR_VIOLET},{'c',COLOR_TEAL},{'d',COLOR_KHAKI},{'e',COLOR_BLACK},{'f',COLOR_GOLD},{'g',COLOR_BROWN},{'h',COLOR_WHITE},{0,0} };
+
+// Sprite art, 16x16, packed 4 bits per pixel (0 = transparent, 1..8 = palette letter a..h), 4 pixels
+// per word, 4 words per row (leftmost pixel in the lowest nibble). The ASCII picture above each
+// sprite is the source; keep the two in step when editing. (Packing saves ~8K words of flash.)
+const uint16_t rc_kArt[SH_COUNT][SPR_N * 4] =
 {
-    kArtGoblin, kArtBat, kArtSkeleton, kArtLich, kArtBeholder,
-    kArtFlask, kArtBolt, kArtPuff, kArtDragon, kArtDragonAttack,
-    kArtHobgob,
-    kArtSlime,
-    kArtSpider,
-    kArtGhost,
-    kArtGhostFade,
-    kArtImp,
-    kArtNecro,
-    kArtEyeA,
-    kArtEyeB,
-    kArtFireEl,
-    kArtSlimeKingA,
-    kArtSlimeKingB,
-    kArtGolemA,
-    kArtGolemB,
-    kArtVampA,
-    kArtVampB,
-    kArtLichB,
-    kArtChest,
-    kArtMimic,
-    kArtOrb,
-    kArtWeb,
-    kArtPuddle,
-    kArtWarn,
-    kArtWave,
-    kArtAlert
+    // kArtGoblin
+    //   ................
+    //   ................
+    //   ..dd.bbbbbb.dd..
+    //   ..ddbbddddbbdd..
+    //   ...dbdcddcdbd...
+    //   ....bddddddb....
+    //   ....bdhffhdb....
+    //   .....bdddddb....
+    //   ...deeeeeeeed.g.
+    //   ..dbeeaaaaeebdg.
+    //   ..dbeeeeeeeebdg.
+    //   ..db.eeeeee.bda.
+    //   .....ee..ee.....
+    //   .....ee..ee.....
+    //   ....aaa..aaa....
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x4400, 0x2220, 0x0222, 0x0044,
+        0x4400, 0x4422, 0x2244, 0x0044,
+        0x4000, 0x4342, 0x2434, 0x0004,
+        0x0000, 0x4442, 0x2444, 0x0000,
+        0x0000, 0x6842, 0x2486, 0x0000,
+        0x0000, 0x4420, 0x2444, 0x0000,
+        0x4000, 0x5555, 0x5555, 0x0704,
+        0x2400, 0x1155, 0x5511, 0x0742,
+        0x2400, 0x5555, 0x5555, 0x0742,
+        0x2400, 0x5550, 0x0555, 0x0142,
+        0x0000, 0x0550, 0x0550, 0x0000,
+        0x0000, 0x0550, 0x0550, 0x0000,
+        0x0000, 0x0111, 0x1110, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtBat
+    //   ................
+    //   ................
+    //   .aa..........aa.
+    //   .aaa...aa...aaa.
+    //   .aaaa.aaaa.aaaa.
+    //   aaaaaaabbaaaaaaa
+    //   .accaaaaaaaacca.
+    //   ..ac.aaaaaa.ca..
+    //   ...a..adda..a...
+    //   ......aaaa......
+    //   .......aa.......
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0110, 0x0000, 0x0000, 0x0110,
+        0x1110, 0x1000, 0x0001, 0x0111,
+        0x1110, 0x1101, 0x1011, 0x0111,
+        0x1111, 0x2111, 0x1112, 0x1111,
+        0x3310, 0x1111, 0x1111, 0x0133,
+        0x3100, 0x1110, 0x0111, 0x0013,
+        0x1000, 0x4100, 0x0014, 0x0001,
+        0x0000, 0x1100, 0x0011, 0x0000,
+        0x0000, 0x1000, 0x0001, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtSkeleton
+    //   ................
+    //   .....dddddd.....
+    //   ....dddddddd....
+    //   ....dbbddbbd....
+    //   ....dddaaddd....
+    //   .....dddddd.....
+    //   ......dadad.....
+    //   .dd.dddddddd.dd.
+    //   ..d..daddad..d.c
+    //   ..d..dddddd..d.c
+    //   ..d..daddad..d.c
+    //   ..d..dddddd..dcc
+    //   .....dddddd.....
+    //   .....dd..dd.....
+    //   .....dd..dd.....
+    //   ....ddd..ddd....
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x4440, 0x0444, 0x0000,
+        0x0000, 0x4444, 0x4444, 0x0000,
+        0x0000, 0x4224, 0x4224, 0x0000,
+        0x0000, 0x1444, 0x4441, 0x0000,
+        0x0000, 0x4440, 0x0444, 0x0000,
+        0x0000, 0x1400, 0x0414, 0x0000,
+        0x0440, 0x4444, 0x4444, 0x0440,
+        0x0400, 0x4140, 0x0414, 0x3040,
+        0x0400, 0x4440, 0x0444, 0x3040,
+        0x0400, 0x4140, 0x0414, 0x3040,
+        0x0400, 0x4440, 0x0444, 0x3340,
+        0x0000, 0x4440, 0x0444, 0x0000,
+        0x0000, 0x0440, 0x0440, 0x0000,
+        0x0000, 0x0440, 0x0440, 0x0000,
+        0x0000, 0x0444, 0x4440, 0x0000,
+    },
+    // kArtLich
+    //   ....a.a..a.a....
+    //   ....aaaaaaaa....
+    //   ....bbbbbbbb....
+    //   ....bccbbccb....
+    //   ....bbbbbbbb....
+    //   .....bbffbb.....
+    //   ...dddeeeeddd...
+    //   ..deeeeeeeeeed..
+    //   .deeeeeeeeeeeed.
+    //   .deebeeeeeebeed.
+    //   .deeeeeeeeeeeed.
+    //   ..deeeeeeeeeed..
+    //   ..deeeeeeeeeed..
+    //   ...deeeeeeeed...
+    //   ...dddeeeeddd...
+    //   ....dddddddd....
+    {
+        0x0000, 0x0101, 0x1010, 0x0000,
+        0x0000, 0x1111, 0x1111, 0x0000,
+        0x0000, 0x2222, 0x2222, 0x0000,
+        0x0000, 0x2332, 0x2332, 0x0000,
+        0x0000, 0x2222, 0x2222, 0x0000,
+        0x0000, 0x6220, 0x0226, 0x0000,
+        0x4000, 0x5544, 0x4455, 0x0004,
+        0x5400, 0x5555, 0x5555, 0x0045,
+        0x5540, 0x5555, 0x5555, 0x0455,
+        0x5540, 0x5552, 0x2555, 0x0455,
+        0x5540, 0x5555, 0x5555, 0x0455,
+        0x5400, 0x5555, 0x5555, 0x0045,
+        0x5400, 0x5555, 0x5555, 0x0045,
+        0x4000, 0x5555, 0x5555, 0x0004,
+        0x4000, 0x5544, 0x4455, 0x0004,
+        0x0000, 0x4444, 0x4444, 0x0000,
+    },
+    // kArtBeholder
+    //   ..h..h....h..h..
+    //   ..h..h....h..h..
+    //   ...f.f....f.f...
+    //   ....f.f..f.f....
+    //   .....fccccf.....
+    //   ....cccccccc....
+    //   ...ccggggggcc...
+    //   ...ccgddddgcc...
+    //   ...ccgdaadgcc...
+    //   ...ccgddddgcc...
+    //   ...ccggggggcc...
+    //   ....cccccccc....
+    //   ....cebebecc....
+    //   .....cccccc.....
+    //   ......ffff......
+    //   ................
+    {
+        0x0800, 0x0080, 0x0800, 0x0080,
+        0x0800, 0x0080, 0x0800, 0x0080,
+        0x6000, 0x0060, 0x0600, 0x0006,
+        0x0000, 0x0606, 0x6060, 0x0000,
+        0x0000, 0x3360, 0x0633, 0x0000,
+        0x0000, 0x3333, 0x3333, 0x0000,
+        0x3000, 0x7773, 0x3777, 0x0003,
+        0x3000, 0x4473, 0x3744, 0x0003,
+        0x3000, 0x1473, 0x3741, 0x0003,
+        0x3000, 0x4473, 0x3744, 0x0003,
+        0x3000, 0x7773, 0x3777, 0x0003,
+        0x0000, 0x3333, 0x3333, 0x0000,
+        0x0000, 0x5253, 0x3352, 0x0000,
+        0x0000, 0x3330, 0x0333, 0x0000,
+        0x0000, 0x6600, 0x0066, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtFlask
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   .......bb.......
+    //   ......bddb......
+    //   ......bccb......
+    //   .....bcaacb.....
+    //   ....bcaaaacb....
+    //   ....baaaaaab....
+    //   ....baaaaaab....
+    //   .....baaaab.....
+    //   ......bbbb......
+    //   ................
+    //   ................
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x2000, 0x0002, 0x0000,
+        0x0000, 0x4200, 0x0024, 0x0000,
+        0x0000, 0x3200, 0x0023, 0x0000,
+        0x0000, 0x1320, 0x0231, 0x0000,
+        0x0000, 0x1132, 0x2311, 0x0000,
+        0x0000, 0x1112, 0x2111, 0x0000,
+        0x0000, 0x1112, 0x2111, 0x0000,
+        0x0000, 0x1120, 0x0211, 0x0000,
+        0x0000, 0x2200, 0x0022, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtBolt
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   .......aa.......
+    //   ......aaaa......
+    //   .....aabbaa.....
+    //   ....aabbbbaa....
+    //   ....aabbbbaa....
+    //   .....aabbaa.....
+    //   ......aaaa......
+    //   .......aa.......
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1000, 0x0001, 0x0000,
+        0x0000, 0x1100, 0x0011, 0x0000,
+        0x0000, 0x2110, 0x0112, 0x0000,
+        0x0000, 0x2211, 0x1122, 0x0000,
+        0x0000, 0x2211, 0x1122, 0x0000,
+        0x0000, 0x2110, 0x0112, 0x0000,
+        0x0000, 0x1100, 0x0011, 0x0000,
+        0x0000, 0x1000, 0x0001, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtPuff
+    //   ................
+    //   ................
+    //   .....aabbaa.....
+    //   ...aabbbbbbaa...
+    //   ..aabbccbbbbaa..
+    //   .aabbbccbbbbbaa.
+    //   .abbbbbbbbccbba.
+    //   aabbccbbbbbbbbaa
+    //   abbbbbbbccbbbbba
+    //   abbbccbbbbbbbbba
+    //   .abbbbbbbbbccba.
+    //   .aabbbccbbbbbaa.
+    //   ..aabbbbbbbbaa..
+    //   ...aabbbbbbaa...
+    //   .....aaaaaa.....
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x2110, 0x0112, 0x0000,
+        0x1000, 0x2221, 0x1222, 0x0001,
+        0x1100, 0x3322, 0x2222, 0x0011,
+        0x2110, 0x3322, 0x2222, 0x0112,
+        0x2210, 0x2222, 0x3322, 0x0122,
+        0x2211, 0x2233, 0x2222, 0x1122,
+        0x2221, 0x2222, 0x2233, 0x1222,
+        0x2221, 0x2233, 0x2222, 0x1222,
+        0x2210, 0x2222, 0x3222, 0x0123,
+        0x2110, 0x3322, 0x2222, 0x0112,
+        0x1100, 0x2222, 0x2222, 0x0011,
+        0x1000, 0x2221, 0x1222, 0x0001,
+        0x0000, 0x1110, 0x0111, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtDragon
+    //   ................
+    //   .......aa.......
+    //   ......abca......
+    //   .....abbbca.....
+    //   ....abbbbbca....
+    //   ...abbbddbbca...
+    //   ..abbbbdcbbbc...
+    //   .abbbbbbbbbbbba.
+    //   .abbbbbbbbbbbba.
+    //   ..abbbbbbbbbba..
+    //   ...abbbbbbba....
+    //   ....abbbbbba....
+    //   ...aa..bb..aa...
+    //   ..aa...bb...aa..
+    //   ................
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1000, 0x0001, 0x0000,
+        0x0000, 0x2100, 0x0013, 0x0000,
+        0x0000, 0x2210, 0x0132, 0x0000,
+        0x0000, 0x2221, 0x1322, 0x0000,
+        0x1000, 0x4222, 0x3224, 0x0001,
+        0x2100, 0x4222, 0x2223, 0x0003,
+        0x2210, 0x2222, 0x2222, 0x0122,
+        0x2210, 0x2222, 0x2222, 0x0122,
+        0x2100, 0x2222, 0x2222, 0x0012,
+        0x1000, 0x2222, 0x1222, 0x0000,
+        0x0000, 0x2221, 0x1222, 0x0000,
+        0x1000, 0x2001, 0x1002, 0x0001,
+        0x1100, 0x2000, 0x0002, 0x0011,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtDragonAttack
+    //   ................
+    //   .......aa.......
+    //   ......abca......
+    //   .....abbbca.....
+    //   ....abbbbbca....
+    //   ...abbbddbbca...
+    //   ..abbbbdcbbbc...
+    //   .abbbbbbbbbbbba.
+    //   .abbbbbbbbbbbba.
+    //   ..abbbbbbbbcba..
+    //   ...abbbbbeeea...
+    //   ....abbbbeeea...
+    //   .....abbeeea....
+    //   ......aeee......
+    //   .......ee.......
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1000, 0x0001, 0x0000,
+        0x0000, 0x2100, 0x0013, 0x0000,
+        0x0000, 0x2210, 0x0132, 0x0000,
+        0x0000, 0x2221, 0x1322, 0x0000,
+        0x1000, 0x4222, 0x3224, 0x0001,
+        0x2100, 0x4222, 0x2223, 0x0003,
+        0x2210, 0x2222, 0x2222, 0x0122,
+        0x2210, 0x2222, 0x2222, 0x0122,
+        0x2100, 0x2222, 0x3222, 0x0012,
+        0x1000, 0x2222, 0x5552, 0x0001,
+        0x0000, 0x2221, 0x5552, 0x0001,
+        0x0000, 0x2210, 0x1555, 0x0000,
+        0x0000, 0x5100, 0x0055, 0x0000,
+        0x0000, 0x5000, 0x0005, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtHobgob
+    //   ................
+    //   .....aaaaaa.....
+    //   ....aeeeeeea....
+    //   ...aeebbbbeea...
+    //   ...aebhffhbea...
+    //   ....abddddba....
+    //   ...aaabbbbaaa...
+    //   ..acccaaaacccca.
+    //   ..acdccccccdcca.
+    //   .aacdceeeecdcaa.
+    //   .aecdceddeecdcea
+    //   .aecdccccccdcea.
+    //   ..aabbccccbbaa..
+    //   ....bba..abb....
+    //   ....bba..abb....
+    //   ...aaaa..aaaa...
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1110, 0x0111, 0x0000,
+        0x0000, 0x5551, 0x1555, 0x0000,
+        0x1000, 0x2255, 0x5522, 0x0001,
+        0x1000, 0x6825, 0x5286, 0x0001,
+        0x0000, 0x4421, 0x1244, 0x0000,
+        0x1000, 0x2211, 0x1122, 0x0001,
+        0x3100, 0x1133, 0x3311, 0x0133,
+        0x3100, 0x3334, 0x4333, 0x0133,
+        0x3110, 0x5534, 0x4355, 0x0113,
+        0x3510, 0x4534, 0x3554, 0x1534,
+        0x3510, 0x3334, 0x4333, 0x0153,
+        0x1100, 0x3322, 0x2233, 0x0011,
+        0x0000, 0x0122, 0x2210, 0x0000,
+        0x0000, 0x0122, 0x2210, 0x0000,
+        0x1000, 0x0111, 0x1110, 0x0001,
+    },
+    // kArtSlime
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ......aaaa......
+    //   ....aabbbbaa....
+    //   ...abbbbbbbba...
+    //   ..abbhhbbbbbba..
+    //   ..abhhbbbbbbba..
+    //   .abbbbcbbcbbbba.
+    //   .abbbbcbbcbbbba.
+    //   .abbbbbbbbbbbba.
+    //   .abbbbbccbbbbba.
+    //   ..aabbbbbbbbaa..
+    //   ...aaaaaaaaaa...
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1100, 0x0011, 0x0000,
+        0x0000, 0x2211, 0x1122, 0x0000,
+        0x1000, 0x2222, 0x2222, 0x0001,
+        0x2100, 0x2882, 0x2222, 0x0012,
+        0x2100, 0x2288, 0x2222, 0x0012,
+        0x2210, 0x2322, 0x2232, 0x0122,
+        0x2210, 0x2322, 0x2232, 0x0122,
+        0x2210, 0x2222, 0x2222, 0x0122,
+        0x2210, 0x3222, 0x2223, 0x0122,
+        0x1100, 0x2222, 0x2222, 0x0011,
+        0x1000, 0x1111, 0x1111, 0x0001,
+    },
+    // kArtSpider
+    //   ................
+    //   ................
+    //   .a............a.
+    //   .aa..........aa.
+    //   ..aa...aa...aa..
+    //   ...aa.abba.aa...
+    //   .a..aaabbaaa..a.
+    //   ..aaaabbbbaaaa..
+    //   ...a.abccba.a...
+    //   ..a..abbbbba.a..
+    //   .a....abbba..a..
+    //   .a...aabbbaa..a.
+    //   .a..a..aaa..a.a.
+    //   ....a......a....
+    //   ................
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0010, 0x0000, 0x0000, 0x0100,
+        0x0110, 0x0000, 0x0000, 0x0110,
+        0x1100, 0x1000, 0x0001, 0x0011,
+        0x1000, 0x2101, 0x1012, 0x0001,
+        0x0010, 0x2111, 0x1112, 0x0100,
+        0x1100, 0x2211, 0x1122, 0x0011,
+        0x1000, 0x3210, 0x0123, 0x0001,
+        0x0100, 0x2210, 0x1222, 0x0010,
+        0x0010, 0x2100, 0x0122, 0x0010,
+        0x0010, 0x2110, 0x1122, 0x0100,
+        0x0010, 0x1001, 0x0011, 0x0101,
+        0x0000, 0x0001, 0x1000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtGhost
+    //   ................
+    //   .....aaaaaa.....
+    //   ....aabbbbaa....
+    //   ...abbbbbbbba...
+    //   ...abccbbccba...
+    //   ...abccbbccba...
+    //   ...abbbbbbbba...
+    //   ...abbbccbbba...
+    //   ...abbbccbbba...
+    //   ..aabbbbbbbbaa..
+    //   ..abbbbbbbbbba..
+    //   ..abbbbbbbbbba..
+    //   ..abbabbbbabba..
+    //   ..aba.abba.aba..
+    //   ..aa...aa...aa..
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1110, 0x0111, 0x0000,
+        0x0000, 0x2211, 0x1122, 0x0000,
+        0x1000, 0x2222, 0x2222, 0x0001,
+        0x1000, 0x2332, 0x2332, 0x0001,
+        0x1000, 0x2332, 0x2332, 0x0001,
+        0x1000, 0x2222, 0x2222, 0x0001,
+        0x1000, 0x3222, 0x2223, 0x0001,
+        0x1000, 0x3222, 0x2223, 0x0001,
+        0x1100, 0x2222, 0x2222, 0x0011,
+        0x2100, 0x2222, 0x2222, 0x0012,
+        0x2100, 0x2222, 0x2222, 0x0012,
+        0x2100, 0x2212, 0x2122, 0x0012,
+        0x2100, 0x2101, 0x1012, 0x0012,
+        0x1100, 0x1000, 0x0001, 0x0011,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtGhostFade
+    //   ................
+    //   .....a.a.a......
+    //   ....a.b.b.a.....
+    //   ...a.b.b.b.a....
+    //   ....bcc.bcc.a...
+    //   ...a.cc.bcc.b...
+    //   ....b.b.b.b.a...
+    //   ...a.b.ccb.b....
+    //   ....b.b.ccb.a...
+    //   ..a.b.b.b.b.b.a.
+    //   ...b.b.b.b.b.b..
+    //   ..a.b.b.b.b.b.a.
+    //   ...b.a.b.b.a.b..
+    //   ..a.a.a.ba.a.a..
+    //   ...a...a.a...a..
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1010, 0x0010, 0x0000,
+        0x0000, 0x0201, 0x0102, 0x0000,
+        0x1000, 0x2020, 0x1020, 0x0000,
+        0x0000, 0x0332, 0x0332, 0x0001,
+        0x1000, 0x0330, 0x0332, 0x0002,
+        0x0000, 0x0202, 0x0202, 0x0001,
+        0x1000, 0x3020, 0x2023, 0x0000,
+        0x0000, 0x0202, 0x0233, 0x0001,
+        0x0100, 0x0202, 0x0202, 0x0102,
+        0x2000, 0x2020, 0x2020, 0x0020,
+        0x0100, 0x0202, 0x0202, 0x0102,
+        0x2000, 0x2010, 0x1020, 0x0020,
+        0x0100, 0x0101, 0x1012, 0x0010,
+        0x1000, 0x1000, 0x0010, 0x0010,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtImp
+    //   ................
+    //   .......ff.......
+    //   ......ff........
+    //   .....aaaa.......
+    //   ...a.bbbb.a.....
+    //   ..aa.bbbb.aa....
+    //   ..a.bbbbbb.a....
+    //   ...bbdbbdbb.....
+    //   ...bbbbbbbb.....
+    //   ...bddddddb.....
+    //   ..bbbbbbbbbb....
+    //   .abbbcccbbbba...
+    //   .a.bbbcccbbb.a..
+    //   ...bbbbbbbb.....
+    //   ...bb....bb.....
+    //   ..aaa....aaa....
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x6000, 0x0006, 0x0000,
+        0x0000, 0x6600, 0x0000, 0x0000,
+        0x0000, 0x1110, 0x0001, 0x0000,
+        0x1000, 0x2220, 0x0102, 0x0000,
+        0x1100, 0x2220, 0x1102, 0x0000,
+        0x0100, 0x2222, 0x1022, 0x0000,
+        0x2000, 0x2242, 0x0224, 0x0000,
+        0x2000, 0x2222, 0x0222, 0x0000,
+        0x2000, 0x4444, 0x0244, 0x0000,
+        0x2200, 0x2222, 0x2222, 0x0000,
+        0x2210, 0x3332, 0x2222, 0x0001,
+        0x2010, 0x3322, 0x2223, 0x0010,
+        0x2000, 0x2222, 0x0222, 0x0000,
+        0x2000, 0x0002, 0x0220, 0x0000,
+        0x1100, 0x0001, 0x1110, 0x0000,
+    },
+    // kArtNecro
+    //   ......f.........
+    //   .....fff........
+    //   ......f..eeee...
+    //   ....eeeeeedde...
+    //   ...eeaaaaeedde..
+    //   ..eeaabbaaee.e..
+    //   ..eeabeebaee.e..
+    //   ..eeaaaaaaee.e..
+    //   ...eeeccceee.e..
+    //   ..eecccccceeee..
+    //   ..ecccddcccce...
+    //   .eccccddccccce..
+    //   .ecccccccccce...
+    //   .eccccccccccce..
+    //   .eeccccccccee...
+    //   ..eeeeeeeeee....
+    {
+        0x0000, 0x0600, 0x0000, 0x0000,
+        0x0000, 0x6660, 0x0000, 0x0000,
+        0x0000, 0x0600, 0x5550, 0x0005,
+        0x0000, 0x5555, 0x4455, 0x0005,
+        0x5000, 0x1115, 0x4551, 0x0054,
+        0x5500, 0x2211, 0x5511, 0x0050,
+        0x5500, 0x5521, 0x5512, 0x0050,
+        0x5500, 0x1111, 0x5511, 0x0050,
+        0x5000, 0x3355, 0x5553, 0x0050,
+        0x5500, 0x3333, 0x5533, 0x0055,
+        0x3500, 0x4433, 0x3333, 0x0005,
+        0x3350, 0x4433, 0x3333, 0x0053,
+        0x3350, 0x3333, 0x3333, 0x0005,
+        0x3350, 0x3333, 0x3333, 0x0053,
+        0x3550, 0x3333, 0x5333, 0x0005,
+        0x5500, 0x5555, 0x5555, 0x0000,
+    },
+    // kArtEyeA
+    //   .h..h..h..h..h..
+    //   .h..h..h..h..h..
+    //   ..f..f.hh.f..f..
+    //   ...f..f..f..f...
+    //   ....ffccccff....
+    //   ...ccccccccc....
+    //   ..cccgggggccc...
+    //   .cccgggddgggccc.
+    //   .cccgddaaddgccc.
+    //   .cccgddaaddgccc.
+    //   .cccgggddgggccc.
+    //   ..cccgggggccc...
+    //   ...ccccccccc....
+    //   ....cebebec.....
+    //   .....cccccc.....
+    //   ......ffff......
+    {
+        0x0080, 0x8008, 0x0800, 0x0080,
+        0x0080, 0x8008, 0x0800, 0x0080,
+        0x0600, 0x8060, 0x0608, 0x0060,
+        0x6000, 0x0600, 0x0060, 0x0006,
+        0x0000, 0x3366, 0x6633, 0x0000,
+        0x3000, 0x3333, 0x3333, 0x0000,
+        0x3300, 0x7773, 0x3377, 0x0003,
+        0x3330, 0x4777, 0x7774, 0x0333,
+        0x3330, 0x1447, 0x7441, 0x0333,
+        0x3330, 0x1447, 0x7441, 0x0333,
+        0x3330, 0x4777, 0x7774, 0x0333,
+        0x3300, 0x7773, 0x3377, 0x0003,
+        0x3000, 0x3333, 0x3333, 0x0000,
+        0x0000, 0x5253, 0x0352, 0x0000,
+        0x0000, 0x3330, 0x0333, 0x0000,
+        0x0000, 0x6600, 0x0066, 0x0000,
+    },
+    // kArtEyeB
+    //   h..h..h..h..h..h
+    //   h..h..h..h..h..h
+    //   .f..f..hh..f..f.
+    //   ..f..f.hh.f..f..
+    //   ....ffccccff....
+    //   ...ccccccccc....
+    //   ..cccgggggccc...
+    //   .cccgggddgggccc.
+    //   .cccgdaaaaaggcc.
+    //   .cccgdaaaaaggcc.
+    //   .cccgggddgggccc.
+    //   ..cccgggggccc...
+    //   ...ccccccccc....
+    //   ....cebebec.....
+    //   .....cccccc.....
+    //   .....ffffff.....
+    {
+        0x8008, 0x0800, 0x0080, 0x8008,
+        0x8008, 0x0800, 0x0080, 0x8008,
+        0x0060, 0x8006, 0x6008, 0x0600,
+        0x0600, 0x8060, 0x0608, 0x0060,
+        0x0000, 0x3366, 0x6633, 0x0000,
+        0x3000, 0x3333, 0x3333, 0x0000,
+        0x3300, 0x7773, 0x3377, 0x0003,
+        0x3330, 0x4777, 0x7774, 0x0333,
+        0x3330, 0x1147, 0x7111, 0x0337,
+        0x3330, 0x1147, 0x7111, 0x0337,
+        0x3330, 0x4777, 0x7774, 0x0333,
+        0x3300, 0x7773, 0x3377, 0x0003,
+        0x3000, 0x3333, 0x3333, 0x0000,
+        0x0000, 0x5253, 0x0352, 0x0000,
+        0x0000, 0x3330, 0x0333, 0x0000,
+        0x0000, 0x6660, 0x0666, 0x0000,
+    },
+    // kArtFireEl
+    //   .......a........
+    //   ......aba.......
+    //   ......abba..a...
+    //   .....aabbba.a...
+    //   ..a..abbcbba....
+    //   ..aa.abbccba.a..
+    //   ...aaabbccbbaa..
+    //   ....abbbcccbbaa.
+    //   ....abbcddcbbba.
+    //   ...aabbcddcbbaa.
+    //   ...abbbcccbbba..
+    //   ...aabbbccbbaa..
+    //   ....aabbbbbba...
+    //   .....aabbbbaa...
+    //   ......aabbaa....
+    //   .......aaaa.....
+    {
+        0x0000, 0x1000, 0x0000, 0x0000,
+        0x0000, 0x2100, 0x0001, 0x0000,
+        0x0000, 0x2100, 0x0012, 0x0001,
+        0x0000, 0x2110, 0x0122, 0x0001,
+        0x0100, 0x2210, 0x1223, 0x0000,
+        0x1100, 0x2210, 0x1233, 0x0010,
+        0x1000, 0x2211, 0x2233, 0x0011,
+        0x0000, 0x2221, 0x2333, 0x0112,
+        0x0000, 0x3221, 0x2344, 0x0122,
+        0x1000, 0x3221, 0x2344, 0x0112,
+        0x1000, 0x3222, 0x2233, 0x0012,
+        0x1000, 0x2221, 0x2233, 0x0011,
+        0x0000, 0x2211, 0x2222, 0x0001,
+        0x0000, 0x2110, 0x1222, 0x0001,
+        0x0000, 0x1100, 0x1122, 0x0000,
+        0x0000, 0x1000, 0x0111, 0x0000,
+    },
+    // kArtSlimeKingA
+    //   ................
+    //   ...g.g.g.g.g....
+    //   ...gggggggggg...
+    //   ....aaaaaaaa....
+    //   ...abbbbbbbba...
+    //   ..abbhhbbbbbba..
+    //   ..abhhbbbbbbba..
+    //   .abbbccbbccbbba.
+    //   .abbbccbbccbbba.
+    //   .abbbbbbbbbbbba.
+    //   .abbbbbcccbbbba.
+    //   .abbbbbbbbbbbba.
+    //   ..abbbbbbbbbba..
+    //   ..aabbbbbbbbaa..
+    //   ...aaaaaaaaaa...
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x7000, 0x7070, 0x7070, 0x0000,
+        0x7000, 0x7777, 0x7777, 0x0007,
+        0x0000, 0x1111, 0x1111, 0x0000,
+        0x1000, 0x2222, 0x2222, 0x0001,
+        0x2100, 0x2882, 0x2222, 0x0012,
+        0x2100, 0x2288, 0x2222, 0x0012,
+        0x2210, 0x2332, 0x2332, 0x0122,
+        0x2210, 0x2332, 0x2332, 0x0122,
+        0x2210, 0x2222, 0x2222, 0x0122,
+        0x2210, 0x3222, 0x2233, 0x0122,
+        0x2210, 0x2222, 0x2222, 0x0122,
+        0x2100, 0x2222, 0x2222, 0x0012,
+        0x1100, 0x2222, 0x2222, 0x0011,
+        0x1000, 0x1111, 0x1111, 0x0001,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtSlimeKingB
+    //   ................
+    //   ................
+    //   ...g.g.g.g.g....
+    //   ...gggggggggg...
+    //   .....aaaaaa.....
+    //   ...aabbbbbbaa...
+    //   ..abbhhbbbbbba..
+    //   .abbhhbbbbbbbba.
+    //   abbbbccbbccbbbba
+    //   abbbbccbbccbbbba
+    //   abbbbbbbbbbbbbba
+    //   abbbbbbcccbbbbba
+    //   .abbbbbbbbbbbba.
+    //   .aabbbbbbbbbbaa.
+    //   ..aaaaaaaaaaaa..
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x7000, 0x7070, 0x7070, 0x0000,
+        0x7000, 0x7777, 0x7777, 0x0007,
+        0x0000, 0x1110, 0x0111, 0x0000,
+        0x1000, 0x2221, 0x1222, 0x0001,
+        0x2100, 0x2882, 0x2222, 0x0012,
+        0x2210, 0x2288, 0x2222, 0x0122,
+        0x2221, 0x2332, 0x2332, 0x1222,
+        0x2221, 0x2332, 0x2332, 0x1222,
+        0x2221, 0x2222, 0x2222, 0x1222,
+        0x2221, 0x3222, 0x2233, 0x1222,
+        0x2210, 0x2222, 0x2222, 0x0122,
+        0x2110, 0x2222, 0x2222, 0x0112,
+        0x1100, 0x1111, 0x1111, 0x0011,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtGolemA
+    //   ................
+    //   ....dddddddd....
+    //   ...daaaaaaaad...
+    //   ...dabbbbbbad...
+    //   ...dabeebbeaad..
+    //   ...dabbbbbbad...
+    //   .dddaabbbbaaddd.
+    //   daaadaaccaadaaad
+    //   dabbdabccbadbbad
+    //   dabbdabccbadbbad
+    //   daaadaabbaadaaad
+    //   .ddd.daaaad.ddd.
+    //   .....dbbbbd.....
+    //   ....dbbddbbd....
+    //   ....daad.daad...
+    //   ....dddd.dddd...
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x4444, 0x4444, 0x0000,
+        0x4000, 0x1111, 0x1111, 0x0004,
+        0x4000, 0x2221, 0x1222, 0x0004,
+        0x4000, 0x5521, 0x1522, 0x0041,
+        0x4000, 0x2221, 0x1222, 0x0004,
+        0x4440, 0x2211, 0x1122, 0x0444,
+        0x1114, 0x3114, 0x4113, 0x4111,
+        0x2214, 0x3214, 0x4123, 0x4122,
+        0x2214, 0x3214, 0x4123, 0x4122,
+        0x1114, 0x2114, 0x4112, 0x4111,
+        0x4440, 0x1140, 0x0411, 0x0444,
+        0x0000, 0x2240, 0x0422, 0x0000,
+        0x0000, 0x4224, 0x4224, 0x0000,
+        0x0000, 0x4114, 0x1140, 0x0004,
+        0x0000, 0x4444, 0x4440, 0x0004,
+    },
+    // kArtGolemB
+    //   ................
+    //   ................
+    //   ....dddddddd....
+    //   ...daaaaaaaad...
+    //   ...dabbbbbbad...
+    //   ...dabeebbead...
+    //   .dddaabbbbaaddd.
+    //   daaadaaccaadaaad
+    //   dabbdabccbadbbad
+    //   dabbdabccbadbbad
+    //   daaadaabbaadaaad
+    //   .ddd.daaaad.ddd.
+    //   .....dbbbbd.....
+    //   ....dbbddbbd....
+    //   ...daad...daad..
+    //   ...dddd...dddd..
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x4444, 0x4444, 0x0000,
+        0x4000, 0x1111, 0x1111, 0x0004,
+        0x4000, 0x2221, 0x1222, 0x0004,
+        0x4000, 0x5521, 0x1522, 0x0004,
+        0x4440, 0x2211, 0x1122, 0x0444,
+        0x1114, 0x3114, 0x4113, 0x4111,
+        0x2214, 0x3214, 0x4123, 0x4122,
+        0x2214, 0x3214, 0x4123, 0x4122,
+        0x1114, 0x2114, 0x4112, 0x4111,
+        0x4440, 0x1140, 0x0411, 0x0444,
+        0x0000, 0x2240, 0x0422, 0x0000,
+        0x0000, 0x4224, 0x4224, 0x0000,
+        0x4000, 0x0411, 0x1400, 0x0041,
+        0x4000, 0x0444, 0x4400, 0x0044,
+    },
+    // kArtVampA
+    //   ................
+    //   .....eeeeee.....
+    //   ....eaaaaaae....
+    //   ....eabbbbae....
+    //   ....ebebbebe....
+    //   ....ebbbbbbe....
+    //   ....ebbffbbe....
+    //   ..eeccebbeccee..
+    //   .ecccccddcccccce
+    //   .eccdcccddcccdce
+    //   .ecccdccddccdcce
+    //   ..eccccddccccce.
+    //   ..ecccceecccce..
+    //   ...ecccceeccce..
+    //   ....ecc..ccee...
+    //   .....ee..ee.....
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x5550, 0x0555, 0x0000,
+        0x0000, 0x1115, 0x5111, 0x0000,
+        0x0000, 0x2215, 0x5122, 0x0000,
+        0x0000, 0x2525, 0x5252, 0x0000,
+        0x0000, 0x2225, 0x5222, 0x0000,
+        0x0000, 0x6225, 0x5226, 0x0000,
+        0x5500, 0x2533, 0x3352, 0x0055,
+        0x3350, 0x4333, 0x3334, 0x5333,
+        0x3350, 0x3334, 0x3344, 0x5343,
+        0x3350, 0x3343, 0x3344, 0x5334,
+        0x3500, 0x4333, 0x3334, 0x0533,
+        0x3500, 0x5333, 0x3335, 0x0053,
+        0x5000, 0x3333, 0x3355, 0x0053,
+        0x0000, 0x0335, 0x5330, 0x0005,
+        0x0000, 0x0550, 0x0550, 0x0000,
+    },
+    // kArtVampB
+    //   ................
+    //   ................
+    //   .....eeeeee.....
+    //   ....eaaaaaae....
+    //   ....eabbbbae....
+    //   ....ebebbebe....
+    //   ....ebbbbbbe....
+    //   ...eebbffbbee...
+    //   ..ecceebbeecce..
+    //   .eccccddddcccce.
+    //   ecccdcddddcdccce
+    //   eccdccddddccdcce
+    //   .ecccceddeccce..
+    //   ..eccceddeccce..
+    //   ...eccee.eccee..
+    //   ....ee....ee....
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x5550, 0x0555, 0x0000,
+        0x0000, 0x1115, 0x5111, 0x0000,
+        0x0000, 0x2215, 0x5122, 0x0000,
+        0x0000, 0x2525, 0x5252, 0x0000,
+        0x0000, 0x2225, 0x5222, 0x0000,
+        0x5000, 0x6225, 0x5226, 0x0005,
+        0x3500, 0x2553, 0x3552, 0x0053,
+        0x3350, 0x4433, 0x3344, 0x0533,
+        0x3335, 0x4434, 0x4344, 0x5333,
+        0x4335, 0x4433, 0x3344, 0x5334,
+        0x3350, 0x4533, 0x3354, 0x0053,
+        0x3500, 0x4533, 0x3354, 0x0053,
+        0x5000, 0x5533, 0x3350, 0x0055,
+        0x0000, 0x0055, 0x5500, 0x0000,
+    },
+    // kArtLichB
+    //   ....a.a..a.a....
+    //   ....aaaaaaaa....
+    //   ....bbbbbbbb....
+    //   ....bccbbccb....
+    //   ....bbbbbbbb....
+    //   .....bbffbb.....
+    //   ...dddeeeeddd...
+    //   ..deeeeeeeeeed..
+    //   .deeeeeeeeeeeed.
+    //   .deebeeeeeebeed.
+    //   .deeeeeeeeeeeed.
+    //   ..deeeeeeeeeed..
+    //   ..deeeeeeeeeed..
+    //   ...deeeeeeeed...
+    //   ..dddeeeeeeddd..
+    //   .dddddddddddddd.
+    {
+        0x0000, 0x0101, 0x1010, 0x0000,
+        0x0000, 0x1111, 0x1111, 0x0000,
+        0x0000, 0x2222, 0x2222, 0x0000,
+        0x0000, 0x2332, 0x2332, 0x0000,
+        0x0000, 0x2222, 0x2222, 0x0000,
+        0x0000, 0x6220, 0x0226, 0x0000,
+        0x4000, 0x5544, 0x4455, 0x0004,
+        0x5400, 0x5555, 0x5555, 0x0045,
+        0x5540, 0x5555, 0x5555, 0x0455,
+        0x5540, 0x5552, 0x2555, 0x0455,
+        0x5540, 0x5555, 0x5555, 0x0455,
+        0x5400, 0x5555, 0x5555, 0x0045,
+        0x5400, 0x5555, 0x5555, 0x0045,
+        0x4000, 0x5555, 0x5555, 0x0004,
+        0x4400, 0x5554, 0x4555, 0x0044,
+        0x4440, 0x4444, 0x4444, 0x0444,
+    },
+    // kArtChest
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ....aaaaaaaa....
+    //   ..aabbbbbbbbaa..
+    //   .abbbbbbbbbbbba.
+    //   .abbddddddddbba.
+    //   .aaaaaaccaaaaaa.
+    //   .abbbbbcacbbbba.
+    //   .abbbbbbbbbbbba.
+    //   .abbbbbbbbbbbba.
+    //   .adddddddddddda.
+    //   ..aaaaaaaaaaaa..
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1111, 0x1111, 0x0000,
+        0x1100, 0x2222, 0x2222, 0x0011,
+        0x2210, 0x2222, 0x2222, 0x0122,
+        0x2210, 0x4444, 0x4444, 0x0122,
+        0x1110, 0x3111, 0x1113, 0x0111,
+        0x2210, 0x3222, 0x2231, 0x0122,
+        0x2210, 0x2222, 0x2222, 0x0122,
+        0x2210, 0x2222, 0x2222, 0x0122,
+        0x4410, 0x4444, 0x4444, 0x0144,
+        0x1100, 0x1111, 0x1111, 0x0011,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtMimic
+    //   ................
+    //   ................
+    //   ................
+    //   ....aaaaaaaa....
+    //   ..aabbbbbbbbaa..
+    //   .abbbbbbbbbbbba.
+    //   .abbddddddddbba.
+    //   .aaaaaaaaaaaaaa.
+    //   .aeeaeeaeeaeeea.
+    //   .aeeaeeaeeaeeea.
+    //   .aaaeaeaeaeaaaa.
+    //   ..aacccccccaa...
+    //   .abbccccccccbba.
+    //   .adddddddddddda.
+    //   ..aaaaaaaaaaaa..
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1111, 0x1111, 0x0000,
+        0x1100, 0x2222, 0x2222, 0x0011,
+        0x2210, 0x2222, 0x2222, 0x0122,
+        0x2210, 0x4444, 0x4444, 0x0122,
+        0x1110, 0x1111, 0x1111, 0x0111,
+        0x5510, 0x1551, 0x5155, 0x0155,
+        0x5510, 0x1551, 0x5155, 0x0155,
+        0x1110, 0x1515, 0x1515, 0x0111,
+        0x1100, 0x3333, 0x1333, 0x0001,
+        0x2210, 0x3333, 0x3333, 0x0122,
+        0x4410, 0x4444, 0x4444, 0x0144,
+        0x1100, 0x1111, 0x1111, 0x0011,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtOrb
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   .....aaaaaa.....
+    //   ....aabbbbaa....
+    //   ...aabccccbaa...
+    //   ...abbcddcbba...
+    //   ...abbcddcbba...
+    //   ...aabccccbaa...
+    //   ....aabbbbaa....
+    //   .....aaaaaa.....
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1110, 0x0111, 0x0000,
+        0x0000, 0x2211, 0x1122, 0x0000,
+        0x1000, 0x3321, 0x1233, 0x0001,
+        0x1000, 0x4322, 0x2234, 0x0001,
+        0x1000, 0x4322, 0x2234, 0x0001,
+        0x1000, 0x3321, 0x1233, 0x0001,
+        0x0000, 0x2211, 0x1122, 0x0000,
+        0x0000, 0x1110, 0x0111, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtWeb
+    //   ................
+    //   ................
+    //   ................
+    //   ....a..a..a.....
+    //   .....a.a.a......
+    //   ......aaa.......
+    //   ..aaaaabaaaaa...
+    //   ......aaa.......
+    //   .....a.a.a......
+    //   ....a..a..a.....
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1001, 0x0100, 0x0000,
+        0x0000, 0x1010, 0x0010, 0x0000,
+        0x0000, 0x1100, 0x0001, 0x0000,
+        0x1100, 0x2111, 0x1111, 0x0001,
+        0x0000, 0x1100, 0x0001, 0x0000,
+        0x0000, 0x1010, 0x0010, 0x0000,
+        0x0000, 0x1001, 0x0100, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtPuddle
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ....aaaaaaaa....
+    //   ..aabbbbbbbbaa..
+    //   .abbbbhhbbbbbba.
+    //   .abbbbbbbbbbbba.
+    //   ..aabbbbbbbbaa..
+    //   ....aaaaaaaa....
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1111, 0x1111, 0x0000,
+        0x1100, 0x2222, 0x2222, 0x0011,
+        0x2210, 0x8822, 0x2222, 0x0122,
+        0x2210, 0x2222, 0x2222, 0x0122,
+        0x1100, 0x2222, 0x2222, 0x0011,
+        0x0000, 0x1111, 0x1111, 0x0000,
+    },
+    // kArtWarn
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ....aaaaaaaa....
+    //   ..aa........aa..
+    //   .a............a.
+    //   .a............a.
+    //   ..aa........aa..
+    //   ....aaaaaaaa....
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1111, 0x1111, 0x0000,
+        0x1100, 0x0000, 0x0000, 0x0011,
+        0x0010, 0x0000, 0x0000, 0x0100,
+        0x0010, 0x0000, 0x0000, 0x0100,
+        0x1100, 0x0000, 0x0000, 0x0011,
+        0x0000, 0x1111, 0x1111, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtWave
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ...aaaaaaaaaa...
+    //   .aabbbbbbbbbbaa.
+    //   abb..........bba
+    //   abb..........bba
+    //   .aabbbbbbbbbbaa.
+    //   ...aaaaaaaaaa...
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x1000, 0x1111, 0x1111, 0x0001,
+        0x2110, 0x2222, 0x2222, 0x0112,
+        0x0221, 0x0000, 0x0000, 0x1220,
+        0x0221, 0x0000, 0x0000, 0x1220,
+        0x2110, 0x2222, 0x2222, 0x0112,
+        0x1000, 0x1111, 0x1111, 0x0001,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtAlert
+    //   ................
+    //   .......aa.......
+    //   ......abba......
+    //   ......abba......
+    //   ......abba......
+    //   ......abba......
+    //   ......abba......
+    //   .......bb.......
+    //   .......bb.......
+    //   ................
+    //   .......aa.......
+    //   ......abba......
+    //   .......aa.......
+    //   ................
+    //   ................
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1000, 0x0001, 0x0000,
+        0x0000, 0x2100, 0x0012, 0x0000,
+        0x0000, 0x2100, 0x0012, 0x0000,
+        0x0000, 0x2100, 0x0012, 0x0000,
+        0x0000, 0x2100, 0x0012, 0x0000,
+        0x0000, 0x2100, 0x0012, 0x0000,
+        0x0000, 0x2000, 0x0002, 0x0000,
+        0x0000, 0x2000, 0x0002, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1000, 0x0001, 0x0000,
+        0x0000, 0x2100, 0x0012, 0x0000,
+        0x0000, 0x1000, 0x0001, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtMerchant
+    //   ................
+    //   .....aaaaaa.....
+    //   ....abbbbbba....
+    //   ...abbbbbbbba...
+    //   ...abbddddbba...
+    //   ...abdeddeddba..
+    //   ...abdddddddba..
+    //   ...abbdffdbbba..
+    //   ..aaabbbbbbaaa..
+    //   .aggaccccccaggaa
+    //   .agghaccccccgga.
+    //   .aggcccffcccgga.
+    //   .agacccccccccaa.
+    //   ..aaccccccccaa..
+    //   ...acc.aa.cca...
+    //   ...aaa.aa.aaa...
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1110, 0x0111, 0x0000,
+        0x0000, 0x2221, 0x1222, 0x0000,
+        0x1000, 0x2222, 0x2222, 0x0001,
+        0x1000, 0x4422, 0x2244, 0x0001,
+        0x1000, 0x4542, 0x4454, 0x0012,
+        0x1000, 0x4442, 0x4444, 0x0012,
+        0x1000, 0x6422, 0x2246, 0x0012,
+        0x1100, 0x2221, 0x1222, 0x0011,
+        0x7710, 0x3331, 0x1333, 0x1177,
+        0x7710, 0x3318, 0x3333, 0x0177,
+        0x7710, 0x6333, 0x3336, 0x0177,
+        0x1710, 0x3333, 0x3333, 0x0113,
+        0x1100, 0x3333, 0x3333, 0x0011,
+        0x1000, 0x1033, 0x3301, 0x0001,
+        0x1000, 0x1011, 0x1101, 0x0001,
+    },
 };
       // list ends with ch = 0
 
@@ -862,7 +1400,8 @@ const PalEnt *const rc_kPal[PT_COUNT] =
     kP_ORB_BOLT, kP_WEB, kP_PUDDLE_SLIME, kP_PUDDLE_FIRE,
     kP_PUDDLE_WEB, kP_PUDDLE_BLAST, kP_WARN, kP_WAVE_SLIME,
     kP_WAVE_FIRE, kP_WAVE_ICE, kP_WAVE_STORM, kP_WAVE_NOVA,
-    kP_ALERT
+    kP_ALERT,
+    kP_MERCHANT
 };
 
 
@@ -873,6 +1412,19 @@ const uint32_t rc_kWallBase[TILE_KINDS] =
     { 0, COLOR_GRAY, COLOR_GRAY, COLOR_BROWN, COLOR_ORANGE, COLOR_TURQUOISE, COLOR_SKY_BLUE, COLOR_GRAY };
 
 const uint16_t rc_kShadeMul[4] = { 256, 190, 130, 84 };
+
+// Wall themes: base stone, mortar / seams, accent (moss, drips, cracks, veins ...), floor, ceiling.
+const Theme rc_kTheme[TH_COUNT] =
+{
+    //   base        mortar      accent      floor       ceiling
+    { 0x00606972UL, 0x00282C32UL, 0x00566B4AUL, 0x002A2724UL, 0x00101216UL },   // basement dungeon (grey stone, moss)
+    { 0x003F7A3AUL, 0x001C381AUL, 0x008BD35AUL, 0x00213820UL, 0x000C160CUL },   // Slime King: green stone, drips
+    { 0x006B6B73UL, 0x00303036UL, 0x00E0782AUL, 0x002B2B30UL, 0x00131318UL },   // Elemental Golem: stone, glowing cracks
+    { 0x005A1A24UL, 0x00260A10UL, 0x00C0303FUL, 0x002C1016UL, 0x00120508UL },   // Vampire Lord: dark red, veins
+    { 0x004B2A66UL, 0x00221238UL, 0x00E6DC6AUL, 0x00241532UL, 0x000D0715UL },   // Beholder: purple, watching eyes
+    { 0x004F6B66UL, 0x001B2B28UL, 0x00D8E0C8UL, 0x001A2927UL, 0x00091110UL },   // Lich: teal bone, white bands
+    { 0x00402018UL, 0x00180C08UL, 0x00FF6A18UL, 0x00281008UL, 0x00100604UL },   // Dragon Den: basalt, lava veins
+};
 
 const char rc_kWpnArm[] =
     ".....kssssssssk.kk.."
