@@ -173,7 +173,7 @@ static AppStatus Tetris_Update(void)
         {
             tet_gameOverTimer--;
         }
-        else if(g_joy.btnPressed || Dpad_AnyPressed())
+        else if(Ui_AnyPress())
         {
             if(tet_gameOverRank >= 0)
             {
@@ -336,7 +336,7 @@ static void Tetris_Redraw(void)
 const App g_tetrisApp =
 {
     "TETRIS",                           // name (first letter = menu tile icon)
-    "Stick: move/drop  Btn: rotate",    // hint shown under the menu
+    "Stick: move/drop  Blue: rotate",   // hint shown under the menu
     COLOR_TETRIS_T_PURPLE,              // menu tile color
     TETRIS_FRAME_US,                    // frame period
         Tetris_Init, Tetris_Update, Tetris_Render,

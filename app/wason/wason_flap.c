@@ -8,7 +8,7 @@
 #include "wason_priv.h"
 
 // ============================================================================
-// FLAP!  (Flappy Bird)  any button flaps. Fly through the pipes.  Survive.
+// FLAP!  (Flappy Bird)  BLUE flaps. Fly through the pipes.  Survive.
 // ============================================================================
 #define FB_X    80
 #define FB_W    36
@@ -33,7 +33,7 @@ int16_t ww_FbUpdate(void)
     uint16_t i;
     int16_t  y;
 
-    if(ww_AnyPress()) { fb_vy = -110; Buzzer_PlaySfx(&sfx_blip); }
+    if(Ui_Jump()) { fb_vy = -110; Buzzer_PlaySfx(&sfx_blip); }
     fb_vy = ww_Min16(fb_vy + 9, 150);
     fb_y16 += fb_vy;
     y = fb_y16 / 16;

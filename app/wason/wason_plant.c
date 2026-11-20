@@ -8,7 +8,7 @@
 #include "wason_priv.h"
 
 // ============================================================================
-// PLANT!  (Plants vs Zombies)  UP/DOWN picks a lane, the button plants a
+// PLANT!  (Plants vs Zombies)  the STICK (up/down) picks a lane, BLUE plants a
 //         Peashooter at the house end of it. Zombies EAT plants, so keep
 //         replanting. Stop 5 before one gets in the house.
 // ============================================================================
@@ -47,7 +47,7 @@ int16_t ww_PzUpdate(void)
     if(pz_cool > 0) pz_cool--;
     if(ww_EdgeU() && pz_lane > 0) pz_lane--;
     if(ww_EdgeD() && pz_lane < 2) pz_lane++;
-    if((g_joy.btnPressed || g_dpad.lPressed || g_dpad.rPressed) && !pz_plant[pz_lane] && pz_cool == 0)
+    if(Ui_Select() && !pz_plant[pz_lane] && pz_cool == 0)
     {
         pz_plant[pz_lane] = true;  pz_php[pz_lane] = 70;  pz_fire[pz_lane] = 12;
         pz_cool = 22;                                           // seed packet recharge

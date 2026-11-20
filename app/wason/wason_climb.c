@@ -9,7 +9,7 @@
 
 // ============================================================================
 // CLIMB!  (Donkey Kong)  jump the rolling barrels, then climb the ladder.
-//         L/R run, button or UP jumps, UP at the ladder climbs.
+//         STICK runs and climbs the ladder, BLUE (or a stick click) jumps.
 // ============================================================================
 #define DK_GY   204
 #define DK_PY   188                         // player top when standing
@@ -71,7 +71,7 @@ int16_t ww_DkUpdate(void)
         }
         else
         {
-            if(dk_y >= DK_PY && dk_vy == 0 && (g_joy.btnPressed || g_dpad.uPressed))
+            if(dk_y >= DK_PY && dk_vy == 0 && Ui_Jump())
             {
                 dk_vy = -10;
                 Buzzer_PlaySfx(&sfx_jump);

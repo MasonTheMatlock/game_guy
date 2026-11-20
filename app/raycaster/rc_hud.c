@@ -46,16 +46,27 @@ static void DrawHint(void)
 
         n  = rc_Cat(buf, 0, "DOOR ", 5);
         n += rc_Itoa(buf + n, cost);
-        rc_Cat(buf, n, "G - press stick", 15);
-        rc_DrawText(buf, SCREEN_W / 2, 229, (rc_gold >= cost) ? C_GREEN : C_BAD);
+        rc_Cat(buf, n, "G", 1);
+        rc_DrawText(buf, 105, 229, (rc_gold >= cost) ? C_GREEN : C_BAD);
+        Ui_DrawIcon(UI_ICON_SELECT, 190, 229, 8);                      // press BLUE to buy
+        rc_DrawText("Buy", 225, 229, (rc_gold >= cost) ? C_GREEN : C_BAD);
     }
-    else if(rc_merchNear) rc_DrawText("MERCHANT - press stick", SCREEN_W / 2, 229, C_GOLD);
-    else if(rc_denState == DEN_OPEN) rc_DrawText("THE DRAGON DEN IS OPEN!", SCREEN_W / 2, 229, C_RED);
     else if(rc_aegis) rc_DrawText("SHIELD UP!", SCREEN_W / 2, 229, COLOR_SKY_BLUE);
     else if(rc_haste) rc_DrawText("HASTE!", SCREEN_W / 2, 229, C_GOLD);
     else if(rc_nullify) rc_DrawText("MAGIC WEAKENED!", SCREEN_W / 2, 229, C_XP);
     else if(rc_pSlow)   rc_DrawText("SLOWED!", SCREEN_W / 2, 229, COLOR_SKY_BLUE);
-    else             rc_DrawText("U:use  D:swap  L/R:turn", SCREEN_W / 2, 229, C_DKGRAY);
+    else
+    {
+        static const UiHint k[] =
+        {
+            { UI_ICON_MOVE,   "Move" },
+            { UI_ICON_SELECT, "Use"  },
+            { UI_ICON_BACK,   "Swap" },
+            { UI_ICON_ACT2,   ""     },
+            { UI_ICON_ACT3,   "Turn" }
+        };
+        Ui_DrawHints(k, UI_ARRAY_LEN(k), 229, C_BLACK);
+    }
 }
 
 

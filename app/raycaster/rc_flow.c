@@ -31,10 +31,6 @@ void rc_ResetRun(void)
     rc_lastMini = 0xFFFFu;
     rc_dragonKills = 0;
     rc_chestTimer = 0;
-    rc_curses = 0;
-    rc_merchNear = 0;
-    rc_denState = DEN_SEALED;
-    rc_ApplyTheme(TH_BASEMENT);
     rc_lastMap = 0xFFFFu;
     rc_wLoaded = 0xFFFFu;
 }
@@ -62,11 +58,11 @@ static void MakeLevelDef(uint16_t d, LevelDef *o, bool dragon, bool treasure)
 // A new round starts without touching the map: only the wave numbers change.
 //   * every 2nd round a mini-boss joins the wave (one at a time)
 //   * round 5, 15, 25 ... is a treasure round (a chest, 1 in 4 is a Mimic)
-//   * the Dragon Den opens by itself once 3 mini-bosses are beaten and all 6 doors are bought
+//   * the Dragon round comes once 3 mini-bosses are beaten and all 6 doors are bought
 static void StartRound(uint16_t r)
 {
-    bool dragon   = false;                      // the Dragon fight is started by walking into the Den
-    bool treasure = RC_TREASURE_ROUNDS && (((r + 1u) % 10u) == RC_TREASURE_AT);
+    bool dragon   = (rc_miniKills >= RC_DRAGON_MINIS) && (rc_doorsBought >= 6u) && !rc_bossAlive;
+    bool treasure = !dragon && (((r + 1u) % 10u) == RC_TREASURE_AT);
 
     rc_level = r;
     MakeLevelDef(r, &rc_lv, dragon, treasure);
@@ -77,6 +73,17 @@ static void StartRound(uint16_t r)
     rc_miniPending = (!dragon && !treasure && ((r + 1u) % RC_MINI_EVERY) == 0u && rc_miniAlive == 0u) ? 1u : 0u;
     rc_chestTimer  = 0;
 
+    if(dragon && !rc_doorBought[7])             // the Dragon Den door opens by itself
+    {
+        uint16_t mi;
+        rc_doorBought[7] = true;
+        rc_secOpen[6] = true;
+        for(mi = 0; mi < RC_MAP_CELLS; mi++)
+            if(rc_kMaps[0][mi >> RC_MAP_SHIFT][mi & (RC_MAP_W - 1u)] == '7') rc_tile[mi] = 0;
+        rc_flowTx = -1; rc_flowTy = -1;
+        rc_viewDirty = 2;
+        rc_doorShown = 0xFFFFu;
+    }
     if(treasure) rc_StartTreasure();
     rc_hud        |= HUD_TOPR | HUD_LEFT;
     if(r > 0u) rc_Sfx(&sfx_level_up);
@@ -147,98 +154,11 @@ static void UpdateDoorNear(void)
     }
 
     rc_doorNear = best;
-    {
-        uint16_t m, nearM = 0;
-
-        for(m = 0; m < RC_MAX_OBJ; m++)
-            if(rc_obj[m].alive && rc_obj[m].kind == OB_MERCHANT &&
-               Dist10((int16_t)(rc_obj[m].x - rc_px), (int16_t)(rc_obj[m].y - rc_py)) < 1500) nearM = 1;
-        if(nearM != rc_merchNear) { rc_merchNear = nearM; rc_hud |= HUD_HINT; }
-    }
     key = (uint16_t)(best ? (best * 2u + ((rc_gold >= rc_DoorCost()) ? 1u : 0u)) : 0u);
     if(key != rc_doorShown)
     {
         rc_doorShown = key;
         rc_hud      |= HUD_HINT;
-    }
-}
-
-
-// The Dragon Den gate ('7' tiles on the map): solid when sealed, open otherwise.
-static void SetGate(bool open)
-{
-    uint16_t i;
-
-    for(i = 0; i < RC_MAP_CELLS; i++)
-        if(rc_kMaps[0][i >> RC_MAP_SHIFT][i & (RC_MAP_W - 1u)] == '7')
-            rc_tile[i] = open ? 0u : (uint16_t)TILE_METAL_DOOR;
-    rc_flowTx    = -1;                              // enemies re-path
-    rc_viewDirty = 2;
-    rc_hud      |= HUD_HINT;
-}
-
-
-static bool InDen(void)
-{
-    int16_t tx = (int16_t)(rc_px >> 10), ty = (int16_t)(rc_py >> 10);
-
-    return (tx >= RC_DEN_X0 && tx <= RC_DEN_X1 && ty >= RC_DEN_Y0 && ty <= RC_DEN_Y1);
-}
-
-
-// The Den opens by itself (3 mini-bosses beaten, all 6 doors bought). Step inside and the gate
-// shuts behind you and the Dragon wakes. When it dies the gate opens again; it seals once you leave.
-static void UpdateDen(void)
-{
-    uint16_t k;
-
-    switch(rc_denState)
-    {
-        case DEN_SEALED:
-            if(rc_miniKills >= RC_DRAGON_MINIS && rc_doorsBought >= 6u)
-            {
-                SetGate(true);
-                rc_denState = DEN_OPEN;
-                rc_Sfx(&sfx_level_up);
-            }
-            break;
-
-        case DEN_OPEN:
-            if(InDen())
-            {
-                SetGate(false);                     // the doors shut behind you
-                rc_denState = DEN_FIGHT;
-                for(k = 0; k < rc_spCount; k++)
-                    if(rc_spSec[k] == 6u) { (void)rc_SpawnEnemy(ET_DRAGON, rc_spX[k], rc_spY[k]); break; }
-                rc_lv.boss     = 1;
-                rc_bossSpawned = 1;
-                rc_bossAlive   = 1;
-                rc_toSpawn     = 0;
-                rc_miniPending = 0;
-                rc_roundGap    = 0;                 // no new round starts while the Dragon lives
-                rc_ApplyTheme(TH_DRAGON);
-                rc_Sfx(&sfx_game_over);
-                rc_hud |= HUD_TOPR | HUD_LEFT;
-            }
-            break;
-
-        case DEN_FIGHT:
-            if(rc_CountType(ET_DRAGON) == 0u)       // the Dragon is dead: let the player out
-            {
-                SetGate(true);
-                rc_denState = DEN_LEAVING;
-                rc_ApplyTheme((rc_miniAlive != 0u) ? rc_theme : (uint16_t)TH_BASEMENT);
-                rc_Sfx(&sfx_level_up);
-            }
-            break;
-
-        default:                                    // DEN_LEAVING
-            if(!InDen())
-            {
-                SetGate(false);
-                rc_denState = DEN_SEALED;
-            }
-            break;
     }
 }
 
@@ -288,8 +208,6 @@ static void BuyDoor(uint16_t k)
         rc_secOpen[0] = true;
     }
 
-    if(k == 3u || k == 6u) rc_HallwayEvent(k);           // a merchant or a chest waits in that hallway
-
     rc_flowTx    = -1;                                   // re-path through the new opening
     rc_doorShown = 0xFFFFu;
     rc_viewDirty = 2;
@@ -319,12 +237,12 @@ void rc_UpdatePlay(void)
     if(rc_haste) { rc_haste--; if(!rc_haste) rc_hud |= HUD_HINT; }
     if(rc_aegis) { rc_aegis--; if(!rc_aegis) rc_hud |= HUD_HINT; }
 
-    // D-pad down: next staff / item
-    if(g_dpad.dPressed) rc_CycleEquip();
+    // RED: next staff / item (BACK has nothing to do mid-game, so RED is a free action)
+    if(Ui_Back()) rc_CycleEquip();
 
-    // Turn
-    if(g_dpad.l) { rc_ang -= RC_TURN_SPEED; moved = true; }
-    if(g_dpad.r) { rc_ang += RC_TURN_SPEED; moved = true; }
+    // Turn: YELLOW left, GREEN right (the stick only moves, see app/ui.h)
+    if(Ui_Held(UI_ICON_ACT2)) { rc_ang -= RC_TURN_SPEED; moved = true; }
+    if(Ui_Held(UI_ICON_ACT3)) { rc_ang += RC_TURN_SPEED; moved = true; }
     rc_ang &= RC_ANGLE_MASK;
 
     // Move: stick up = forward, stick right = strafe right.
@@ -338,7 +256,6 @@ void rc_UpdatePlay(void)
         sp  = (int16_t)(RC_MOVE_SPEED + ((RC_MOVE_SPEED * rc_lvSpeed) >> 3));
         if(rc_haste) sp += (int16_t)(sp >> 1);
         if(rc_pSlow) sp = (int16_t)(sp >> 1);                  // webbed / frozen
-        if(rc_curses & CU_BOOTS) sp = (int16_t)((sp * 4) / 5); // Heavy Boots curse
         fwd = (int16_t)(((int32_t)jy * sp * 41L) >> 12);        // stick/100 * speed
         str = (int16_t)(((int32_t)jx * sp * 41L) >> 12);
         c   = COS(rc_ang);
@@ -386,15 +303,12 @@ void rc_UpdatePlay(void)
         rc_mana++;
     }
 
-    // Doors: face one and press the stick to buy it
+    // BLUE (or the stick click) is the primary action: buy the door you face,
+    // otherwise use the equipped staff / item (hold = auto-use)
     UpdateDoorNear();
-    if(g_joy.btnPressed && rc_doorNear) BuyDoor(rc_doorNear);
-    else if(g_joy.btnPressed && rc_merchNear) rc_EnterShop();
+    if(Ui_Select() && rc_doorNear)  BuyDoor(rc_doorNear);
+    else if(Ui_SelectHeld())        rc_UseEquipped();
 
-    // Use the equipped staff / item (hold = auto-use)
-    if(g_dpad.u) rc_UseEquipped();
-
-    UpdateDen();
     rc_EnsureFlow();
     rc_UpdateObjects();
     rc_UpdateEnemies();

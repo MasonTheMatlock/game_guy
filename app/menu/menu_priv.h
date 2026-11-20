@@ -31,8 +31,8 @@
 //       is drawn once in Menu_DrawStatic().
 //
 // CONTROLS
-//   stick left/right, D-pad L/R : scroll (hold to auto-repeat)
-//   stick button, D-pad D       : start the highlighted app
+//   stick left/right            : scroll (hold to auto-repeat)
+//   BLUE button or stick click  : start the highlighted app
 //
 // BACKGROUND COLOR
 //   Chosen in Settings > Apps > Menu and saved in flash (MEM_SLOT_MENU).
@@ -129,15 +129,17 @@
 //*****************************************************************************
 // Controls
 //*****************************************************************************
-#define MENU_LEFT_HELD     (g_dpad.l)
+// Console-wide rules (app/ui.h): the STICK scrolls, BLUE (or a stick click) starts the
+// app. The colored buttons scroll only if UI_BUTTONS_ALSO_MOVE is 1.
+#define MENU_LEFT_HELD     (UI_BUTTONS_ALSO_MOVE && g_dpad.l)
 
-#define MENU_RIGHT_HELD    (g_dpad.r)
+#define MENU_RIGHT_HELD    (UI_BUTTONS_ALSO_MOVE && g_dpad.r)
 
-#define MENU_LEFT_TAP      (g_dpad.lPressed)
+#define MENU_LEFT_TAP      (UI_BUTTONS_ALSO_MOVE && g_dpad.lPressed)
 
-#define MENU_RIGHT_TAP     (g_dpad.rPressed)
+#define MENU_RIGHT_TAP     (UI_BUTTONS_ALSO_MOVE && g_dpad.rPressed)
 
-#define MENU_SELECT_TAP    (g_dpad.dPressed)
+#define MENU_SELECT_TAP    (Ui_Select())
 extern const uint16_t menu_g_glyphs[37][5];
 extern int16_t  menu_sel;
 extern int32_t  menu_pos;

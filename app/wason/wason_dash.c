@@ -8,7 +8,7 @@
 #include "wason_priv.h"
 
 // ============================================================================
-// DASH!  (Geometry Dash)  any button jumps. Dodge spikes, land on blocks.
+// DASH!  (Geometry Dash)  hold BLUE to jump. Dodge spikes, land on blocks.
 //        Survive.  Cube and spikes are drawn "new first, then erase the
 //        leftovers" so nothing blinks.
 // ============================================================================
@@ -39,7 +39,7 @@ int16_t ww_GdUpdate(void)
     uint16_t i;
     int16_t  prevB, bottom, sup, top;
 
-    if(gd_gnd && (ww_AnyPress() || g_joy.btn || g_dpad.u)) { gd_vy = -11; Buzzer_PlaySfx(&sfx_jump); }
+    if(gd_gnd && Ui_SelectHeld()) { gd_vy = -11; Buzzer_PlaySfx(&sfx_jump); }
 
     if(--gd_cd <= 0)
     {

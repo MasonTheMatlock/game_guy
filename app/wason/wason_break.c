@@ -8,7 +8,7 @@
 #include "wason_priv.h"
 
 // ============================================================================
-// BREAK!  (Brick Breaker)  stick/D-pad moves the paddle. Smash 5 bricks.
+// BREAK!  (Brick Breaker)  the STICK moves the paddle. Smash 5 bricks.
 // ============================================================================
 
 static int16_t bk_px, bk_ppx, bk_x, bk_y, bk_vx, bk_vy, bk_pbx, bk_pby, bk_cnt;
@@ -36,7 +36,7 @@ int16_t ww_BkUpdate(void)
 {
     int16_t i, bx, by, oy = bk_y;
 
-    bk_px = ww_Clamp16(bk_px + (g_dpad.l ? -8 : (g_dpad.r ? 8 : (g_joy.dx * 8) / 100)), 0, 272);
+    bk_px = ww_Clamp16(bk_px + (g_joy.dx * 8) / 100, 0, 272);
 
     bk_x += bk_vx;  bk_y += bk_vy;
     if(bk_x < 0)   { bk_x = 0;   bk_vx =  ww_Abs16(bk_vx); }

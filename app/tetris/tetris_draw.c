@@ -219,6 +219,16 @@ void tet_EraseBanner(void)
 }
 
 
+// "Press (blue button)" centered on (cx, cy): the real symbol, not the word "btn".
+static void PressSelect(int16_t cx, int16_t cy)
+{
+    Graphics_setForegroundColor(&g_sContext, COLOR_WHITE);
+    Graphics_setBackgroundColor(&g_sContext, COLOR_BLACK);
+    Graphics_drawStringCentered(&g_sContext, (int16_t *)"Press", AUTO_STRING_LENGTH,
+                                cx - 16, cy, OPAQUE_TEXT);
+    Ui_DrawIcon(UI_ICON_SELECT, cx + 26, cy, 8);
+}
+
 void tet_DrawGameOver(void)
 {
     Graphics_setForegroundColor(&g_sContext, COLOR_WHITE);
@@ -229,22 +239,19 @@ void tet_DrawGameOver(void)
 
     if(tet_gameOverRank >= 0)
     {
-        // Made the top 5: say so, and push "Press btn" down a line.
+        // Made the top 5: say so, and push the "Press (button)" prompt down a line.
         Graphics_setForegroundColor(&g_sContext, COLOR_GOLD);
         Graphics_drawStringCentered(&g_sContext,
                                     (int16_t *)((tet_gameOverRank == 0) ? "NEW #1!" : "TOP 5!"),
                                     AUTO_STRING_LENGTH,
                                     TETRIS_BOARD_X + (TETRIS_BOARD_W * TETRIS_CELL) / 2,
                                     TETRIS_BOARD_Y + (TETRIS_BOARD_H * TETRIS_CELL) / 2 + 12, OPAQUE_TEXT);
-        Graphics_setForegroundColor(&g_sContext, COLOR_WHITE);
-        Graphics_drawStringCentered(&g_sContext, (int16_t *)"Press btn", AUTO_STRING_LENGTH,
-                                    TETRIS_BOARD_X + (TETRIS_BOARD_W * TETRIS_CELL) / 2,
-                                    TETRIS_BOARD_Y + (TETRIS_BOARD_H * TETRIS_CELL) / 2 + 36, OPAQUE_TEXT);
+        PressSelect(TETRIS_BOARD_X + (TETRIS_BOARD_W * TETRIS_CELL) / 2,
+                    TETRIS_BOARD_Y + (TETRIS_BOARD_H * TETRIS_CELL) / 2 + 36);
     }
     else
     {
-        Graphics_drawStringCentered(&g_sContext, (int16_t *)"Press btn", AUTO_STRING_LENGTH,
-                                    TETRIS_BOARD_X + (TETRIS_BOARD_W * TETRIS_CELL) / 2,
-                                    TETRIS_BOARD_Y + (TETRIS_BOARD_H * TETRIS_CELL) / 2 + 12, OPAQUE_TEXT);
+        PressSelect(TETRIS_BOARD_X + (TETRIS_BOARD_W * TETRIS_CELL) / 2,
+                    TETRIS_BOARD_Y + (TETRIS_BOARD_H * TETRIS_CELL) / 2 + 12);
     }
 }

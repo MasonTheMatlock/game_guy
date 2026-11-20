@@ -8,8 +8,8 @@
 #include "wason_priv.h"
 
 // ============================================================================
-// BATTLE!  (Pokemon)  pick the right attack. L = HYDRO PUMP, UP = FLAMETHROWER,
-//          R = RAZOR LEAF.  Water > Fire > Grass > Water.  Land 3 hits.
+// BATTLE!  (Pokemon)  pick the right attack with the COLOR buttons: RED = FLAMETHROWER,
+//          BLUE = HYDRO PUMP, GREEN = RAZOR LEAF.  Water > Fire > Grass > Water.  Land 3 hits.
 // ============================================================================
 
 static const char *const *const kPkArt[3] = { ww_kArtFire, ww_kArtWater, ww_kArtGrass };
@@ -43,9 +43,9 @@ int16_t ww_PkUpdate(void)
         return MG_PLAY;
     }
 
-    if(ww_EdgeU())      p = 0;                                     // Flamethrower (fire move)
-    else if(ww_EdgeL()) p = 1;                                     // Hydro Pump   (water move)
-    else if(ww_EdgeR()) p = 2;                                     // Razor Leaf   (grass move)
+    if(Ui_Pressed(UI_ICON_U))      p = 0;                                     // Flamethrower (fire move)
+    else if(Ui_Pressed(UI_ICON_D)) p = 1;                                     // Hydro Pump   (water move)
+    else if(Ui_Pressed(UI_ICON_R)) p = 2;                                     // Razor Leaf   (grass move)
     if(p < 0) return MG_PLAY;
 
     if(p != kPkCounter[pk_t]) return MG_LOSE;                   // not very effective...

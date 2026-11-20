@@ -8,7 +8,7 @@
 #include "wason_priv.h"
 
 // ============================================================================
-// RUN!  (Sonic the Hedgehog)  Green Hill Zone. Any button = spin jump, DOWN =
+// RUN!  (Sonic the Hedgehog)  Green Hill Zone. BLUE = spin jump, YELLOW =
 //       roll (flattens Motobugs). Grab 5 rings, stomp Motobugs from above,
 //       dodge the spikes, bounce off the springs for the high rings.
 //       Sprites are transparent over a painted scenery (hills, clouds, palms).
@@ -89,8 +89,8 @@ int16_t ww_SoUpdate(void)
     bool     air;
 
     air = (so_y < SO_GY - 20);
-    if(!air && so_roll == 0 && ww_EdgeD()) { so_roll = 26; Buzzer_PlaySfx(&sfx_laser); }    // spin roll
-    else if(!air && (g_joy.btnPressed || g_dpad.uPressed || g_dpad.lPressed || g_dpad.rPressed))
+    if(!air && so_roll == 0 && Ui_Act2()) { so_roll = 26; Buzzer_PlaySfx(&sfx_laser); }    // spin roll
+    else if(!air && Ui_Jump())
     { so_vy = -11; so_roll = 0; Buzzer_PlaySfx(&sfx_jump); }
     if(so_roll > 0) so_roll--;
     so_vy++;

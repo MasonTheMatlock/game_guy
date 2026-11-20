@@ -84,10 +84,12 @@ int16_t ww_RsUpdate(void)
     int16_t i, k, dxs, step;
 
     dxs = (g_joy.dx * 7) / 100;
+#if UI_BUTTONS_ALSO_MOVE
     if(g_dpad.l) dxs = -7;
     if(g_dpad.r) dxs =  7;
+#endif
     rs_px = ww_Clamp16(rs_px + dxs, 24, PS_W - 24);
-    rs_nitro = g_joy.btn;
+    rs_nitro = Ui_SelectHeld();
     step = rs_nitro ? rs_sp + 6 : rs_sp;
     rs_ds = (rs_ds + step) % (PS_K * 16);
 
@@ -208,8 +210,8 @@ void ww_RsRender(void)
 }
 
 // ============================================================================
-// SURF!  (Subway Surfers)  run the rails. L/R switch lane, UP jumps the
-//        barriers, DOWN slides under the signs, grab coins, and stay out of
+// SURF!  (Subway Surfers)  run the rails. STICK left/right switches lane, BLUE jumps the
+//        barriers, STICK down slides under the signs, grab coins, and stay out of
 //        the way of the trains. Survive.   (3D view, shared with RACE!)
 // ============================================================================
 #define SF_SIDE  0x5E6270UL
@@ -243,7 +245,7 @@ int16_t ww_SfUpdate(void)
 
     if(ww_EdgeL() && sf_lane > 0) { sf_lane--; Buzzer_PlaySfx(&sfx_blip); }
     if(ww_EdgeR() && sf_lane < 2) { sf_lane++; Buzzer_PlaySfx(&sfx_blip); }
-    if(sf_jy == 0 && sf_slide == 0 && (ww_EdgeU() || g_joy.btnPressed)) { sf_jvy = 9; Buzzer_PlaySfx(&sfx_jump); }
+    if(sf_jy == 0 && sf_slide == 0 && Ui_Jump()) { sf_jvy = 9; Buzzer_PlaySfx(&sfx_jump); }
     if(sf_jy == 0 && sf_jvy == 0 && ww_EdgeD()) sf_slide = 18;
 
     if(sf_jvy != 0 || sf_jy > 0)

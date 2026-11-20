@@ -8,7 +8,7 @@
 #include "wason_priv.h"
 
 // ============================================================================
-// FLIP!  (Pokemon Pinball)  hold L / R (or the stick / button) to raise a
+// FLIP!  (Pokemon Pinball)  hold YELLOW / GREEN (or the stick left/right, BLUE = both) to raise a
 //        flipper. Pikachu and the Voltorbs kick the ball, the Digletts pop up
 //        and down. All that matters: don't drain the ball until time's up.
 //        200x200 window; only what changed is redrawn.
@@ -60,8 +60,8 @@ int16_t ww_PbUpdate(void)
     int16_t i, x, y, dx, dy, fy, sl, rr;
     bool    right;
 
-    pb_lf = g_dpad.l || g_joy.dx < -50 || g_joy.btn;
-    pb_rf = g_dpad.r || g_joy.dx >  50 || g_joy.btn;
+    pb_lf = g_dpad.l || g_joy.dx < -50 || Ui_SelectHeld();
+    pb_rf = g_dpad.r || g_joy.dx >  50 || Ui_SelectHeld();
     if(pb_kick[0] > 0) pb_kick[0]--;
     if(pb_kick[1] > 0) pb_kick[1]--;
 

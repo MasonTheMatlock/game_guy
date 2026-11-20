@@ -16,7 +16,8 @@
 //        state static), export the three callbacks with a ww_ prefix
 //     2. declare the three callbacks in section 4 below
 //     3. add its background color to section 3 and one line to ww_games[]
-//        in wason_table.c
+//        in wason_table.c, including its HOW1/HOW2/HOW3 micro instructions
+//        (goal + the buttons it uses, drawn with the real colored symbols)
 //#############################################################################
 #ifndef WASON_PRIV_H
 #define WASON_PRIV_H
@@ -34,6 +35,22 @@
 
 enum { MG_PLAY = 0, MG_WIN = 1, MG_LOSE = 2 };
 
+// Micro instructions (the short screen before every microgame): a goal line and
+// up to 3 control lines, each a real button symbol (ui.h) + a few words.
+#define WW_MAX_CTL  3
+typedef struct
+{
+    UiIcon      icon;                       // UI_ICON_MOVE / _JUMP / _SELECT / _U / _L / _R / _D ...
+    const char *text;                       // what it does, ~18 characters at most
+} WwCtl;
+
+typedef struct
+{
+    const char *goal;                       // what to achieve, ~26 characters at most
+    uint16_t    n;                          // number of control lines (0..3)
+    WwCtl       ctl[WW_MAX_CTL];
+} WwHow;
+
 typedef struct
 {
     const char *cmd;                        // one-word command, shown big
@@ -45,6 +62,7 @@ typedef struct
     void      (*init)(uint16_t spd);
     int16_t   (*update)(void);
     void      (*render)(void);
+    WwHow       how;                        // micro instructions shown before the game starts
 } MicroGame;
 
 extern bool     ww_first;                   // true on the first render of a screen

@@ -109,7 +109,7 @@
                         </tool>
                     </fileInfo>
                     <sourceEntries>
-                        <entry excluding="app/wason.c|F28069.cmd|grlib/fonts|grlib/fontcm20b.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+                        <entry excluding="F28069.cmd|grlib/fonts|grlib/fontcm20b.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
                     </sourceEntries>
                 </configuration>
             </storageModule>
@@ -207,7 +207,7 @@
                         </toolChain>
                     </folderInfo>
                     <sourceEntries>
-                        <entry excluding="app/wason.c|28069_RAM_lnk.cmd|grlib/fontcm20b.c|grlib/fonts" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
+                        <entry excluding="28069_RAM_lnk.cmd|grlib/fontcm20b.c|grlib/fonts" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name=""/>
                     </sourceEntries>
                 </configuration>
             </storageModule>

@@ -8,7 +8,7 @@
 #include "wason_priv.h"
 
 // ============================================================================
-// SORT!  (Machine Party recycler)  L = PAPER, UP = CAN, R = GLASS.
+// SORT!  (Machine Party recycler)  YELLOW = PAPER, RED = CAN, GREEN = GLASS.
 //        Sort 5 items. Wrong bin and the machine jams.
 // ============================================================================
 
@@ -25,9 +25,9 @@ int16_t ww_RcUpdate(void)
 {
     int16_t p = -1;
 
-    if(ww_EdgeL())      p = 0;
-    else if(ww_EdgeU()) p = 1;
-    else if(ww_EdgeR()) p = 2;
+    if(Ui_Pressed(UI_ICON_L))      p = 0;
+    else if(Ui_Pressed(UI_ICON_U)) p = 1;
+    else if(Ui_Pressed(UI_ICON_R)) p = 2;
     if(p < 0) return MG_PLAY;
 
     if(p != rc_t) { Buzzer_PlaySfx(&sfx_hit); return MG_LOSE; }

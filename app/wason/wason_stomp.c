@@ -8,7 +8,7 @@
 #include "wason_priv.h"
 
 // ============================================================================
-// STOMP!  (Super Mario)  L/R run, button or UP jumps. Stomp 2 Goombas by
+// STOMP!  (Super Mario)  STICK runs, BLUE jumps. Stomp 2 Goombas by
 //         landing on their heads.
 // ============================================================================
 #define MR_GY   204
@@ -34,7 +34,7 @@ int16_t ww_MrUpdate(void)
     uint16_t i;
 
     mr_x = ww_Clamp16(mr_x + ww_HeldX() * 3, 0, 304);
-    if(mr_y >= MR_GY - 18 && (g_joy.btnPressed || g_dpad.uPressed))
+    if(mr_y >= MR_GY - 18 && Ui_Jump())
     {
         mr_vy = -11;
         Buzzer_PlaySfx(&sfx_jump);

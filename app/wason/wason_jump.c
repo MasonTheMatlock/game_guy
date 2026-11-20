@@ -8,7 +8,7 @@
 #include "wason_priv.h"
 
 // ============================================================================
-// JUMP!  (Chrome Dino)  any button jumps over the cacti.  Survive.
+// JUMP!  (Chrome Dino)  BLUE jumps over the cacti.  Survive.
 // ============================================================================
 #define DN_X    40
 #define DN_GY   206
@@ -31,7 +31,7 @@ int16_t ww_DnUpdate(void)
 {
     uint16_t i;
 
-    if(dn_y >= DN_GY - 26 && ww_AnyPress()) { dn_vy = -12; Buzzer_PlaySfx(&sfx_jump); }
+    if(dn_y >= DN_GY - 26 && Ui_Jump()) { dn_vy = -12; Buzzer_PlaySfx(&sfx_jump); }
     dn_vy++;
     dn_y += dn_vy;
     if(dn_y >= DN_GY - 26) { dn_y = DN_GY - 26; dn_vy = 0; }

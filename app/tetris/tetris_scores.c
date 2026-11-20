@@ -247,12 +247,19 @@ void tet_NameUpdate(void)
 {
     int16_t sx = NameEdge(g_joy.dirX, &tet_nameStickX);
     int16_t sy = NameEdge(g_joy.dirY, &tet_nameStickY);   // +1 = down
-    bool up    = g_dpad.uPressed || (sy < 0);
-    bool down  = g_dpad.dPressed || (sy > 0);
-    bool left  = g_dpad.lPressed || (sx < 0);
-    bool right = g_dpad.rPressed || (sx > 0);
-    bool tap   = g_joy.btnPressed;
+    bool up    = (sy < 0);                       // MOVE = the stick
+    bool down  = (sy > 0);
+    bool left  = (sx < 0);
+    bool right = (sx > 0);
+    bool tap   = Ui_Select();                    // SELECT = BLUE / stick click: next letter / OK
+    bool back  = Ui_Back();                      // BACK   = RED: previous letter
 
+    if(back && tet_nameCur > 0)
+    {
+        tet_nameCur--;
+        tet_nameDirtyBoxes = true;
+        Buzzer_PlaySfx(&sfx_menu_back);
+    }
     if(up)
     {
         tet_nameIdx[tet_nameCur] = (uint16_t)((tet_nameIdx[tet_nameCur] + 1) % NAME_NCHARS);
@@ -306,7 +313,15 @@ void tet_NameRender(void)
         sprintf(buf, "Score: %lu", (unsigned long)tet_score);
         TitleText(buf, SCREEN_W / 2, 60, COLOR_GOLD);
         TitleText("Enter your name", SCREEN_W / 2, 82, COLOR_WHITE);
-        TitleText("U/D:letter  L/R:move  Btn:next/OK", SCREEN_W / 2, 228, COLOR_WHITE);
+        {
+            static const UiHint k[] =
+            {
+                { UI_ICON_MOVE,   "Letter" },
+                { UI_ICON_SELECT, "Next / OK" },
+                { UI_ICON_BACK,   "Prev" }
+            };
+            Ui_DrawHints(k, UI_ARRAY_LEN(k), 226, COLOR_BLACK);
+        }
     }
 
     if(tet_nameDirtyBoxes)
@@ -335,16 +350,15 @@ void tet_NameRender(void)
 TitleResult tet_TitleUpdate(void)
 {
     int16_t  sy    = TitleStickEdge(g_joy.dy, &tet_titleStickY);    // dy is +DOWN
-    bool     up    = g_dpad.uPressed || (sy < 0);
-    bool     down  = g_dpad.dPressed || (sy > 0);
-    bool     left  = g_dpad.lPressed;
-    bool     right = g_dpad.rPressed;
-    bool     tap   = g_joy.btnPressed;
+    bool     up    = (sy < 0);                      // MOVE   = the stick
+    bool     down  = (sy > 0);
+    bool     tap   = Ui_Select();                   // SELECT = BLUE / stick click
+    bool     back  = Ui_Back();                     // BACK   = RED
     uint16_t old;
 
     if(tet_titleView == TITLE_VIEW_SCORES)
     {
-        if(up || down || left || right || tap)
+        if(up || down || tap || back)
         {
             tet_titleView      = TITLE_VIEW_MENU;
             tet_titleDirtyFull = true;
@@ -352,7 +366,7 @@ TitleResult tet_TitleUpdate(void)
         return TITLE_CONTINUE;
     }
 
-    if(left)
+    if(back)
         return TITLE_QUIT;
 
     if(up || down)
@@ -363,7 +377,7 @@ TitleResult tet_TitleUpdate(void)
         Buzzer_PlaySfx(&sfx_menu_move);
     }
 
-    if(right || tap)
+    if(tap)
     {
         Buzzer_PlaySfx(&sfx_menu_select);
         if(tet_titleSel == 0)
@@ -392,14 +406,22 @@ void tet_TitleRender(void)
             TitleHeader("TETRIS");
             sprintf(buf, "Best: %lu", (unsigned long)tet_hs.score[0]);
             TitleText(buf, SCREEN_W / 2, 55, COLOR_GOLD);
-            TitleText("L:exit    U/D:pick    R:select", SCREEN_W / 2, 228, COLOR_WHITE);
+            {
+                static const UiHint k[] =
+                {
+                    { UI_ICON_MOVE,   "Pick" },
+                    { UI_ICON_SELECT, "OK"   },
+                    { UI_ICON_BACK,   "Exit" }
+                };
+                Ui_DrawHints(k, UI_ARRAY_LEN(k), 226, COLOR_BLACK);
+            }
             tet_titleDirtyRows = (1 << TITLE_NUM_ROWS) - 1;
         }
         else
         {
             TitleHeader("High Scores");
             TitleDrawScores();
-            TitleText("any button: back", SCREEN_W / 2, 228, COLOR_TETRIS_GHOST);
+            Ui_HintsAnyKey(226, COLOR_BLACK);
         }
     }
 

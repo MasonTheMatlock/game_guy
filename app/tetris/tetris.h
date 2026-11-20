@@ -51,13 +51,13 @@ extern const App g_tetrisApp;               // app/tetris.c
 #define TETRIS_STICK_ON           60        // stick flick thresholds
 #define TETRIS_STICK_OFF          30
 
-// ---- D-pad mapping --------------------------------------------------------
-// The D-pad works alongside the joystick. To remap a button, point these at
-// a different one of g_dpad.u / .l / .r / .d (and uPressed / lPressed / ...).
-#define TETRIS_KEY_LEFT_HELD      (g_dpad.l)
-#define TETRIS_KEY_RIGHT_HELD     (g_dpad.r)
-#define TETRIS_KEY_DOWN_HELD      (g_dpad.d)
-#define TETRIS_KEY_ROTATE_TAP     (g_dpad.uPressed)
+// ---- Controls: the console-wide rules (app/ui.h) ---------------------------
+//   STICK left/right = move, STICK down = soft drop, BLUE (or stick click) = rotate.
+//   The colored buttons move/drop only when UI_BUTTONS_ALSO_MOVE is 1.
+#define TETRIS_KEY_LEFT_HELD      (UI_BUTTONS_ALSO_MOVE && g_dpad.l)
+#define TETRIS_KEY_RIGHT_HELD     (UI_BUTTONS_ALSO_MOVE && g_dpad.r)
+#define TETRIS_KEY_DOWN_HELD      (UI_BUTTONS_ALSO_MOVE && g_dpad.d)
+#define TETRIS_KEY_ROTATE_TAP     (Ui_Pressed(UI_ICON_SELECT))
 
 // ---- Types ----------------------------------------------------------------
 // The falling piece. (x, y) is where its 4x4 box sits on the board; the box

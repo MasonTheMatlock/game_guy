@@ -183,10 +183,20 @@ static void DrawTitle(const char *title)
     Graphics_drawLine(&g_sContext, 10, 30, SCREEN_W - 11, 30);
 }
 
-static void DrawHint(const char *s)
+// Hint bar with the real button symbols (app/ui.h). Same rules on every page:
+// MOVE = stick, SELECT = blue / stick click, BACK = red.
+static void DrawHint(const UiHint *h, uint16_t n)
 {
-    DrawText(s, SCREEN_W / 2, 228, COLOR_GRAY);
+    Ui_DrawHints(h, n, 226, COLOR_BLACK);
 }
+
+static const UiHint kHintMenuPause[] = { { UI_ICON_MOVE, "Pick" }, { UI_ICON_SELECT, "OK" }, { UI_ICON_BACK, "Resume" } };
+static const UiHint kHintMenuMain[]  = { { UI_ICON_MOVE, "Pick" }, { UI_ICON_SELECT, "Open" }, { UI_ICON_BACK, "Exit" } };
+static const UiHint kHintVolume[]    = { { UI_ICON_MOVE, "Change" }, { UI_ICON_ACT2, "Test" }, { UI_ICON_BACK, "Back" } };
+static const UiHint kHintChange[]    = { { UI_ICON_MOVE, "Change" }, { UI_ICON_BACK, "Back" } };
+static const UiHint kHintList[]      = { { UI_ICON_MOVE, "Pick" }, { UI_ICON_SELECT, "Open" }, { UI_ICON_BACK, "Back" } };
+static const UiHint kHintChoose[]    = { { UI_ICON_MOVE, "Pick" }, { UI_ICON_SELECT, "Choose" }, { UI_ICON_BACK, "Back" } };
+static const UiHint kHintAnyKey[]    = { { UI_ICON_SELECT, "Back" } };
 
 // 2-pixel outline (grlib's Graphics_drawRectangle wants a struct; this is simpler).
 static void FrameRect(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint32_t color)
@@ -425,11 +435,12 @@ static AppStatus Settings_Update(void)
 {
     int16_t sx    = StickEdge(g_joy.dx, &s_stX);
     int16_t sy    = StickEdge(g_joy.dy, &s_stY);      // dy is +DOWN
-    bool    up    = g_dpad.uPressed || (sy < 0);
-    bool    down  = g_dpad.dPressed || (sy > 0);
-    bool    left  = g_dpad.lPressed || (sx < 0);
-    bool    right = g_dpad.rPressed || (sx > 0);
-    bool    tap   = g_joy.btnPressed;
+    bool    up    = (sy < 0);                 // MOVE = the stick, always
+    bool    down  = (sy > 0);
+    bool    left  = (sx < 0);
+    bool    right = (sx > 0);
+    bool    tap   = Ui_Select();                // SELECT = BLUE / stick click
+    bool    back  = Ui_Back();                  // BACK   = RED
     uint16_t level;
     uint16_t old;
     uint16_t n;
@@ -437,8 +448,8 @@ static AppStatus Settings_Update(void)
     switch(s_mode)
     {
         case MODE_MENU:
-            if(left)
-                return APP_QUIT;        // overlay: resume
+            if(back)
+                return APP_QUIT;        // overlay: resume, launcher: leave Settings
 
             if(up || down)
             {
@@ -449,7 +460,7 @@ static AppStatus Settings_Update(void)
                 Buzzer_PlaySfx(&sfx_menu_move);
             }
 
-            if(right || tap)
+            if(tap)
             {
                 uint16_t id = s_ids[s_sel];
 
@@ -468,7 +479,7 @@ static AppStatus Settings_Update(void)
             break;
 
         case MODE_VOLUME:
-            if(up || tap)
+            if(back || tap)
             {
                 Memory_SyncSettings();        // write to flash now, not only when Settings exits
                 EnterMode(MODE_MENU);
@@ -487,14 +498,14 @@ static AppStatus Settings_Update(void)
                 Buzzer_PlaySfx(&sfx_coin);              // hear the new level
                 s_dirtyValue = true;
             }
-            else if(down)
+            else if(Ui_Act2())
             {
-                Buzzer_PlaySfx(&sfx_coin);              // test sound
+                Buzzer_PlaySfx(&sfx_coin);              // test sound (YELLOW)
             }
             break;
 
         case MODE_BRIGHT:
-            if(up || tap)
+            if(back || tap)
             {
                 Memory_SyncSettings();        // write to flash now, not only when Settings exits
                 EnterMode(MODE_MENU);
@@ -514,7 +525,7 @@ static AppStatus Settings_Update(void)
 
         case MODE_APPS:
             n = AppRows();
-            if(left)
+            if(back)
             {
                 Buzzer_PlaySfx(&sfx_menu_back);
                 EnterMode(MODE_MENU);
@@ -529,7 +540,7 @@ static AppStatus Settings_Update(void)
                 Buzzer_PlaySfx(&sfx_menu_move);
             }
 
-            if(right || tap)
+            if(tap)
             {
                 if(g_apps[s_appSel]->settings != NULL && g_apps[s_appSel]->settings->count)
                 {
@@ -547,7 +558,7 @@ static AppStatus Settings_Update(void)
             break;
 
         case MODE_APPSET:
-            if(left)
+            if(back)
             {
                 Memory_Flush();               // choices / colours are RAM until now
                 Buzzer_PlaySfx(&sfx_menu_back);
@@ -564,15 +575,15 @@ static AppStatus Settings_Update(void)
                 Buzzer_PlaySfx(&sfx_menu_move);
             }
 
-            if(right || tap)
+            if(tap || ((left || right) && s_set->items[s_setSel].kind == SET_CHOICE))
             {
                 const SettingItem *it = &s_set->items[s_setSel];
 
                 s_cur = it;
                 switch(it->kind)
                 {
-                    case SET_CHOICE:
-                        if(it->step) it->step(1);
+                    case SET_CHOICE:                            // SELECT or stick right = next, stick left = previous
+                        if(it->step) it->step(left ? -1 : 1);
                         s_dirtyRows |= (1 << s_setSel);
                         Buzzer_PlaySfx(&sfx_menu_move);
                         break;
@@ -607,7 +618,7 @@ static AppStatus Settings_Update(void)
             break;
 
         case MODE_COLOR:
-            if(up || tap)
+            if(back || tap)
             {
                 Memory_Flush();               // leaving the screen: write to flash if changed
                 EnterMode(MODE_APPSET);
@@ -627,7 +638,7 @@ static AppStatus Settings_Update(void)
             break;
 
         case MODE_CONFIRM:
-            if(left)                                    // back out, nothing changed
+            if(back)                                    // back out, nothing changed
             {
                 Buzzer_PlaySfx(&sfx_menu_back);
                 EnterMode(MODE_APPSET);
@@ -641,7 +652,7 @@ static AppStatus Settings_Update(void)
                 Buzzer_PlaySfx(&sfx_menu_move);
             }
 
-            if(right || tap)
+            if(tap)
             {
                 if(s_confSel == 0)                      // Cancel
                 {
@@ -657,7 +668,7 @@ static AppStatus Settings_Update(void)
             break;
 
         default:                                        // MODE_RESULT
-            if(left || right || up || down || tap)
+            if(left || right || up || down || tap || back)
             {
                 Buzzer_PlaySfx(&sfx_menu_back);
                 EnterMode(MODE_APPSET);
@@ -683,52 +694,52 @@ static void Settings_Render(void)
         {
             case MODE_MENU:
                 DrawTitle(g_settingsOverlay ? "Pause" : "Settings");
-                DrawHint(g_settingsOverlay ? "U/D:pick  R:select  L:resume"
-                                           : "U/D:pick  R:open  L:exit");
+                if(g_settingsOverlay) DrawHint(kHintMenuPause, UI_ARRAY_LEN(kHintMenuPause));
+                else                  DrawHint(kHintMenuMain,  UI_ARRAY_LEN(kHintMenuMain));
                 s_dirtyRows = (1 << s_count) - 1;       // all rectangles
                 break;
 
             case MODE_VOLUME:
                 DrawTitle("Volume");
-                DrawHint("L/R:change  D:test  U:back");
+                DrawHint(kHintVolume, UI_ARRAY_LEN(kHintVolume));
                 s_dirtyValue = true;
                 break;
 
             case MODE_BRIGHT:
                 DrawTitle("Brightness");
-                DrawHint("L/R:change  U:back");
+                DrawHint(kHintChange, UI_ARRAY_LEN(kHintChange));
                 s_dirtyValue = true;
                 break;
 
             case MODE_APPS:
                 DrawTitle("Apps");
-                DrawHint("U/D:pick  R:open  L:back");
+                DrawHint(kHintList, UI_ARRAY_LEN(kHintList));
                 s_dirtyRows = (1 << AppRows()) - 1;
                 break;
 
             case MODE_APPSET:
                 DrawTitle(s_set->title);
-                DrawHint("U/D:pick  R:choose  L:back");
+                DrawHint(kHintChoose, UI_ARRAY_LEN(kHintChoose));
                 s_dirtyRows = (1 << s_set->count) - 1;  // all rows
                 break;
 
             case MODE_COLOR:
                 DrawTitle(s_cur->label);
-                DrawHint("L/R:change  U:back");
+                DrawHint(kHintChange, UI_ARRAY_LEN(kHintChange));
                 s_dirtyValue = true;
                 break;
 
             case MODE_CONFIRM:
                 DrawTitle(s_cur->label);
                 DrawLines(s_cur->confirm, COLOR_WHITE);
-                DrawHint("U/D:pick  R:choose  L:back");
+                DrawHint(kHintChoose, UI_ARRAY_LEN(kHintChoose));
                 s_dirtyRows = (1 << FR_BTN_NUM) - 1;    // both buttons
                 break;
 
             default:                                    // MODE_RESULT
                 DrawTitle(s_cur ? s_cur->label : s_set->title);
                 if(s_result) DrawLines(s_result, COLOR_WHITE);
-                DrawHint("Any button: back");
+                DrawHint(kHintAnyKey, UI_ARRAY_LEN(kHintAnyKey));
                 break;
         }
     }

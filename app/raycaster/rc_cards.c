@@ -30,7 +30,7 @@ void rc_DrawBanner(void)
         n  = rc_Cat(buf, 0, "ROUND ", 6);
         n += rc_Itoa(buf + n, rc_level + 1);
         rc_DrawText(buf, SCREEN_W / 2, 105, C_WHITE);
-        rc_DrawText("Buy doors with the stick", SCREEN_W / 2, 126, C_GRAY);
+        rc_DrawText("Buy doors with BLUE", SCREEN_W / 2, 126, C_GRAY);
     }
 }
 
@@ -59,7 +59,10 @@ void rc_DrawEndScreen(void)
     rc_Itoa(buf + n, rc_gold);
     rc_DrawText(buf, SCREEN_W / 2, 174, C_GOLD);
 
-    rc_DrawText("Press D to exit", SCREEN_W / 2, 215, C_CYAN);
+    {
+        static const UiHint k[] = { { UI_ICON_SELECT, "Exit" } };
+        Ui_DrawHints(k, UI_ARRAY_LEN(k), 222, C_BLACK);
+    }
 }
 
 
@@ -271,15 +274,10 @@ void rc_DrawCardsFull(void)
 
     Graphics_FillRect(0, 0, SCREEN_W - 1, SCREEN_H - 1, C_BLACK);
 
-    if(rc_shopMode)
-        rc_DrawText("MERCHANT", 105, 15, C_GOLD);
-    else
-    {
-        n  = rc_Cat(buf, 0, "LEVEL UP!  Lv ", 14);
-        n += rc_Itoa(buf + n, rc_xpLv);
-        rc_DrawText(buf, 105, 15, C_XP);
-    }
-    if(rc_lvPending > 1 && !rc_shopMode)
+    n  = rc_Cat(buf, 0, "LEVEL UP!  Lv ", 14);
+    n += rc_Itoa(buf + n, rc_xpLv);
+    rc_DrawText(buf, 105, 15, C_XP);
+    if(rc_lvPending > 1)
     {
         n  = rc_Cat(buf, 0, "x", 1);
         rc_Itoa(buf + n, rc_lvPending);
@@ -288,7 +286,15 @@ void rc_DrawCardsFull(void)
 
     Graphics_setForegroundColor(&g_sContext, C_GRAY);
     Graphics_drawLine(&g_sContext, 10, 30, SCREEN_W - 11, 30);
-    rc_DrawText("L/R:pick  U:buy  D:continue", SCREEN_W / 2, 230, C_DKGRAY);
+    {
+        static const UiHint k[] =
+        {
+            { UI_ICON_MOVE,   "Pick"     },
+            { UI_ICON_SELECT, "Buy"      },
+            { UI_ICON_BACK,   "Continue" }
+        };
+        Ui_DrawHints(k, UI_ARRAY_LEN(k), 228, C_BLACK);
+    }
     rc_cardDirty = CD_ALL;
 }
 
@@ -317,15 +323,6 @@ void rc_EnterCards(void)
     rc_stX = rc_stY = 1;                  // ignore a stick that is already pushed
     RollCards();
     rc_Sfx(&sfx_level_up);
-}
-
-
-// The merchant reuses the card screen as his shop.
-void rc_EnterShop(void)
-{
-    rc_shopMode = 1;
-    rc_lvPending++;
-    rc_EnterCards();
 }
 
 
@@ -426,7 +423,6 @@ static void LeaveCards(void)
     }
     else
     {
-        rc_shopMode  = 0;
         rc_mode      = MODE_PLAY;
         rc_dirtyFull = true;
     }
@@ -440,11 +436,11 @@ void rc_UpdateCards(void)
 
     (void)rc_StickEdge(g_joy.dy, &rc_stY);
 
-    if(g_dpad.dPressed) { LeaveCards(); return; }
+    if(Ui_Back()) { LeaveCards(); return; }          // RED = continue / leave
 
-    if(g_dpad.lPressed || sx < 0)
+    if(sx < 0)                                       // MOVE = the stick
         rc_cardSel = (rc_cardSel + 3u) % 4u;
-    else if(g_dpad.rPressed || sx > 0)
+    else if(sx > 0)
         rc_cardSel = (rc_cardSel + 1u) % 4u;
 
     if(rc_cardSel != old)
@@ -454,7 +450,7 @@ void rc_UpdateCards(void)
         rc_Sfx(&sfx_menu_move);
     }
 
-    if(g_dpad.uPressed || g_joy.btnPressed)
+    if(Ui_Select())                                  // BLUE / stick click = buy
     {
         if(rc_cardSel < 3) BuyCard(rc_cardSel);
         else              RerollCards();

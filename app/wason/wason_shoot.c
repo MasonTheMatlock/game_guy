@@ -44,7 +44,7 @@ int16_t ww_GlUpdate(void)
 
     gl_sx = ww_Clamp16(gl_sx + ww_HeldX() * 5, 0, FIELD_W - 26);
 
-    if(g_joy.btnPressed || g_dpad.uPressed)
+    if(Ui_Select())
         for(i = 0; i < 2; i++)
             if(!gl_bon[i])
             {

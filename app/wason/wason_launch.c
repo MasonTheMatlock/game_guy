@@ -10,7 +10,7 @@
 // ============================================================================
 // LAUNCH!  (Angry Birds)  pull the STICK back like a slingshot: the direction
 //          is the angle, how far you pull is the power. A dotted preview shows
-//          the shot. Press D-pad DOWN (or click the stick) to let go.
+//          the shot. Press BLUE (or click the stick) to let go.
 // ============================================================================
 #define BD_GY       200
 #define BD_SX       44
@@ -40,7 +40,7 @@ int16_t ww_BdUpdate(void)
     {
         if(g_joy.dx != bd_ax || g_joy.dy != bd_ay) { bd_ax = g_joy.dx; bd_ay = g_joy.dy; bd_aimDirty = true; }
 
-        if((g_dpad.dPressed || g_joy.btnPressed) && (ww_Abs16(bd_ax) + ww_Abs16(bd_ay)) >= 15)
+        if(Ui_Select() && (ww_Abs16(bd_ax) + ww_Abs16(bd_ay)) >= 15)
         {
             bd_vx = -(int32_t)bd_ax * 9;                        // pull left/down -> fly right/up
             bd_vy = -(int32_t)bd_ay * 9;

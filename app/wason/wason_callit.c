@@ -8,7 +8,7 @@
 #include "wason_priv.h"
 
 // ============================================================================
-// CALL IT!  (Helldivers 2)  enter the stratagem code on the D-pad. A wrong
+// CALL IT!  (Helldivers 2)  enter the stratagem code with the stick or the 4 arrow buttons. A wrong
 //           direction resets the code.
 // ============================================================================
 
@@ -28,10 +28,10 @@ int16_t ww_HdUpdate(void)
 {
     int16_t p = -1;
 
-    if(ww_EdgeU())      p = 0;
-    else if(ww_EdgeD()) p = 1;
-    else if(ww_EdgeL()) p = 2;
-    else if(ww_EdgeR()) p = 3;
+    if(ww_EdgeU() || Ui_Pressed(UI_ICON_U))      p = 0;
+    else if(ww_EdgeD() || Ui_Pressed(UI_ICON_D)) p = 1;
+    else if(ww_EdgeL() || Ui_Pressed(UI_ICON_L)) p = 2;
+    else if(ww_EdgeR() || Ui_Pressed(UI_ICON_R)) p = 3;
     if(p < 0) return MG_PLAY;
 
     if(p == hd_seq[hd_k])

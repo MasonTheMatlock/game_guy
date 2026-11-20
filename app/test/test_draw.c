@@ -215,10 +215,12 @@ void test_DrawPad(uint16_t i, bool lit)
             break;
     }
 
-    Graphics_setForegroundColor(&g_sContext, lit ? COL_GREEN : COLOR_DARK_GRAY);
+    // The real colored symbol is always drawn (this page doubles as the legend);
+    // the slot behind it goes white while the button is pressed.
+    Graphics_setForegroundColor(&g_sContext, lit ? COLOR_WHITE : COLOR_DARK_GRAY);
     Graphics_FillRect(cx - hw, cy - hh, cx + hw, cy + hh,
-                      lit ? COL_GREEN : COLOR_DARK_GRAY);
-    test_DrawText(test_kPadLabel[i], cx, cy, lit ? COLOR_BLACK : COLOR_WHITE, false);
+                      lit ? COLOR_WHITE : COLOR_DARK_GRAY);
+    Ui_DrawIcon((i < 4) ? (UiIcon)i : UI_ICON_STICK_CLICK, cx, cy, (int16_t)(hh - 3));
 }
 
 
@@ -240,7 +242,15 @@ void test_DrawInputStatic(void)
     Graphics_drawLine(&g_sContext, TEST_BOX_CX + TEST_BOX_HALF, TEST_BOX_CY - TEST_BOX_HALF,
                       TEST_BOX_CX + TEST_BOX_HALF, TEST_BOX_CY + TEST_BOX_HALF);
 
-    test_DrawHint("R+D: back  Hold btn: quit");
+    {
+        static const UiHint k[] =
+        {
+            { UI_ICON_R, ""     },                  // GREEN + BLUE together = back
+            { UI_ICON_D, "Back" },
+            { UI_ICON_STICK_CLICK, "Hold: quit" }
+        };
+        Ui_DrawHints(k, UI_ARRAY_LEN(k), 228, COLOR_BLACK);
+    }
 }
 
 

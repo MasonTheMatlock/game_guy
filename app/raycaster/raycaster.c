@@ -160,7 +160,7 @@ static AppStatus RC_Update(void)
             break;
 
         default:                                // OVER
-            if(g_dpad.dPressed || g_joy.btnPressed) return APP_QUIT;
+            if(Ui_Select() || Ui_Back()) return APP_QUIT;
             break;
     }
 
@@ -255,7 +255,7 @@ static void RC_Exit(void)
 const App g_raycasterApp =
 {
     "RAYCASTER",                            // name (first letter = menu tile icon)
-    "Stick:move L/R:turn U:use D:swap",     // hint shown under the menu
+    "Stick:move  Y/G:turn  Blue:use",   // hint shown under the menu
     COLOR_CRIMSON,                             // menu tile color
     RC_FRAME_US,
     RC_Init, RC_Update, RC_Render,

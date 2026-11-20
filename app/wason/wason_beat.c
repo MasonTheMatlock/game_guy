@@ -11,7 +11,7 @@
 // BEAT!  (Melatonin)  rhythm. "Melatonin Groove" plays (songs.c: 28 bars, one
 //        song unit = an eighth note = 150 ms, so a quarter-note beat is 300 ms).
 //        Each note flies in and lands on the ring exactly when that note of the
-//        song sounds - press any button ON it. Notes are placed from the song's
+//        song sounds - press BLUE ON it. Notes are placed from the song's
 //        own clock, not frame counts, so they stay in time however fast the
 //        screen is. Hit 6 of 8.
 //
@@ -79,7 +79,7 @@ int16_t ww_MlUpdate(void)
         if(ml_res[i] != 0) resolved++;
     }
 
-    if(ww_AnyPress())
+    if(Ui_Select())
     {
         for(i = 0; i < ML_N; i++)
         {

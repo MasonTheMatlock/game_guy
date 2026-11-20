@@ -17,6 +17,14 @@
 //     BEAT!   Melatonin        SORT!    Recycler         RETURN!  Pong
 //     SHOOT!  Galaga
 //
+//   MICRO INSTRUCTIONS: before EVERY microgame (marathon and practice) a short
+//   automatic screen shows the command word, the goal and the buttons it uses with
+//   the real colored button symbols (ui.h). Data lives in ww_games[] (HOW1/2/3).
+//
+//   CONTROLS follow the console-wide rules in app/ui.h: stick = move, BLUE (or the
+//   stick click) = select / jump / primary action, RED = back, YELLOW / GREEN =
+//   the other actions.
+//
 //   INTRO: pressing PLAY first shows an angry purple Wario telling you "You'll
 //   never get to 100!" (typed out, talk blips, flapping mouth). His picture is
 //   isolated in TauntDrawFace()/TauntDrawMouth() in wason.c so a real image can
@@ -64,7 +72,7 @@ extern const App g_wasonwareApp;            // app/wason/wason.c
 #define WW_FRAME_US     16000UL             // pause after each frame (~60 fps max)
 #define WW_LIVES        4                   // lives per run
 #define WW_PER_LEVEL    4                   // microgames won/lost per speed-up
-#define WW_INTRO_FRAMES 48                  // command-word screen length
+#define WW_INTRO_FRAMES 96                  // command word + micro instructions screen (~1.7 s, automatic)
 #define WW_RESULT_FRAMES 42                 // NICE!/OOPS! banner length
 
 #endif // __WASON_H__

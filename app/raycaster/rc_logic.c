@@ -96,18 +96,11 @@ void rc_CycleEquip(void)
 //-----------------------------------------------------------------------------
 // Player damage / enemy damage
 //-----------------------------------------------------------------------------
-static uint16_t s_fragCount;
-
 void rc_HurtPlayer(void)
 {
-    uint16_t dmg = 1;
-
     if(rc_invuln || rc_hp == 0 || rc_aegis) return;
 
-    if(rc_curses & CU_GLASS)        dmg = 2;                        // Glass Body: you take double damage
-    else if((rc_curses & CU_FRAGILE) && ((++s_fragCount) & 3u) == 0u) dmg = 2;   // Fragile: every 4th hit is heavy
-    if(dmg > rc_hp) dmg = rc_hp;
-    rc_hp = (uint16_t)(rc_hp - dmg);
+    rc_hp--;
     rc_invuln = (rc_traits & (1u << TR_THICK)) ? RC_THICK_FRAMES : RC_INVULN_FRAMES;
     rc_hud   |= HUD_HEARTS;
     rc_viewDirty = 2;
@@ -137,7 +130,6 @@ static void KillEnemy(Enemy *e)
         g  = (uint16_t)(((uint32_t)d->gold * (100u + 20u * rc_lvGold)) / 100u);
         xp = (uint16_t)(d->xp + rc_level / 4u);
     }
-    if(rc_curses & CU_GREED) g = (uint16_t)((g + 1u) >> 1);            // Greed curse: half the gold
     rc_gold += g;
     rc_kills++;
     rc_hud |= HUD_GOLD | HUD_LEFT;
@@ -170,8 +162,6 @@ static void KillEnemy(Enemy *e)
         rc_miniKills++;
         rc_hud |= HUD_LEFT;
     }
-
-    if(mini && rc_miniAlive == 0u && rc_denState != DEN_FIGHT) rc_ApplyTheme(TH_BASEMENT);
 
     if(mini || e->type == ET_NECRO)             // their summoned minions vanish with them
     {
@@ -207,7 +197,6 @@ void rc_HealEnemy(Enemy *e, int16_t amt)
 void rc_DamageEnemyEx(Enemy *e, uint16_t dmg, int16_t c, int16_t s, bool quiet)
 {
     if(e->type == ET_GHOST && e->st == 1) return;                       // intangible
-    if(!quiet && (rc_curses & CU_GLASS)) dmg = (uint16_t)(dmg * 2u);   // Glass Body: you deal double damage
     if(e->type == ET_HOBGOB && e->st != 3 && dmg > 1u) dmg--;           // shield (down while recovering)
     if(e->type == ET_GOLEM)
     {
@@ -469,45 +458,19 @@ void rc_UpdateObjects(void)
                 }
                 break;
 
-            case OB_CHEST:                      // walk into it: what is inside depends on the kind
+            case OB_CHEST:                      // treasure: walk into it
                 if(Dist10(rc_px - o->x, rc_py - o->y) < 750)
                 {
+                    rc_gold += (uint16_t)(50u + 12u * rc_level);
+                    if(rc_hp < rc_maxHp) { rc_hp++; rc_hud |= HUD_HEARTS; }
+                    rc_hud |= HUD_GOLD;
+                    DropMana(o->x, o->y);
+                    rc_AddSpark(o->x, o->y, 4, 14, PT_PUFF_ARCANE, 10);
+                    rc_Sfx(&sfx_coin);
                     o->alive = 0;
                     rc_chestTimer = 0;
-                    rc_AddSpark(o->x, o->y, 4, 14, PT_PUFF_ARCANE, 10);
-                    if(o->aux == CH_POISON)             // trap: poison cloud, a little gold
-                    {
-                        Obj *a2 = rc_NewObj(OB_AREA);
-
-                        if(a2 != NULL) { a2->x = o->x; a2->y = o->y; a2->r = 1100; a2->life = 200; a2->aux = AR_SLIME; }
-                        rc_gold += 20u;
-                        rc_Sfx(&sfx_explosion);
-                    }
-                    else
-                    {
-                        rc_gold += (uint16_t)((o->aux == CH_CURSED ? 100u : 50u) + (o->aux == CH_CURSED ? 20u : 12u) * rc_level);
-                        if(rc_hp < rc_maxHp) { rc_hp++; rc_hud |= HUD_HEARTS; }
-                        DropMana(o->x, o->y);
-                        if(o->aux == CH_CURSED)         // big reward, but a curse comes with it
-                        {
-                            uint16_t tries, bit;
-
-                            for(tries = 0; tries < 8u; tries++)
-                            {
-                                bit = (uint16_t)(1u << (Rand16() & 3u));
-                                if(!(rc_curses & bit)) { rc_curses |= bit; break; }
-                            }
-                            rc_Sfx(&sfx_game_over);
-                        }
-                        else rc_Sfx(&sfx_coin);
-                    }
-                    rc_hud |= HUD_GOLD;
                 }
                 break;
-
-            case OB_MERCHANT:                   // stands in his alcove; the stick button opens the shop
-                break;
-
 
             case OB_CLOUD:
                 if(++o->age >= o->life) { o->alive = 0; break; }
@@ -917,8 +880,7 @@ uint16_t rc_CountRegular(void)
     {
         const Enemy *e = &rc_en[i];
 
-        if(e->alive && !e->sum && !RC_IS_MINI(e->type) && e->type != ET_DRAGON &&
-           !(e->type == ET_MIMIC && e->st == 0u)) n++;
+        if(e->alive && !e->sum && !RC_IS_MINI(e->type) && e->type != ET_DRAGON) n++;
     }
     return n;
 }
@@ -934,8 +896,7 @@ static bool PickMarker(bool arenaOnly, int16_t *x, int16_t *y)
         idx = rc_spawnIdx;
         rc_spawnIdx = (rc_spawnIdx + 1u) % rc_spCount;
         if(!rc_secOpen[rc_spSec[idx]]) continue;
-        if(rc_spSec[idx] == 6u) continue;                  // the Den marker is only for the Dragon
-        (void)arenaOnly;
+        if(arenaOnly && rc_spSec[idx] != 6u) continue;
         if(Dist10(rc_spX[idx] - rc_px, rc_spY[idx] - rc_py) > SPAWN_MIN_DIST)
         {
             *x = rc_spX[idx];
@@ -996,21 +957,16 @@ void rc_TrySpawn(void)
     int16_t x, y;
 
     if(rc_spawnTimer) { rc_spawnTimer--; return; }
-    if(rc_spCount == 0 || rc_lv.treasure || rc_denState == DEN_FIGHT) return;
+    if(rc_spCount == 0 || rc_lv.treasure) return;
 
     // The mini-boss for this round walks in once the wave is half done.
     if(rc_miniPending && !rc_lv.boss && rc_toSpawn <= rc_lv.total / 2u)
     {
         if(!PickMarker(false, &x, &y)) { rc_spawnTimer = 20; return; }
+        if(rc_SpawnEnemy(PickMini(), x, y) != NULL)
         {
-            uint16_t mt = PickMini();
-
-            if(rc_SpawnEnemy(mt, x, y) != NULL)
-            {
-                rc_miniAlive++;
-                rc_ApplyTheme(rc_ThemeOfMini(mt));          // the walls take on the boss's look
-                rc_Sfx(&sfx_level_up);
-            }
+            rc_miniAlive++;
+            rc_Sfx(&sfx_level_up);
         }
         rc_miniPending = 0;
         rc_spawnTimer  = 30;
@@ -1018,6 +974,16 @@ void rc_TrySpawn(void)
     }
 
     if(!rc_toSpawn) return;
+    if(rc_lv.boss)                                  // Dragon round: only the Dragon, in its arena
+    {
+        if(!PickMarker(true, &x, &y)) { rc_spawnTimer = 20; return; }
+        rc_SpawnEnemy(ET_DRAGON, x, y);
+        rc_bossSpawned = 1;
+        rc_bossAlive   = 1;
+        rc_toSpawn     = 0;
+        rc_spawnTimer  = rc_lv.gap;
+        return;
+    }
     if(rc_CountRegular() >= rc_lv.maxAlive) return;
     if(!PickMarker(false, &x, &y)) { rc_spawnTimer = 20; return; }
     rc_SpawnEnemy(PickType(), x, y);
@@ -1118,35 +1084,3 @@ void rc_Explode(int16_t x, int16_t y)
 const int16_t rc_kNbDx[4] = { 1, -1, 0, 0 };
 
 const int16_t rc_kNbDy[4] = { 0, 0, 1, -1 };
-
-
-//-----------------------------------------------------------------------------
-// Hallway events: buying door 3 or 6 reveals a hallway; something waits in its alcove.
-//-----------------------------------------------------------------------------
-void rc_HallwayEvent(uint16_t door)
-{
-    uint16_t idx = (door == 6u) ? 0u : 1u;
-    uint16_t r   = (uint16_t)(Rand16() % 100u);
-    Obj     *o;
-
-    if(rc_evX[idx] == 0) return;
-    if(r < 28u)                                     // merchant
-    {
-        o = rc_NewObj(OB_MERCHANT);
-        if(o != NULL) { o->x = rc_evX[idx]; o->y = rc_evY[idx]; }
-    }
-    else if(r < 86u && r >= 70u)                    // mimic: looks like a normal chest
-    {
-        (void)rc_SpawnEnemy(ET_MIMIC, rc_evX[idx], rc_evY[idx]);
-    }
-    else                                            // regular / cursed / poison-trap chest
-    {
-        o = rc_NewObj(OB_CHEST);
-        if(o != NULL)
-        {
-            o->x   = rc_evX[idx];
-            o->y   = rc_evY[idx];
-            o->aux = (r < 56u) ? CH_REGULAR : (r < 70u) ? CH_CURSED : CH_POISON;
-        }
-    }
-}

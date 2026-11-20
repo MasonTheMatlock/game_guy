@@ -173,5 +173,6 @@ void Sfx_PlayWait(const Song *sfx);     // short effect that survives the next B
 #include "songs.h"              // Buzzer_PlaySong(&song_tetris, 1), sfx_coin, ...
 #include "images.h"
 #include "wason/wason.h"
+#include "ui.h"                 // button symbols, hint bars, THE control rules
 
 #endif // __APPS_H__

@@ -8,9 +8,9 @@
 //   The microgames themselves live in wason_<name>.c; see wason_priv.h for
 //   the file map and how to add one.
 //
-//   CONTROLS (all games): stick or D-pad. "Any press" = stick button or any
-//   D-pad button. Hold the stick button to open Settings (done by apps.c).
-//   Title / game over: D or stick button = start, R = back to the menu.
+//   CONTROLS: the console-wide rules in app/ui.h (stick = move, BLUE / stick click
+//   = select + jump, RED = back). Hold the stick button to open Settings (apps.c).
+//   Title / game over: BLUE = go, RED = back to the menu.
 //
 //   C28x notes: char/int are 16 bits, so products that can pass 32767 are
 //   cast to int32_t, and only int16_t/uint16_t/uint32_t are used.
@@ -134,7 +134,10 @@ static void DrawTaunt(void)
     Graphics_FillRect(156, 124, 164, 127, COLOR_WHITE);
     Graphics_FillRect(156, 128, 160, 131, COLOR_BLACK);
     TauntDrawText();
-    ww_Text("button: skip", FIELD_W / 2, 230, COLOR_GRAY);
+    {
+        static const UiHint k[] = { { UI_ICON_SELECT, "Skip" } };
+        Ui_DrawHints(k, UI_ARRAY_LEN(k), 228, TAUNT_BG);
+    }
 }
 
 // ---- screens ----------------------------------------------------------------
@@ -166,7 +169,7 @@ static void DrawTitle(void)
     else            Graphics_FillRect(80, 182, 239, 207, COLOR_YELLOW);
     ww_Text("PLAY",     FIELD_W / 2, 165, s_menu == 0 ? COLOR_BLACK : COLOR_WHITE);
     ww_Text("PRACTICE", FIELD_W / 2, 195, s_menu == 1 ? COLOR_BLACK : COLOR_WHITE);
-    ww_Text("U/D choose   button: go   R: back", FIELD_W / 2, 228, COLOR_GRAY);
+    Ui_HintsMenu(228, COLOR_BLACK);
 }
 
 // ---- practice: pick any microgame, in pages ---------------------------------
@@ -197,9 +200,9 @@ static void DrawPickSpeed(void)
 {
     char buf[24];
 
-    Graphics_FillRect(0, 206, FIELD_W - 1, 226, COLOR_BLACK);
+    Graphics_FillRect(0, 205, FIELD_W - 1, 220, COLOR_BLACK);
     ww_Label(buf, "Speed: ", (uint32_t)s_pLevel);
-    ww_Text(buf, FIELD_W / 2, 218, COLOR_CYAN);
+    ww_Text(buf, FIELD_W / 2, 212, COLOR_CYAN);
 }
 
 static void DrawPick(void)                          // whole page
@@ -217,7 +220,47 @@ static void DrawPick(void)                          // whole page
     for(i = page * PICK_ROWS; i < (page + 1) * PICK_ROWS; i++) DrawPickRow(i);
 
     DrawPickSpeed();
-    ww_Text("U/D pick   L/R speed   button: go", FIELD_W / 2, 234, COLOR_GRAY);
+    {
+        static const UiHint k[] =
+        {
+            { UI_ICON_MOVE,   "Pick / speed" },
+            { UI_ICON_SELECT, "Go"           },
+            { UI_ICON_BACK,   "Back"         }
+        };
+        Ui_DrawHints(k, UI_ARRAY_LEN(k), 230, COLOR_BLACK);
+    }
+}
+
+// ---- intro: command word + MICRO INSTRUCTIONS --------------------------------
+//   Automatic (no button needed): the command word, what to achieve, and each
+//   button the game uses, drawn with the real colored symbols from ui.h. Symbols
+//   sit in one column and the words line up beside them, so it reads like a legend.
+#define HOW_ICON_X    52                    // symbol column (center)
+#define HOW_TEXT_X    84                    // words start here
+#define HOW_ROW_Y0    154                   // first control row (centre); rows are 25 px apart
+#define HOW_ROW_DY    25
+#define HOW_ICON_R    10
+
+static void TextLeft(const char *s, int16_t x, int16_t yCenter, uint32_t c)
+{
+    int16_t top = (int16_t)(yCenter - (int16_t)Graphics_getFontHeight(&g_sFontCmss20b) / 2);
+
+    Graphics_setForegroundColor(&g_sContext, c);
+    Graphics_drawString(&g_sContext, (int16_t *)s, AUTO_STRING_LENGTH, x, top, TRANSPARENT_TEXT);
+}
+
+static void DrawHow(const WwHow *h)
+{
+    int16_t i, y;
+
+    ww_Text(h->goal, FIELD_W / 2, 126, COLOR_GOLD);                    // the goal
+
+    for(i = 0; i < (int16_t)h->n && i < WW_MAX_CTL; i++)
+    {
+        y = (int16_t)(HOW_ROW_Y0 + i * HOW_ROW_DY);
+        Ui_DrawIcon(h->ctl[i].icon, HOW_ICON_X, y, HOW_ICON_R);
+        TextLeft(h->ctl[i].text, HOW_TEXT_X, y, COLOR_WHITE);
+    }
 }
 
 static void DrawIntro(void)
@@ -234,19 +277,24 @@ static void DrawIntro(void)
             Graphics_FillRect(110 + i * 24, 12, 125 + i * 24, 27,
                               (uint16_t)i < s_lives ? COLOR_RED : COLOR_DARK_GRAY);
 
-    Banner(g->cmd, kBanner[s_cur % 6], COLOR_BLACK);
-    ww_Text(g->inspo, FIELD_W / 2, 165, COLOR_GRAY);
+    // command word band (smaller than before: the instructions need the room)
+    Graphics_FillRect(0, 38, FIELD_W - 1, 90, kBanner[s_cur % 6]);
+    ww_BoldText(g->cmd, FIELD_W / 2, 64, COLOR_BLACK);
+    ww_Text(g->inspo, FIELD_W / 2, 104, COLOR_GRAY);
+
+    DrawHow(&g->how);
+
     if(s_practice)
     {
-        ww_BoldText("PRACTICE", FIELD_W / 2, 40, COLOR_GOLD);
+        ww_BoldText("PRACTICE", FIELD_W / 2, 18, COLOR_GOLD);
         ww_Label(buf, "Speed: ", s_level);
     }
     else
     {
         ww_Label(buf, "Score: ", s_score);
-        if(s_speedUp) ww_BoldText("SPEED UP!", FIELD_W / 2, 55, COLOR_ORANGE);
+        if(s_speedUp) ww_BoldText("SPEED UP!", 262, 20, COLOR_ORANGE);
     }
-    ww_Text(buf, FIELD_W / 2, 205, COLOR_WHITE);
+    ww_Text(buf, FIELD_W / 2, 228, COLOR_WHITE);
 }
 
 static void DrawOver(void)
@@ -261,7 +309,14 @@ static void DrawOver(void)
     ww_Label(buf, "Best: ", s_best);
     ww_Text(buf, FIELD_W / 2, 135, COLOR_GOLD);
     if(s_newBest) ww_BoldText("NEW BEST!", FIELD_W / 2, 170, COLOR_LIME);
-    ww_Text("button: retry    R: back", FIELD_W / 2, 220, COLOR_GRAY);
+    {
+        static const UiHint k[] =
+        {
+            { UI_ICON_SELECT, "Retry" },
+            { UI_ICON_BACK,   "Menu"  }
+        };
+        Ui_DrawHints(k, UI_ARRAY_LEN(k), 222, COLOR_BLACK);
+    }
 }
 
 // ---- flow -------------------------------------------------------------------
@@ -393,9 +448,9 @@ static AppStatus WW_Update(void)
     switch(s_phase)
     {
         case PH_TITLE:
-            if(g_dpad.rPressed) return APP_QUIT;
+            if(Ui_Back()) return APP_QUIT;
             if(ww_EdgeU() || ww_EdgeD()) { s_menu ^= 1; s_dirty = true; Buzzer_PlaySfx(&sfx_blip); }
-            if(g_joy.btnPressed)
+            if(Ui_Select())
             {
                 if(s_menu == 0) StartRun();
                 else { Buzzer_PlaySfx(&sfx_menu_select); s_pickPart = 0; GoPhase(PH_PICK); }
@@ -413,7 +468,8 @@ static AppStatus WW_Update(void)
             }
             if(ww_EdgeL() && s_pLevel > 0) { s_pLevel--; s_pickPart |= 2; }
             if(ww_EdgeR() && s_pLevel < 6) { s_pLevel++; s_pickPart |= 2; }
-            if(g_joy.btnPressed)
+            if(Ui_Back()) { GoPhase(PH_TITLE); break; }                     // RED = back, always
+            if(Ui_Select())
             {
                 if(s_sel == 0) GoPhase(PH_TITLE);
                 else           StartPractice((uint16_t)(s_sel - 1));
@@ -421,7 +477,7 @@ static AppStatus WW_Update(void)
             break;
 
         case PH_TAUNT:
-            if(g_joy.btnPressed || g_dpad.dPressed)
+            if(Ui_Select())
              {
             GoPhase(PH_INTRO);
              break;
@@ -474,8 +530,8 @@ static AppStatus WW_Update(void)
             break;
 
         default:                                    // PH_OVER
-            if(g_dpad.rPressed) return APP_QUIT;
-            if(g_joy.btnPressed || g_dpad.dPressed) StartRun();
+            if(Ui_Back()) return APP_QUIT;
+            if(Ui_Select()) StartRun();
             break;
     }
     return APP_CONTINUE;

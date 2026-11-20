@@ -54,7 +54,7 @@ static void Test_Init(void)
 //*****************************************************************************
 static AppStatus Test_UpdateMenu(int16_t sy)
 {
-    if(g_dpad.rPressed)
+    if(Ui_Back())                               // RED
         return APP_QUIT;
 
     if(sy != 0)
@@ -67,7 +67,7 @@ static AppStatus Test_UpdateMenu(int16_t sy)
         }
     }
 
-    if(g_dpad.dPressed || g_joy.btnPressed)
+    if(Ui_Select())                             // BLUE / stick click
         EnterMode(test_menuSel ? MODE_SOUND : MODE_INPUT);
 
     return APP_CONTINUE;
@@ -152,7 +152,7 @@ static void Test_SndChange(int16_t dir)
 
 static AppStatus Test_UpdateSound(int16_t sx, int16_t sy)
 {
-    if(g_dpad.rPressed)
+    if(Ui_Back())                               // RED
     {
         Buzzer_Stop();
         EnterMode(MODE_MENU);
@@ -170,7 +170,7 @@ static AppStatus Test_UpdateSound(int16_t sx, int16_t sy)
     if(sx != 0)
         Test_SndChange(sx);
 
-    if(g_dpad.dPressed)
+    if(Ui_Select())                             // BLUE / stick click = play
     {
         switch(test_sndRow)
         {
@@ -187,7 +187,7 @@ static AppStatus Test_UpdateSound(int16_t sx, int16_t sy)
         }
     }
 
-    if(g_joy.btnPressed)
+    if(Ui_Act2())                               // YELLOW = stop
     {
         Buzzer_Stop();
         test_musicOn = 0;
@@ -234,13 +234,22 @@ static void Test_Render(void)
         {
             test_DrawTitle("Sound");
             test_DrawText("Stick: pick / change", SCREEN_W / 2, 52, COLOR_GRAY, false);
-            test_DrawHint("D:play Btn:stop R:back");
+            {
+                static const UiHint k[] =
+                {
+                    { UI_ICON_MOVE,   "Pick"  },
+                    { UI_ICON_SELECT, "Play"  },
+                    { UI_ICON_ACT2,   "Stop"  },
+                    { UI_ICON_BACK,   "Back"  }
+                };
+                Ui_DrawHints(k, UI_ARRAY_LEN(k), 226, COLOR_BLACK);
+            }
             test_dirtyRow = 0x0F;
         }
         else
         {
             test_DrawTitle("TEST APP");
-            test_DrawHint("Stick: pick  D: open");
+            Ui_HintsMenu(226, COLOR_BLACK);
             test_dirtyRow = 0x03;
         }
     }

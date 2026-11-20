@@ -471,8 +471,12 @@ void menu_Menu_DrawStatic(void)
 
     Graphics_drawLine(&g_sContext, 10, 30, SCREEN_W - 11, 30);
 
-    Graphics_setForegroundColor(&g_sContext, Scale24(COLOR_GRAY, 150));
-    Graphics_drawStringCentered(&g_sContext, (int16_t *)"Hold btn = menu",
-                                AUTO_STRING_LENGTH, SCREEN_W / 2,
-                                MENU_REMINDER_Y, TRANSPARENT_TEXT);
+    {
+        static const UiHint k[] =
+        {
+            { UI_ICON_MOVE,   "Scroll" },
+            { UI_ICON_SELECT, "Play"   }
+        };
+        Ui_DrawHints(k, UI_ARRAY_LEN(k), MENU_REMINDER_Y, menu_bg);
+    }
 }

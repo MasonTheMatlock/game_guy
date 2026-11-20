@@ -36,7 +36,7 @@ int16_t ww_TtUpdate(void)
     if(ww_EdgeL() && tt_col > 0) { tt_col--; Buzzer_PlaySfx(&sfx_blip); }
     if(ww_EdgeR() && tt_col < 6) { tt_col++; Buzzer_PlaySfx(&sfx_blip); }
 
-    if(++tt_tick >= ((ww_HeldY() > 0) ? 1 : tt_fd))
+    if(++tt_tick >= ((ww_HeldY() > 0 || Ui_SelectHeld()) ? 1 : tt_fd))
     {
         tt_tick = 0;
         if(tt_row + 1 == 13)

@@ -115,36 +115,32 @@ void ww_SlideY(int16_t x, int16_t w, int16_t y0, int16_t y1, int16_t h,
 }
 
 // ---- input ------------------------------------------------------------------
-int16_t ww_HeldX(void)
-{
-    if(g_dpad.l || g_joy.dx < -50) return -1;
-    if(g_dpad.r || g_joy.dx >  50) return  1;
-    return 0;
-}
+// MOVE is the stick (ui.h). The colored buttons only move things when
+// UI_BUTTONS_ALSO_MOVE is 1.
+int16_t ww_HeldX(void) { return Ui_MoveX(); }               // -1 = left, +1 = right
+int16_t ww_HeldY(void) { return Ui_MoveY(); }               // -1 = up,   +1 = down
 
-int16_t ww_HeldY(void)                  // -1 = up, +1 = down
-{
-    if(g_dpad.u || g_joy.dy < -50) return -1;
-    if(g_dpad.d || g_joy.dy >  50) return  1;
-    return 0;
-}
+#if UI_BUTTONS_ALSO_MOVE
+bool ww_EdgeL(void) { return Ui_NavX() < 0 || g_dpad.lPressed; }
+bool ww_EdgeR(void) { return Ui_NavX() > 0 || g_dpad.rPressed; }
+bool ww_EdgeU(void) { return Ui_NavY() < 0 || g_dpad.uPressed; }
+bool ww_EdgeD(void) { return Ui_NavY() > 0 || g_dpad.dPressed; }
+#else
+bool ww_EdgeL(void) { return Ui_NavX() < 0; }               // stick tilted left THIS frame
+bool ww_EdgeR(void) { return Ui_NavX() > 0; }
+bool ww_EdgeU(void) { return Ui_NavY() < 0; }
+bool ww_EdgeD(void) { return Ui_NavY() > 0; }
+#endif
 
-bool ww_EdgeL(void) { return g_dpad.lPressed || g_joy.edgeX < 0; }
-bool ww_EdgeR(void) { return g_dpad.rPressed || g_joy.edgeX > 0; }
-bool ww_EdgeU(void) { return g_dpad.uPressed || g_joy.edgeY < 0; }
-bool ww_EdgeD(void) { return g_dpad.dPressed || g_joy.edgeY > 0; }
+bool ww_AnyPress(void) { return Ui_AnyPress(); }
 
-bool ww_AnyPress(void)
-{
-    return g_joy.btnPressed || g_dpad.uPressed || g_dpad.dPressed ||
-           g_dpad.lPressed  || g_dpad.rPressed;
-}
-
-// Analog stick Y as a paddle speed, with the D-pad as a fixed-speed override.
+// Analog stick Y as a paddle speed (the buttons only help if UI_BUTTONS_ALSO_MOVE).
 int16_t ww_PaddleSpeed(int16_t maxSpeed)
 {
+#if UI_BUTTONS_ALSO_MOVE
     if(g_dpad.u) return -maxSpeed;
     if(g_dpad.d) return  maxSpeed;
+#endif
     return (int16_t)(((int32_t)g_joy.dy * maxSpeed) / 100);
 }
 

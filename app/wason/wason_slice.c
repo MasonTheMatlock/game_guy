@@ -39,10 +39,12 @@ int16_t ww_FnUpdate(void)
 
     mx = g_joy.dx / 9;
     my = g_joy.dy / 9;
+#if UI_BUTTONS_ALSO_MOVE
     if(g_dpad.l) mx = -8;
     if(g_dpad.r) mx =  8;
     if(g_dpad.u) my = -8;
     if(g_dpad.d) my =  8;
+#endif
     fn_cx = ww_Clamp16(fn_cx + mx, 8, FIELD_W - 9);
     fn_cy = ww_Clamp16(fn_cy + my, 8, FIELD_H - 9);
 

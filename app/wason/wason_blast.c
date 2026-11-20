@@ -8,7 +8,7 @@
 #include "wason_priv.h"
 
 // ============================================================================
-// BLAST!  (Metroid)  Aim the arm cannon with the STICK, fire with the button.
+// BLAST!  (Metroid)  Aim the arm cannon with the STICK, fire with BLUE.
 //         Freeze 5 of the creatures before one reaches Samus.
 //         Metroids take 2 hits; Reo bats are fast and wavy.
 // ============================================================================
@@ -53,7 +53,7 @@ int16_t ww_MtUpdate(void)
     MtAim();
     if(mt_ax != mt_dvx || mt_ay != mt_dvy) mt_aimDirty = true;
 
-    if(g_joy.btnPressed || g_dpad.lPressed || g_dpad.rPressed || g_dpad.uPressed || g_dpad.dPressed)
+    if(Ui_Select())
         for(i = 0; i < 5; i++)
             if(!mt_bon[i])
             {

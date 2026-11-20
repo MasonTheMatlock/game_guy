@@ -174,8 +174,9 @@ codestart   : > BEGIN, PAGE = 0
    .splash             : > FLASHF, PAGE = 0
 
    /* For SDFlash to program these, they must be allocated to page 0 */
-   /* >> lets the constants (fonts, songs, art, strings) split across E and F. */
-   .econst             : >> FLASHE | FLASHF, PAGE = 0
+   /* >> lets the constants (fonts, songs, art, strings) split across E, F and, once
+      those two are full, the spare space in FLASHCD (shared with .text). */
+   .econst             : >> FLASHE | FLASHF | FLASHCD, PAGE = 0
    .switch             : > FLASHF,     PAGE = 0
 
    /* Allocate IQ math areas: */
