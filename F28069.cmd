@@ -75,11 +75,13 @@ PAGE 0 :   /* Program Memory */
    RAML0_4     : origin = 0x008000, length = 0x004000	 /* RAML0-4 combined for size of .text */
    OTP         : origin = 0x3D7800, length = 0x000400     /* on-chip OTP */
 
-   /* Flash sectors G (0x3DC000) and H (0x3D8000) are intentionally NOT listed,
-      so the linker can never place code or constants there: the save driver
-      (drivers/save.c) owns them for settings and high scores and erases them.
-      Same rule as 28069_RAM_lnk.cmd. */
-   FLASHF      : origin = 0x3E0000, length = 0x004000     /* on-chip FLASH */
+   /* Flash sector H (0x3D8000) is intentionally NOT listed, so the linker can
+      never place code or constants there: the save driver (drivers/memory.c)
+      owns it for settings and high scores and erases it.
+      Sector G (0x3DC000) used to be the save driver's second sector; saves now
+      use H only, so G is ordinary program flash (constants / code). */
+   FLASHG      : origin = 0x3DC000, length = 0x004000     /* on-chip FLASH */
+   FLASHF     : origin = 0x3E0000, length = 0x004000     /* on-chip FLASH */
    FLASHE      : origin = 0x3E4000, length = 0x004000     /* on-chip FLASH */  
 
    /* Combine adjacent Flash C and D into one 32K-word region. */
@@ -133,7 +135,7 @@ SECTIONS
 .pinit      : > FLASHCD, PAGE = 0
 
 /* Allow code sections to be distributed across flash regions. */
-.text       : { *(.text) } >> FLASHA | FLASHB | FLASHCD, PAGE = 0
+.text       : { *(.text) } >> FLASHA | FLASHB | FLASHCD | FLASHG, PAGE = 0
 
 codestart   : > BEGIN, PAGE = 0
 
@@ -163,8 +165,10 @@ codestart   : > BEGIN, PAGE = 0
    /* Allocate uninitalized data sections: */
    /* Allocate uninitialized data sections: */
 .stack              : > RAMM0,      PAGE = 1
-.ebss               : >> RAML5 | RAML6, PAGE = 1
-.esysmem            : > RAML7,      PAGE = 1
+/* Globals may spill into L7/L8. The heap and CIO buffer are unused by this
+   project (no malloc, no printf to the CCS console) and share the end of L8. */
+.ebss               : >> RAML5 | RAML6 | RAML7 | RAML8, PAGE = 1
+.esysmem            : > RAML8,      PAGE = 1
 .cio                : > RAML8,      PAGE = 1
 
 
@@ -176,7 +180,7 @@ codestart   : > BEGIN, PAGE = 0
    /* For SDFlash to program these, they must be allocated to page 0 */
    /* >> lets the constants (fonts, songs, art, strings) split across E, F and, once
       those two are full, the spare space in FLASHCD (shared with .text). */
-   .econst             : >> FLASHE | FLASHF | FLASHCD, PAGE = 0
+   .econst             : >> FLASHE | FLASHF | FLASHG | FLASHCD, PAGE = 0
    .switch             : > FLASHF,     PAGE = 0
 
    /* Allocate IQ math areas: */

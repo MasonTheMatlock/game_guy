@@ -3,11 +3,11 @@
 // TITLE:  Save driver - persistent save data / settings in on-chip flash
 //
 // HOW IT WORKS
-//   Flash sectors H (0x3D8000) and G (0x3DC000) are NOT used by the linker,
-//   so this driver owns them. Each sector is an append-only LOG of save
-//   records: a save is APPENDED to the first blank slot, and a sector is
-//   erased only when it is full (~227 saves), at which point the other sector
-//   takes over. That is the wear leveling: ~227x fewer erases than erasing on
+//   Flash sector H (0x3D8000) is NOT used by the linker, so this driver owns
+//   it (sector G used to be a second save sector; it is program flash now).
+//   The sector is an append-only LOG of save records: a save is APPENDED to
+//   the first blank slot, and the sector is erased only when it is full
+//   (~200 saves), then the log restarts. That is the wear leveling: ~227x fewer erases than erasing on
 //   every save. A record only counts once its CRC checks out, so if power
 //   dies mid-save the previous record is still the newest valid one.
 //
@@ -55,7 +55,7 @@
     X(TETRIS_SCORES, 10)        \
     X(TETRIS_NAMES, 25)         \
     X(MENU,          2)         \
-    X(WASONWARE,     4)
+    X(WASONWARE,     4)             X(RC_SCORES,    30)
 typedef enum
 {
 #define X(name, words) MEM_SLOT_##name,
@@ -100,6 +100,16 @@ typedef struct
     uint16_t bestLevel;
     uint16_t reserved;
 } MemRaycaster;                        // 4 words
+
+// Raycaster high scores: top 5 waves survived, best first, 5-char names.
+// wave 0 = empty entry (the game shows its default "WASON / wave 15" there).
+#define RC_NUM_SCORES   5
+#define RC_NAME_LEN     5
+typedef struct
+{
+    uint16_t wave[RC_NUM_SCORES];
+    uint16_t c[RC_NUM_SCORES][RC_NAME_LEN];   // ASCII, one char per word
+} MemRcScores;                         // 30 words
 
 typedef struct
 {

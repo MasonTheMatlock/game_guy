@@ -5,7 +5,7 @@
 // REQUIREMENTS
 //   * TI Flash API for F2806x (Flash2806x_API_Library.h + the .lib) on the
 //     include path and linked (you already have this).
-//   * Flash sectors G/H must stay out of the linker SECTIONS (they are).
+//   * Flash sector H must stay out of the linker SECTIONS (it is).
 //
 // WHY THIS FILE CHANGED (Release/flash-boot bugs)
 //   In a Release build ALL code runs from flash. While the flash is erasing
@@ -19,8 +19,8 @@
 //
 // WEAR LEVELING  (log-structured, append-only)
 //   Each 16K-word sector is a LOG of save records. A save APPENDS one record
-//   (72 words) to the first blank slot. A sector is erased only when it is
-//   completely full (~227 saves), and then the OTHER sector takes over.
+//   to the first blank slot. The sector is erased only when it is
+//   completely full (~200 saves); then the log restarts (single sector, H).
 //   Result: ~227x fewer erases than "erase on every save" and ~100x fewer
 //   than the old ping-pong. Flash is rated ~50,000 erase cycles per sector,
 //   so that is roughly 20 MILLION saves instead of ~100 thousand.
@@ -45,10 +45,13 @@
 //*****************************************************************************
 // Config
 //*****************************************************************************
+// SINGLE SECTOR: saves live in flash sector H only. Sector G used to be the
+// second half of an A/B log; it is program flash now (see F28069.cmd). When H
+// fills up (~200 saves) it is erased and the RAM copy is written straight back
+// as its first record. A power cut inside that short window loses the saved
+// data (it then reads as "never saved"); nothing else changes.
 #define SECTOR_A_ADDR       0x3D8000UL  // flash sector H
-#define SECTOR_B_ADDR       0x3DC000UL  // flash sector G
 #define SECTOR_A_MASK       SECTORH
-#define SECTOR_B_MASK       SECTORG
 #define SECTOR_WORDS        0x4000U     // 16K words per sector
 
 #define MEM_MAGIC          0xA55AU
@@ -78,9 +81,9 @@ enum { IMG_WORDS = ((HDR_WORDS + MEM_PAYLOAD_WORDS + 7) & ~7) };
 extern volatile uint16_t *Memory_TestFlashBase(int16_t which);
 #define FLASH_BASE(w)       Memory_TestFlashBase(w)
 #else
-#define FLASH_BASE(w)       ((volatile uint16_t *)((w) ? SECTOR_B_ADDR : SECTOR_A_ADDR))
+#define FLASH_BASE(w)       ((volatile uint16_t *)SECTOR_A_ADDR)
 #endif
-#define SECTOR_MASK(w)      ((w) ? SECTOR_B_MASK : SECTOR_A_MASK)
+#define SECTOR_MASK(w)      (SECTOR_A_MASK)
 
 //*****************************************************************************
 // State (all RAM)
@@ -384,7 +387,7 @@ static bool LoadFromFlash(void)
     s_err    = MEM_ERR_NONE;
 
     good[0] = NewestInSector(0, &pos[0], &seq[0], &mask[0], &pw[0]);
-    good[1] = NewestInSector(1, &pos[1], &seq[1], &mask[1], &pw[1]);
+    good[1] = false;                    // single save sector (H)
 
     if(good[0] && good[1])
         best = ((int32_t)(seq[1] - seq[0]) > 0) ? 1 : 0;    // wrap-safe compare
@@ -547,21 +550,13 @@ bool Memory_Flush(void)
         s_next = (uint16_t)(s_next + IMG_WORDS);
     }
 
-    // 2) Active sector full (or first save, or the append failed): erase the
-    //    OTHER sector (it only holds older, superseded records) and start the
-    //    log there. The newest copy stays safe in the active sector until the
-    //    new record is written.
-    sector = (s_active == 0) ? 1 : 0;
+    // 2) Sector full (or first save, or the append failed): erase it and
+    //    restart the log with the RAM copy as its first record. The record is
+    //    programmed straight after the erase, so the unsafe window is short.
+    sector = 0;
     pos    = 0;
     erase  = true;
     ok     = WriteImage(sector, pos, erase);
-
-    if(!ok && s_active < 0)
-    {
-        // Nothing valid anywhere yet: the other sector is a fair fallback.
-        sector = 1;
-        ok     = WriteImage(sector, pos, erase);
-    }
     if(!ok)
         return false;                   // stays dirty; the next flush retries
 
@@ -592,7 +587,6 @@ bool Memory_EraseAll(void)
     SilenceBuzzer();
 
     i = FlashProgramOp(SECTOR_A_MASK, true, 0, 0, 0, &st);
-    if(i == 0) i = FlashProgramOp(SECTOR_B_MASK, true, 0, 0, 0, &st);
     UnmuteBuzzer();
     return (i == 0);
 }
