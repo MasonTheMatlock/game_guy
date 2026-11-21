@@ -237,12 +237,12 @@ void rc_UpdatePlay(void)
     if(rc_haste) { rc_haste--; if(!rc_haste) rc_hud |= HUD_HINT; }
     if(rc_aegis) { rc_aegis--; if(!rc_aegis) rc_hud |= HUD_HINT; }
 
-    // RED: next staff / item (BACK has nothing to do mid-game, so RED is a free action)
-    if(Ui_Back()) rc_CycleEquip();
+    // D-pad down: next staff / item
+    if(g_dpad.dPressed) rc_CycleEquip();
 
-    // Turn: YELLOW left, GREEN right (the stick only moves, see app/ui.h)
-    if(Ui_Held(UI_ICON_ACT2)) { rc_ang -= RC_TURN_SPEED; moved = true; }
-    if(Ui_Held(UI_ICON_ACT3)) { rc_ang += RC_TURN_SPEED; moved = true; }
+    // Turn
+    if(g_dpad.l) { rc_ang -= RC_TURN_SPEED; moved = true; }
+    if(g_dpad.r) { rc_ang += RC_TURN_SPEED; moved = true; }
     rc_ang &= RC_ANGLE_MASK;
 
     // Move: stick up = forward, stick right = strafe right.
@@ -303,11 +303,12 @@ void rc_UpdatePlay(void)
         rc_mana++;
     }
 
-    // BLUE (or the stick click) is the primary action: buy the door you face,
-    // otherwise use the equipped staff / item (hold = auto-use)
+    // Doors: face one and press the stick to buy it
     UpdateDoorNear();
-    if(Ui_Select() && rc_doorNear)  BuyDoor(rc_doorNear);
-    else if(Ui_SelectHeld())        rc_UseEquipped();
+    if(g_joy.btnPressed && rc_doorNear) BuyDoor(rc_doorNear);
+
+    // Use the equipped staff / item (hold = auto-use)
+    if(g_dpad.u) rc_UseEquipped();
 
     rc_EnsureFlow();
     rc_UpdateObjects();

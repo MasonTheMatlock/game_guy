@@ -11,26 +11,30 @@
 //        [YELLOW]       [GREEN]          stick click = same as BLUE
 //                 [BLUE]                 [START] (grey) = reserved, no hardware yet
 //
-//  THE RULES (one set, every app, no exceptions)
-//     MOVE     the STICK. Menus step on a stick tilt, games move with it.
+//  WHAT IS SHARED, WHAT IS NOT
+//     * The LOOK is shared by every app: the colored button symbols, the joystick
+//       icons and the hint bars below are the same everywhere.
+//     * Apps other than Wason Ware keep their ORIGINAL buttons exactly as they were
+//       (Settings, launcher, Tetris, Raycaster, Test). Their hints just show the
+//       real button symbols for those original buttons (use the physical icons
+//       UI_ICON_U / _L / _R / _D / _STICK / _STICK_CLICK).
+//     * Wason Ware uses the role rules below, so a role is the same button in
+//       all of its 23 microgames:
+//
+//     MOVE     the STICK.
 //     SELECT   BLUE  (or a stick click)  OK / confirm / choose / start
-//     JUMP     BLUE  (or a stick click)  jump is the same button as select,
-//                                        the "primary action" of the console
+//     JUMP     BLUE  (or a stick click)  jump is the same button as select
 //     BACK     RED                       cancel / back / leave a screen
-//     ACT2     YELLOW                    secondary action (rotate, swap, turn left ...)
-//     ACT3     GREEN                     tertiary action  (turn right, ...)
+//     ACT2     YELLOW                    secondary action (roll, left flipper ...)
+//     ACT3     GREEN                     tertiary action  (right flipper ...)
 //     PAUSE    hold the stick click (apps.c does this, apps never do)
 //     START    grey, reserved
-//
-//  Inside a game RED has no "back" to do (hold the stick to pause), so a game
-//  may use RED as one more action; the instruction screen always shows what
-//  each colored button does with the real colored symbols.
 //
 //  CHANGING A COLOR OR A ROLE: edit the two tables in this file, nothing else.
 //     UI_COL_*      what color each physical button is
 //     UI_BTN_*_ROLE which physical button plays which role
 //
-//  Call the Ui_* input functions from update() only. They read g_dpad/g_joy,
+//  Call the Ui_* input functions from Wason's update() only. They read g_dpad/g_joy,
 //  which the app loop has already refreshed this frame.
 //#############################################################################
 

@@ -104,9 +104,7 @@ static void RC_Init(void)
 
     s_rcThemeOn = false;                       // new run: buzzer song first
     MP3_stop();
-
-    /* Loop the main theme; SFX temporarily take the buzzer and music resumes. */
-    Buzzer_PlaySong(&song_corridor_run, 1);
+    rc_EnterTitle();                           // title screen first; the music starts when you enter
 }
 
 
@@ -118,6 +116,20 @@ static AppStatus RC_Update(void)
 
     switch(rc_mode)
     {
+        case MODE_TITLE:
+        case MODE_HOWTO:
+        case MODE_LETTER:
+            n = TicksOwed();
+            if(rc_UpdateTitle(n))                    // letter dismissed: into the dungeon
+            {
+                rc_mode      = MODE_INTRO;
+                rc_timer     = 75;
+                rc_banner    = BAN_LEVEL;
+                rc_dirtyFull = true;
+                Buzzer_PlaySong(&song_corridor_run, 1);      // the dungeon theme begins
+            }
+            break;
+
         case MODE_INTRO:
             n = TicksOwed();
             rc_timer = (rc_timer > n) ? (uint16_t)(rc_timer - n) : 0;
@@ -160,7 +172,7 @@ static AppStatus RC_Update(void)
             break;
 
         default:                                // OVER
-            if(Ui_Select() || Ui_Back()) return APP_QUIT;
+            if(g_dpad.dPressed || g_joy.btnPressed) return APP_QUIT;
             break;
     }
 
@@ -170,7 +182,9 @@ static AppStatus RC_Update(void)
 
 static void FullRepaint(void)
 {
-    if(rc_mode == MODE_CARDS)
+    if(rc_mode == MODE_TITLE || rc_mode == MODE_HOWTO || rc_mode == MODE_LETTER)
+        rc_DrawTitleFull();
+    else if(rc_mode == MODE_CARDS)
         rc_DrawCardsFull();
     else if(rc_mode == MODE_OVER)
         rc_DrawEndScreen();
@@ -193,6 +207,12 @@ static void RC_RenderInner(void)
     {
         rc_dirtyFull = false;
         FullRepaint();
+    }
+
+    if(rc_mode == MODE_TITLE || rc_mode == MODE_HOWTO || rc_mode == MODE_LETTER)
+    {
+        rc_TitleRender();
+        return;
     }
 
     if(rc_mode == MODE_CARDS)
@@ -234,7 +254,7 @@ static void RC_Redraw(void)
 {
     PaceInit();                                 // don't "catch up" after the pause
     rc_dirtyFull = true;
-    if(rc_mode != MODE_OVER)
+    if(rc_mode != MODE_OVER && rc_mode != MODE_TITLE && rc_mode != MODE_HOWTO && rc_mode != MODE_LETTER)
     {
         if(s_rcThemeOn) RcTheme_Start();                    // Settings interrupted the MP3
         else            Buzzer_PlaySong(&song_corridor_run, 1);
@@ -255,7 +275,7 @@ static void RC_Exit(void)
 const App g_raycasterApp =
 {
     "RAYCASTER",                            // name (first letter = menu tile icon)
-    "Stick:move  Y/G:turn  Blue:use",   // hint shown under the menu
+    "Stick:move L/R:turn U:use D:swap",     // hint shown under the menu
     COLOR_CRIMSON,                             // menu tile color
     RC_FRAME_US,
     RC_Init, RC_Update, RC_Render,

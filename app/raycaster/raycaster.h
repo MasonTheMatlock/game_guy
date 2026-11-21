@@ -9,16 +9,15 @@
 //   Every 2nd round a mini-boss joins the wave; the Dragon wakes after 3 of them.
 //   Three hearts, contact damage.
 //
-// CONTROLS (the console-wide rules, see app/ui.h)
-//   Stick            move (up/down = forward/back, left/right = strafe)
-//   YELLOW / GREEN   turn left / right
-//   BLUE (or click)  primary action: buy the door you face, else use the equipped
-//                    staff / item (hold = auto-use)
-//   RED              swap to the next staff / item you own
-//   Hold stick btn   pause menu (handled by apps.c, nothing to do here)
+// CONTROLS
+//   Stick          move (up/down = forward/back, left/right = strafe)
+//   D-pad L / R    turn
+//   D-pad U        use the equipped staff / item (hold = auto-use)
+//   D-pad D        swap to the next staff / item you own
+//   Hold stick btn pause menu (handled by apps.c, nothing to do here)
 //
-//   Level-up cards:  stick left/right = pick card / reroll button,
-//                    BLUE or stick click = buy,  RED = continue
+//   Level-up cards:  D-pad L/R (or stick) = pick card / reroll button,
+//                    D-pad U or stick button = buy,  D-pad D = continue
 //#############################################################################
 
 #ifndef __RAYCASTER_H__
@@ -71,7 +70,7 @@ extern const App g_raycasterApp;            // app/raycaster.c
 #define RC_MAX_HEARTS       6
 #define RC_INVERT_Y         0               // g_joy.dy is +DOWN; 1 if wired backwards
 #define RC_STICK_DEAD       12              // |stick| below this = 0
-#define RC_TURN_SPEED       7               // angle units per frame (1024 = full turn)
+#define RC_TURN_SPEED       14              // angle units per frame (1024 = full turn)
 #define RC_MOVE_SPEED       70              // Q10 units per frame at full stick
 #define RC_PLAYER_R         190             // collision radius (Q10)
 #define RC_INVULN_FRAMES    90              // after being hit

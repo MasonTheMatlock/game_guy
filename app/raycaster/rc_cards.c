@@ -30,7 +30,8 @@ void rc_DrawBanner(void)
         n  = rc_Cat(buf, 0, "ROUND ", 6);
         n += rc_Itoa(buf + n, rc_level + 1);
         rc_DrawText(buf, SCREEN_W / 2, 105, C_WHITE);
-        rc_DrawText("Buy doors with BLUE", SCREEN_W / 2, 126, C_GRAY);
+        rc_DrawText("Buy doors with", 125, 126, C_GRAY);
+        Ui_DrawIcon(UI_ICON_STICK_CLICK, 222, 126, 9);          // click the stick
     }
 }
 
@@ -60,7 +61,7 @@ void rc_DrawEndScreen(void)
     rc_DrawText(buf, SCREEN_W / 2, 174, C_GOLD);
 
     {
-        static const UiHint k[] = { { UI_ICON_SELECT, "Exit" } };
+        static const UiHint k[] = { { UI_ICON_D, "Exit" } };
         Ui_DrawHints(k, UI_ARRAY_LEN(k), 222, C_BLACK);
     }
 }
@@ -274,10 +275,15 @@ void rc_DrawCardsFull(void)
 
     Graphics_FillRect(0, 0, SCREEN_W - 1, SCREEN_H - 1, C_BLACK);
 
-    n  = rc_Cat(buf, 0, "LEVEL UP!  Lv ", 14);
-    n += rc_Itoa(buf + n, rc_xpLv);
-    rc_DrawText(buf, 105, 15, C_XP);
-    if(rc_lvPending > 1)
+    if(rc_shopMode)
+        rc_DrawText("MERCHANT", 105, 15, C_GOLD);
+    else
+    {
+        n  = rc_Cat(buf, 0, "LEVEL UP!  Lv ", 14);
+        n += rc_Itoa(buf + n, rc_xpLv);
+        rc_DrawText(buf, 105, 15, C_XP);
+    }
+    if(rc_lvPending > 1 && !rc_shopMode)
     {
         n  = rc_Cat(buf, 0, "x", 1);
         rc_Itoa(buf + n, rc_lvPending);
@@ -289,9 +295,8 @@ void rc_DrawCardsFull(void)
     {
         static const UiHint k[] =
         {
-            { UI_ICON_MOVE,   "Pick"     },
-            { UI_ICON_SELECT, "Buy"      },
-            { UI_ICON_BACK,   "Continue" }
+            { UI_ICON_L, "" }, { UI_ICON_R, "Pick" },
+            { UI_ICON_U, "Buy" }, { UI_ICON_D, "Continue" }
         };
         Ui_DrawHints(k, UI_ARRAY_LEN(k), 228, C_BLACK);
     }
@@ -323,6 +328,15 @@ void rc_EnterCards(void)
     rc_stX = rc_stY = 1;                  // ignore a stick that is already pushed
     RollCards();
     rc_Sfx(&sfx_level_up);
+}
+
+
+// The merchant reuses the card screen as his shop.
+void rc_EnterShop(void)
+{
+    rc_shopMode = 1;
+    rc_lvPending++;
+    rc_EnterCards();
 }
 
 
@@ -423,6 +437,7 @@ static void LeaveCards(void)
     }
     else
     {
+        rc_shopMode  = 0;
         rc_mode      = MODE_PLAY;
         rc_dirtyFull = true;
     }
@@ -436,11 +451,11 @@ void rc_UpdateCards(void)
 
     (void)rc_StickEdge(g_joy.dy, &rc_stY);
 
-    if(Ui_Back()) { LeaveCards(); return; }          // RED = continue / leave
+    if(g_dpad.dPressed) { LeaveCards(); return; }
 
-    if(sx < 0)                                       // MOVE = the stick
+    if(g_dpad.lPressed || sx < 0)
         rc_cardSel = (rc_cardSel + 3u) % 4u;
-    else if(sx > 0)
+    else if(g_dpad.rPressed || sx > 0)
         rc_cardSel = (rc_cardSel + 1u) % 4u;
 
     if(rc_cardSel != old)
@@ -450,9 +465,348 @@ void rc_UpdateCards(void)
         rc_Sfx(&sfx_menu_move);
     }
 
-    if(Ui_Select())                                  // BLUE / stick click = buy
+    if(g_dpad.uPressed || g_joy.btnPressed)
     {
         if(rc_cardSel < 3) BuyCard(rc_cardSel);
         else              RerollCards();
     }
+}
+
+
+//*****************************************************************************
+// Title screen, How to Play, and the opening letter
+//*****************************************************************************
+#define TT_PARCH     0x00D8BF84UL            // yellowed parchment
+#define TT_PARCH_DK  0x00BFA064UL            // stains
+#define TT_INK       0x003A2412UL
+#define TT_SEAL      0x00861414UL
+
+static uint16_t s_ttSel;                     // 0 = START, 1 = HOW TO PLAY
+static uint16_t s_ttDirty;                   // 1 = menu needs redrawing
+static uint16_t s_ttChars;                   // letter characters shown so far
+static uint16_t s_ttSub;                     // tick fraction for the typing speed
+
+// 5x7 block letters for the title (one row per entry, bit 4 = leftmost pixel)
+static const uint16_t kGlyph[7][7] =
+{
+    { 0x1E, 0x11, 0x11, 0x1E, 0x14, 0x12, 0x11 },      // R
+    { 0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11 },      // A
+    { 0x11, 0x11, 0x0A, 0x04, 0x04, 0x04, 0x04 },      // Y
+    { 0x0E, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0E },      // C
+    { 0x0F, 0x10, 0x10, 0x0E, 0x01, 0x01, 0x1E },      // S
+    { 0x1F, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04 },      // T
+    { 0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x1F }       // E
+};
+static const uint16_t kTitleWord[9] = { 0, 1, 2, 3, 1, 4, 5, 6, 0 };     // R A Y C A S T E R
+
+static const char *const kLetter[] =
+{
+    "Dear Ray Caster,",
+    "",
+    "Congratulations on your hiring.",
+    "The dungeon beneath this office",
+    "has grown... lively. Our last six",
+    "wizards left no forwarding address.",
+    "",
+    "Your duties are simple: clear the",
+    "rooms, buy the doors, and do NOT",
+    "wake the Dragon. (You will.)",
+    "",
+    "Pay: gold, glory, and whatever",
+    "is in the chests. Mind the mimics."
+};
+#define LETTER_LINES   13
+#define LETTER_X       56
+#define LETTER_Y0      28
+#define LETTER_DY      12
+
+static uint16_t LetterTotal(void)
+{
+    uint16_t i, n = 0, k;
+
+    for(i = 0; i < LETTER_LINES; i++)
+    {
+        for(k = 0; kLetter[i][k]; k++) {}
+        n = (uint16_t)(n + k + 1u);                 // + one pause per line
+    }
+    return n;
+}
+
+
+static void DrawLeft(const char *s, uint16_t len, int16_t x, int16_t y, uint32_t fg, uint32_t bg)
+{
+    if(len == 0) return;
+    Graphics_setFont(&g_sContext, &g_sFontCmss12b);
+    Graphics_setForegroundColor(&g_sContext, fg);
+    Graphics_setBackgroundColor(&g_sContext, bg);
+    Graphics_drawString(&g_sContext, (int16_t *)s, len, x, y, OPAQUE_TEXT);
+    Graphics_setFont(&g_sContext, &g_sFontCmss20b);
+}
+
+
+static void DrawMenu(void)
+{
+    uint16_t i;
+    static const char *const kItem[2] = { "START", "HOW TO PLAY" };
+    char     buf[20];
+    int16_t  n;
+
+    Graphics_FillRect(60, 138, 260, 200, C_BLACK);
+    for(i = 0; i < 2; i++)
+    {
+        bool sel = (s_ttSel == i);
+
+        n = 0;
+        if(sel) n = rc_Cat(buf, n, "> ", 2);
+        n = rc_Cat(buf, n, kItem[i], 16);
+        if(sel) rc_Cat(buf, n, " <", 2);
+        rc_DrawText(buf, SCREEN_W / 2, (int16_t)(152 + 30 * i), sel ? C_GOLD : C_GRAY);
+    }
+}
+
+
+static void DrawTitle(void)
+{
+    uint16_t w, r, cx, x0 = 25, y0 = 40;
+    int16_t  bx;
+
+    Graphics_FillRect(0, 0, SCREEN_W - 1, SCREEN_H - 1, C_BLACK);
+
+    // rays fanning up from the wand
+    for(bx = 20; bx <= 300; bx += 70)
+    {
+        Graphics_setForegroundColor(&g_sContext, (bx == 160) ? C_CYAN : COLOR_TEAL);
+        Graphics_drawLine(&g_sContext, 160, 236, bx, 110);
+    }
+    Graphics_fillCircle(&g_sContext, 160, 238, 5);
+
+    // block-letter title with a drop shadow
+    for(w = 0; w < 9; w++)
+        for(r = 0; r < 7; r++)
+            for(cx = 0; cx < 5; cx++)
+                if(kGlyph[kTitleWord[w]][r] & (0x10u >> cx))
+                {
+                    int16_t px = (int16_t)(x0 + (w * 6u + cx) * 5u);
+                    int16_t py = (int16_t)(y0 + r * 5u);
+
+                    Graphics_FillRect(px + 3, py + 3, px + 7, py + 7, COLOR_MAROON);
+                    Graphics_FillRect(px, py, px + 4, py + 4, (r < 3) ? C_GOLD : C_RED);
+                }
+    rc_DrawSmall("A dungeon of rays and bad decisions", SCREEN_W / 2, 100, C_GRAY, C_BLACK);
+
+    DrawMenu();
+    {
+        static const UiHint k[] =
+        {
+            { UI_ICON_U, "" }, { UI_ICON_D, "Choose" },
+            { UI_ICON_R, "" }, { UI_ICON_STICK_CLICK, "Select" }
+        };
+        Ui_DrawHints(k, UI_ARRAY_LEN(k), 226, C_BLACK);
+    }
+}
+
+
+static void DrawHowTo(void)
+{
+    static const char *const kLine[] =
+    {
+        "walk and strafe",
+        "turn",
+        "cast / use item",
+        "swap staff / item",
+        "buy doors, talk, open",
+        "",
+        "Clear every wave, buy all six doors,",
+        "beat three mini-bosses, then step into",
+        "the Dragon Den. The gate shuts behind you."
+    };
+    uint16_t i;
+
+    Graphics_FillRect(0, 0, SCREEN_W - 1, SCREEN_H - 1, C_BLACK);
+    rc_DrawText("HOW TO PLAY", SCREEN_W / 2, 22, C_GOLD);
+    Graphics_setForegroundColor(&g_sContext, C_GRAY);
+    Graphics_drawLine(&g_sContext, 20, 40, SCREEN_W - 21, 40);
+    for(i = 0; i < 9; i++)
+        if(kLine[i][0])
+        {
+            uint16_t k;
+
+            for(k = 0; kLine[i][k]; k++) {}
+            DrawLeft(kLine[i], k, (i < 5) ? 96 : 24, (int16_t)(60 + 18 * i), (i < 5) ? C_WHITE : C_GRAY, C_BLACK);
+        }
+
+    // the real symbols in one column, one per control (the original buttons)
+    Ui_DrawIcon(UI_ICON_STICK,       40, 67, 7);
+    Ui_DrawIcon(UI_ICON_L,           32, 85, 7);                // turn: left + right
+    Ui_DrawIcon(UI_ICON_R,           52, 85, 7);
+    Ui_DrawIcon(UI_ICON_U,           40, 103, 7);
+    Ui_DrawIcon(UI_ICON_D,           40, 121, 7);
+    Ui_DrawIcon(UI_ICON_STICK_CLICK, 40, 139, 7);
+    {
+        static const UiHint k[] = { { UI_ICON_L, "Back" } };
+        Ui_DrawHints(k, UI_ARRAY_LEN(k), 226, C_BLACK);
+    }
+}
+
+
+// Yellowed, damaged parchment on black.
+static void DrawParchment(void)
+{
+    uint16_t i;
+
+    Graphics_FillRect(0, 0, SCREEN_W - 1, SCREEN_H - 1, C_BLACK);
+    Graphics_FillRect(36, 10, 284, 229, TT_PARCH);
+
+    for(i = 0; i < 9; i++)                              // stains and age
+        Graphics_FillRect((int16_t)(44 + (i * 53u) % 200u), (int16_t)(16 + (i * 37u) % 190u),
+                          (int16_t)(60 + (i * 53u) % 200u), (int16_t)(24 + (i * 37u) % 190u), TT_PARCH_DK);
+    Graphics_setForegroundColor(&g_sContext, TT_PARCH_DK);
+    Graphics_drawCircle(&g_sContext, 236, 112, 16);     // a coffee ring
+    Graphics_drawCircle(&g_sContext, 236, 112, 15);
+
+    for(i = 0; i < 12; i++)                             // torn, ragged edges
+    {
+        int16_t t = (int16_t)(2u + (i * 5u) % 7u);
+
+        Graphics_FillRect((int16_t)(36 + (i * 23u) % 240u), 10, (int16_t)(40 + (i * 23u) % 240u), (int16_t)(10 + t), C_BLACK);
+        Graphics_FillRect((int16_t)(36 + (i * 29u) % 240u), (int16_t)(229 - t), (int16_t)(41 + (i * 29u) % 240u), 229, C_BLACK);
+        Graphics_FillRect(36, (int16_t)(12 + (i * 19u) % 210u), (int16_t)(36 + t), (int16_t)(16 + (i * 19u) % 210u), C_BLACK);
+        Graphics_FillRect((int16_t)(284 - t), (int16_t)(12 + (i * 17u) % 210u), 284, (int16_t)(15 + (i * 17u) % 210u), C_BLACK);
+    }
+    Graphics_FillRect(250, 10, 284, 22, C_BLACK);       // a burnt corner
+    Graphics_FillRect(262, 22, 284, 34, C_BLACK);
+    Graphics_FillRect(250, 22, 261, 26, TT_INK);
+    Graphics_FillRect(36, 218, 52, 229, C_BLACK);       // a chewed corner
+}
+
+
+static void DrawLetterText(uint16_t shown)
+{
+    uint16_t i, k, left = shown;
+
+    for(i = 0; i < LETTER_LINES && left > 0; i++)
+    {
+        for(k = 0; kLetter[i][k]; k++) {}
+        if(left >= k + 1u)
+        {
+            if(k) DrawLeft(kLetter[i], k, LETTER_X, (int16_t)(LETTER_Y0 + LETTER_DY * i), TT_INK, TT_PARCH);
+            left = (uint16_t)(left - k - 1u);
+        }
+        else
+        {
+            if(left) DrawLeft(kLetter[i], left, LETTER_X, (int16_t)(LETTER_Y0 + LETTER_DY * i), TT_INK, TT_PARCH);
+            left = 0;
+        }
+    }
+}
+
+
+static void DrawLetterEnd(void)
+{
+    rc_DrawTextEx("YOUR SHIFT BEGINS NOW.", SCREEN_W / 2, 194, 0x00A01010UL, TT_PARCH, true);
+    DrawLeft("- Dungeon Management", 20, 150, 214, TT_INK, TT_PARCH);
+    Graphics_setForegroundColor(&g_sContext, TT_SEAL);                // dark red wax seal
+    Graphics_fillCircle(&g_sContext, 92, 212, 15);
+    Graphics_setForegroundColor(&g_sContext, COLOR_MAROON);
+    Graphics_fillCircle(&g_sContext, 92, 212, 12);
+    Graphics_setForegroundColor(&g_sContext, TT_SEAL);
+    Graphics_fillCircle(&g_sContext, 92, 212, 9);
+    rc_DrawTextEx("R", 92, 212, 0x00B03030UL, TT_SEAL, true);
+}
+
+
+void rc_EnterTitle(void)
+{
+    rc_mode      = MODE_TITLE;
+    s_ttSel      = 0;
+    s_ttDirty    = 0;
+    rc_stX = rc_stY = 1;                              // ignore a stick that is already pushed
+    rc_dirtyFull = true;
+}
+
+
+void rc_DrawTitleFull(void)
+{
+    if(rc_mode == MODE_TITLE)       DrawTitle();
+    else if(rc_mode == MODE_HOWTO)  DrawHowTo();
+    else
+    {
+        DrawParchment();
+        DrawLetterText(s_ttChars);
+        if(s_ttChars >= LetterTotal()) DrawLetterEnd();
+    }
+}
+
+
+// Incremental drawing: the menu cursor, and the letter typing itself out.
+void rc_TitleRender(void)
+{
+    static uint16_t shownChars;
+
+    if(rc_mode == MODE_TITLE)
+    {
+        if(s_ttDirty) { DrawMenu(); s_ttDirty = 0; }
+    }
+    else if(rc_mode == MODE_LETTER)
+    {
+        if(s_ttChars < shownChars) shownChars = 0;        // a new letter
+        if(s_ttChars != shownChars)
+        {
+            DrawLetterText(s_ttChars);
+            if(s_ttChars >= LetterTotal() && shownChars < LetterTotal()) DrawLetterEnd();
+            shownChars = s_ttChars;
+        }
+    }
+}
+
+
+bool rc_UpdateTitle(uint16_t ticks)
+{
+    int16_t sy  = rc_StickEdge(g_joy.dy, &rc_stY);
+    bool    go  = (g_joy.btnPressed != 0);
+    uint16_t total;
+
+    (void)rc_StickEdge(g_joy.dx, &rc_stX);
+
+    if(rc_mode == MODE_TITLE)
+    {
+        if(g_dpad.uPressed || g_dpad.dPressed || sy != 0)
+        {
+            s_ttSel ^= 1u;
+            s_ttDirty = 1;
+            rc_Sfx(&sfx_menu_move);
+        }
+        if(go || g_dpad.rPressed)
+        {
+            rc_Sfx(&sfx_menu_select);
+            rc_dirtyFull = true;
+            if(s_ttSel == 0) { rc_mode = MODE_LETTER; s_ttChars = 0; s_ttSub = 0; }
+            else               rc_mode = MODE_HOWTO;
+        }
+    }
+    else if(rc_mode == MODE_HOWTO)
+    {
+        if(go || g_dpad.lPressed || g_dpad.dPressed)
+        {
+            rc_Sfx(&sfx_menu_back);
+            rc_mode      = MODE_TITLE;
+            rc_dirtyFull = true;
+        }
+    }
+    else                                                    // MODE_LETTER
+    {
+        total = LetterTotal();
+        if(s_ttChars < total)
+        {
+            s_ttSub = (uint16_t)(s_ttSub + ticks);          // about 45 characters a second
+            while(s_ttSub >= 2u) { s_ttSub = (uint16_t)(s_ttSub - 2u); if(s_ttChars < total) s_ttChars++; }
+            if(go || g_dpad.uPressed) s_ttChars = total;    // skip the typing
+        }
+        else if(go || g_dpad.uPressed || g_dpad.rPressed)
+        {
+            rc_Sfx(&sfx_menu_select);
+            return true;                                    // enter the dungeon
+        }
+    }
+    return false;
 }

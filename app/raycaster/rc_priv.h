@@ -31,7 +31,7 @@
 //    with all 6 doors bought and the Dragon wakes in the central arena.
 //  * Kills give GOLD (same as before) and XP. When the XP bar fills you level
 //    up and get 3 random cards to buy with gold (or reroll them for gold).
-//  * RED cycles the equipped staff / magic item. BLUE uses it.
+//  * D-pad Down cycles the equipped staff / magic item. D-pad Up uses it.
 //
 // APP CONTRACT: update() = logic only, render() = drawing only, one public
 // symbol (g_raycasterApp). The runner already calls Joy_Update()/Dpad_Update().
@@ -42,7 +42,7 @@
 
 #include <math.h>
 
-#define DOOM_song 2
+
 /* Performance configuration: 60 strips x 5 pixels = 300 pixels. */
 #undef RC_COLS
 
@@ -140,6 +140,9 @@ extern const Song song_corridor_run;
 #define MODE_CLEAR      3               // "ROOM CLEARED" banner
 
 #define MODE_OVER       4
+#define MODE_TITLE      5               // title screen: START / HOW TO PLAY
+#define MODE_HOWTO      6               // controls and goal
+#define MODE_LETTER     7               // the opening letter from Dungeon Management
 
 
 // Banners
@@ -171,8 +174,10 @@ extern const Song song_corridor_run;
 #define RC_BOSS_HP      140
 
 #define RC_MINI_EVERY   2               // a mini-boss joins the wave every 2nd round
-
 #define RC_TREASURE_AT  5               // treasure round: round 5, 15, 25 ... ((round+1) % 10 == 5)
+#define RC_WALL_DECOR   1               // 1 = stone blocks and boss patterns on close walls, 0 = flat colour only
+#define RC_WALL_THEMES  1               // 1 = walls, floor and ceiling take on each mini-boss's look
+#define RC_TREASURE_ROUNDS 1            // treasure rounds (a chest in a room) as well as the hallway chests
 #define RC_DRAGON_MINIS 3               // mini-bosses to beat (with all 6 doors bought) before the Dragon wakes
 
 
@@ -269,6 +274,7 @@ enum { SH_GOBLIN, SH_BAT, SH_SKELETON, SH_LICH, SH_BEHOLDER,
        SH_WARN,
        SH_WAVE,
        SH_ALERT,
+       SH_MERCHANT,
        SH_COUNT };
 
 enum { PT_GOBLIN, PT_BAT, PT_HOBGOB, PT_SKELETON, PT_BEHOLDER, PT_LICH,
@@ -318,6 +324,7 @@ enum { PT_GOBLIN, PT_BAT, PT_HOBGOB, PT_SKELETON, PT_BEHOLDER, PT_LICH,
        PT_WAVE_STORM,
        PT_WAVE_NOVA,
        PT_ALERT,
+       PT_MERCHANT,
        PT_COUNT };
 
 
@@ -368,7 +375,7 @@ typedef struct
 
 //*****************************************************************************
 // Equipment. Slots 0..4 are staffs, slots 5..12 are magic items.
-// RED cycles through the ones you own; BLUE uses the equipped one.
+// D-pad Down cycles through the ones you own; D-pad Up uses the equipped one.
 //*****************************************************************************
 #define NUM_STAFF   5
 
@@ -480,7 +487,7 @@ extern const char *const rc_kMaps[RC_NUM_MAPS][RC_MAP_H];
 //*****************************************************************************
 #define SPR_N       16
 
-extern const char *const *const rc_kArt[SH_COUNT];
+extern const uint16_t rc_kArt[SH_COUNT][SPR_N * 4];   // packed 4 bits per pixel (see rc_art.c)
 
 
 typedef struct { char ch; uint32_t rgb; } PalEnt;
@@ -490,6 +497,7 @@ extern const uint32_t rc_kTint[4];
 
 // Wall tiles: 0 unused, 1 stone, 2 pillar, 3 brick, 4 door (closed), 5 portal (open),
 // 6 = the portal's second pulse colour (only used for drawing, never in the map)
+#define TILE_WALL_STONE 1               // plain wall tile: gets the stone-block texture and boss themes
 #define TILE_DOOR       4
 
 #define TILE_PORTAL     5
@@ -544,6 +552,7 @@ extern const PalEnt *const rc_kWpnPal[NUM_SLOT];
 #define PAL_N 8                                 // sprite palette letters a..h
 extern int16_t  rc_qsin[257];
 extern uint16_t rc_qinv[257];
+extern float    rc_qinvF[257];       // 1/|sin|, exact (the ray caster uses floating point)
 extern int16_t  rc_colOff[RC_COLS];
 extern int16_t  rc_colCos[RC_COLS];
 extern int16_t  rc_atan[257];
@@ -576,6 +585,16 @@ static __inline uint16_t QInv(uint16_t b)
 
     if(b & 256u) i = (uint16_t)(256u - i);
     return rc_qinv[i];
+}
+
+
+// 1/|sin(b)| as a float (rc_qinvF is the first quadrant, mirrored like the sine table)
+static __inline float QInvF(uint16_t b)
+{
+    uint16_t i = b & 255u;
+
+    if(b & 256u) i = (uint16_t)(256u - i);
+    return rc_qinvF[i];
 }
 
 
@@ -653,7 +672,10 @@ enum { OB_FLASK, OB_BOLT, OB_CLOUD, OB_SPARK, OB_MANA,
        OB_WARN,             // red floor ring; turns into an OB_AREA (aux = AR_*, vx = area life) when it ends
        OB_AREA,             // floor hazard that hurts / slows while the player stands in it
        OB_WAVE,             // expanding shockwave ring (r grows by vx per frame up to vy)
-       OB_CHEST };          // treasure chest (walk into it)
+       OB_CHEST,            // chest (walk into it); Obj.aux = CH_*
+       OB_MERCHANT };       // the merchant (press the stick button next to him)
+
+enum { CH_REGULAR, CH_CURSED, CH_POISON };
 
 // OB_BOLT flavours (Obj.aux)
 enum { BK_LASER, BK_FLAME, BK_ORB, BK_DRAIN, BK_WEB, BK_ICE, BK_FIRE, BK_SPARK, BK_COUNT };
@@ -785,6 +807,12 @@ static __inline int16_t Dist10(int16_t dx, int16_t dy)
     }
 }
 int16_t rc_StickEdge(int16_t v, int16_t *state);
+
+// title screen, how-to-play, opening letter (rc_cards.c)
+void rc_EnterTitle(void);
+bool rc_UpdateTitle(uint16_t ticks);        // true when the letter is dismissed: start the run
+void rc_DrawTitleFull(void);
+void rc_TitleRender(void);
 int16_t rc_Itoa(char *p, uint16_t v);
 int16_t rc_Cat(char *dst, int16_t n, const char *s, int16_t maxLen);
 void rc_DrawTextEx(const char *s, int16_t x, int16_t y, uint32_t fg,
@@ -823,6 +851,8 @@ static __inline bool Blocked(int16_t x, int16_t y, int16_t r)
 }
 void rc_LoadMap(void);
 uint16_t rc_RC_CastRay(int16_t angle, uint16_t *tile, uint16_t *side);
+extern int16_t rc_rayCx;                 // map cell the LAST ray hit (set by rc_RC_CastRay)
+extern int16_t rc_rayCy;
 
 
 //*****************************************************************************
@@ -872,6 +902,44 @@ extern uint16_t rc_miniPending;
 extern uint16_t rc_lastMini;
 extern uint16_t rc_dragonKills;
 extern uint16_t rc_chestTimer;           // treasure round: frames before the chest goes away
+
+//*****************************************************************************
+// Wall themes (basement dungeon by default, one per mini-boss, one for the Den)
+//*****************************************************************************
+enum { TH_BASEMENT, TH_SLIME, TH_GOLEM, TH_VAMPIRE, TH_EYE, TH_LICH, TH_DRAGON, TH_COUNT };
+
+typedef struct { uint32_t base, mortar, accent, floor, ceil; } Theme;
+extern const Theme rc_kTheme[TH_COUNT];
+extern uint32_t    rc_themeCol[2][4][2];      // [0 mortar / 1 accent][shade][side]
+extern const uint32_t rc_kBannerRgb[TH_COUNT]; // pillar banner cloth colour per theme
+extern uint32_t    rc_bannerCol[4];           // that colour at shade 0..1, both sides (set by rc_ApplyTheme)
+extern uint32_t    rc_colFloor, rc_colCeil;
+extern uint16_t    rc_theme;
+void rc_ApplyTheme(uint16_t t);
+uint16_t rc_ThemeOfMini(uint16_t type);
+
+//*****************************************************************************
+// The Dragon Den: opens by itself, shuts behind you, reopens when the Dragon is dead
+//*****************************************************************************
+enum { DEN_SEALED, DEN_OPEN, DEN_FIGHT, DEN_LEAVING };
+#define RC_DEN_X0   10                  // tiles inside the chamber (the gate row is outside)
+#define RC_DEN_X1   21
+#define RC_DEN_Y0   11
+#define RC_DEN_Y1   21
+extern uint16_t rc_denState;
+
+//*****************************************************************************
+// Hallway events (buying door 3 or 6), curses, merchant
+//*****************************************************************************
+extern int16_t  rc_evX[2];              // [0] left hallway (door 6), [1] right hallway (door 3)
+extern int16_t  rc_evY[2];
+void rc_HallwayEvent(uint16_t door);
+
+enum { CU_FRAGILE = 1, CU_GREED = 2, CU_BOOTS = 4, CU_GLASS = 8, CU_ALL = 15 };
+extern uint16_t rc_curses;              // bit mask of CU_* the player carries
+extern uint16_t rc_merchNear;           // 1 while standing next to the merchant
+extern uint16_t rc_shopMode;            // card screen is the merchant's shop
+void rc_EnterShop(void);
 extern const int16_t rc_kNbDx[4];
 extern const int16_t rc_kNbDy[4];
 void rc_EnsureFlow(void);
@@ -920,11 +988,21 @@ void rc_DrawManaBar(void);
 
 #define ID_WPN      200u                // + palette letter
 
+#define ID_THEME0   226u                // 226..241: mortar (8) and accent (8) colours of the wall theme
+
 #define ID_UNKNOWN  255u                // "something else is on the LCD here"
 
 #define ID_TEX_WOOD0 58u                // 58..60: wooden-door plank / grain colours
 
 #define ID_TEX_MET0  61u                // 61..63: Dragon Den steel-door colours
+
+#define ID_BANNER0   184u               // 184..187 gold trim, 188..191 pillar-banner cloth (shade 0..1 x 2 sides)
+
+#define ID_DOOR_FRAME 196u              // very dark wood: door frame, seams, arch rim
+
+#define ID_EMBER     242u               // glowing orange (Dragon Den door eye, torch flame)
+
+#define ID_FLAME     243u               // hot yellow core
 
 #define ID_WALL(tile, shade, side)  (2u + (tile) * 8u + (shade) * 2u + (side))
 

@@ -8,6 +8,8 @@
 int16_t  rc_qsin[257];
                     // sin, Q14
 uint16_t rc_qinv[257];
+float    rc_qinvF[257];
+
                     // 256/sin (Q8, clamped): ray step length
 int16_t  rc_colOff[RC_COLS];
               // ray angle offset per column
@@ -126,6 +128,17 @@ uint16_t rc_lastMini = 0xFFFFu;
 uint16_t rc_dragonKills;
 uint16_t rc_chestTimer;
 
+uint32_t rc_themeCol[2][4][2];
+uint32_t rc_colFloor;
+uint32_t rc_colCeil;
+uint16_t rc_theme;
+uint16_t rc_denState;
+int16_t  rc_evX[2];
+int16_t  rc_evY[2];
+uint16_t rc_curses;
+uint16_t rc_merchNear;
+uint16_t rc_shopMode;
+
 uint16_t rc_alive;
 uint16_t rc_toSpawn;
 uint16_t rc_spawnTimer;
@@ -201,6 +214,9 @@ uint16_t rc_sn[RC_STRIPS];
 uint16_t g_rcOverflow;
                           // diagnostics: paints dropped (should stay ~0)
 uint16_t g_rcTrunc;
+uint32_t rc_bannerCol[4];
+int16_t  rc_rayCx;
+int16_t  rc_rayCy;
 
 Card     rc_card[3];
 

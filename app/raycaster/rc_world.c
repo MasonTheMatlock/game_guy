@@ -45,6 +45,53 @@ static void SetPal(uint16_t type, const PalEnt *list)
 }
 
 
+// Switch the wall theme: recolours the stone, mortar and accent colours and the floor and ceiling.
+void rc_ApplyTheme(uint16_t t)
+{
+#if !RC_WALL_THEMES
+    if(t != TH_BASEMENT) t = TH_BASEMENT;               // boss themes switched off
+#endif
+    const Theme *th = &rc_kTheme[t];
+    uint16_t     sh;
+
+    rc_theme = t;
+    for(sh = 0; sh < 4; sh++)
+    {
+        rc_wallCol[1][sh][0] = ScaleRgb(th->base, rc_kShadeMul[sh]);
+        rc_wallCol[1][sh][1] = ScaleRgb(rc_wallCol[1][sh][0], 200);
+        rc_wallCol[2][sh][0] = ScaleRgb(th->base, (uint16_t)((rc_kShadeMul[sh] * 5u) >> 2));     // pillars: lighter stone
+        rc_wallCol[2][sh][1] = ScaleRgb(rc_wallCol[2][sh][0], 200);
+        rc_themeCol[0][sh][0] = ScaleRgb(th->mortar, rc_kShadeMul[sh]);
+        rc_themeCol[0][sh][1] = ScaleRgb(rc_themeCol[0][sh][0], 200);
+        rc_themeCol[1][sh][0] = ScaleRgb(th->accent, rc_kShadeMul[sh]);
+        rc_themeCol[1][sh][1] = ScaleRgb(rc_themeCol[1][sh][0], 200);
+        if(sh < 2u)                                     // pillar banner cloth (only drawn up close)
+        {
+            rc_bannerCol[sh * 2u]      = ScaleRgb(rc_kBannerRgb[t], rc_kShadeMul[sh]);
+            rc_bannerCol[sh * 2u + 1u] = ScaleRgb(rc_bannerCol[sh * 2u], 200);
+        }
+    }
+    rc_colFloor = th->floor;
+    rc_colCeil  = th->ceil;
+    rc_invalidate = true;                       // everything on screen has a new colour
+    rc_viewDirty  = 2;
+}
+
+
+uint16_t rc_ThemeOfMini(uint16_t type)
+{
+    switch(type)
+    {
+        case ET_SLIMEKING: return TH_SLIME;
+        case ET_GOLEM:     return TH_GOLEM;
+        case ET_VAMPIRE:   return TH_VAMPIRE;
+        case ET_EYEKING:   return TH_EYE;
+        case ET_LICH:      return TH_LICH;
+        default:           return TH_BASEMENT;
+    }
+}
+
+
 void rc_BuildTables(void)
 {
     uint16_t i, c, sh;
@@ -59,7 +106,8 @@ void rc_BuildTables(void)
         rc_qsin[i] = (int16_t)(s * 16384.0f + 0.5f);
 
         f = (fabsf(s) < 0.0001f) ? 65535.0f : 256.0f / fabsf(s);
-        rc_qinv[i] = (f > 65535.0f) ? 65535u : (uint16_t)f;
+        rc_qinv[i]  = (f > 65535.0f) ? 65535u : (uint16_t)f;
+        rc_qinvF[i] = (fabsf(s) < 0.00005f) ? 20000.0f : (1.0f / fabsf(s));
     }
 
     for(c = 0; c < RC_COLS; c++)
@@ -83,6 +131,7 @@ void rc_BuildTables(void)
 
     s_nCol = 0;
     for(i = 0; i < PT_COUNT; i++) SetPal(i, rc_kPal[i]);
+    rc_ApplyTheme(TH_BASEMENT);
 
     rc_tablesReady = true;
 }
@@ -95,6 +144,8 @@ void rc_LoadMap(void)
     uint16_t cnt[RC_NUM_DOORS + 1];
 
     rc_spCount = 0;
+    rc_evX[0] = rc_evX[1] = 0;
+    rc_evY[0] = rc_evY[1] = 0;
     for(k = 0; k <= RC_NUM_DOORS; k++) { sx[k] = 0; sy[k] = 0; cnt[k] = 0; }
 
     for(y = 0; y < RC_MAP_H; y++)
@@ -113,6 +164,12 @@ void rc_LoadMap(void)
                     rc_spSec[rc_spCount] = (uint16_t)(ch - 'a');
                     rc_spCount++;
                 }
+            }
+            else if(ch == '*')                         // hallway alcove: merchant / chest spot
+            {
+                k = (x < RC_MAP_W / 2u) ? 0u : 1u;
+                rc_evX[k] = (int16_t)((x << 10) + 512);
+                rc_evY[k] = (int16_t)((y << 10) + 512);
             }
             else if(ch == '7')                         // special metal Dragon Den door
             {
@@ -164,21 +221,23 @@ uint16_t rc_RC_CastRay(int16_t angle, uint16_t *tile, uint16_t *side)
     uint16_t a     = (uint16_t)angle & RC_ANGLE_MASK;
     int16_t  c     = COS(a);
     int16_t  s     = SIN(a);
-    uint16_t dX    = QInv((uint16_t)(a + 256u));
-    uint16_t dY    = QInv(a);
+    float    dX    = QInvF((uint16_t)(a + 256u));      // ray length per tile of x travel
+    float    dY    = QInvF(a);                          // ray length per tile of y travel
     int16_t  mx    = (int16_t)(rc_px >> 10);
     int16_t  my    = (int16_t)(rc_py >> 10);
-    uint16_t fx    = (uint16_t)(rc_px >> 2) & 255u;         // fraction inside tile, Q8
-    uint16_t fy    = (uint16_t)(rc_py >> 2) & 255u;
+    float    fx    = (float)((uint16_t)rc_px & 1023u) * (1.0f / 1024.0f);   // position inside the tile
+    float    fy    = (float)((uint16_t)rc_py & 1023u) * (1.0f / 1024.0f);
     int16_t  stepX, stepY;
-    uint32_t sideX, sideY, dist = 0;
+    float    sideX, sideY, dist = 0.0f;
     uint16_t hit = 1, sd = 0, i;
 
-    if(c < 0) { stepX = -1; sideX = ((uint32_t)fx * dX) >> 8; }
-    else      { stepX =  1; sideX = ((uint32_t)(256u - fx) * dX) >> 8; }
+    // Floating point on purpose: the old 8-bit fixed-point version picked the wrong wall
+    // face for about 1 ray in 600 right at corners, which showed as thin flickering lines.
+    if(c < 0) { stepX = -1; sideX = fx * dX; }
+    else      { stepX =  1; sideX = (1.0f - fx) * dX; }
 
-    if(s < 0) { stepY = -1; sideY = ((uint32_t)fy * dY) >> 8; }
-    else      { stepY =  1; sideY = ((uint32_t)(256u - fy) * dY) >> 8; }
+    if(s < 0) { stepY = -1; sideY = fy * dY; }
+    else      { stepY =  1; sideY = (1.0f - fy) * dY; }
 
     for(i = 0; i < RC_MAX_STEPS; i++)
     {
@@ -191,7 +250,10 @@ uint16_t rc_RC_CastRay(int16_t angle, uint16_t *tile, uint16_t *side)
         if(hit) break;
     }
 
+    rc_rayCx = mx;                              // the renderer wants to know which cell this was
+    rc_rayCy = my;
     *tile = (hit == 0 || hit >= TILE_KINDS) ? 1u : hit;
     *side = sd;
-    return (dist > 65535UL) ? 65535u : (uint16_t)dist;
+    dist *= 256.0f;                             // tiles -> Q8
+    return (dist > 65535.0f) ? 65535u : (uint16_t)dist;
 }

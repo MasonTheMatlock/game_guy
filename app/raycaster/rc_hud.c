@@ -48,7 +48,7 @@ static void DrawHint(void)
         n += rc_Itoa(buf + n, cost);
         rc_Cat(buf, n, "G", 1);
         rc_DrawText(buf, 105, 229, (rc_gold >= cost) ? C_GREEN : C_BAD);
-        Ui_DrawIcon(UI_ICON_SELECT, 190, 229, 8);                      // press BLUE to buy
+        Ui_DrawIcon(UI_ICON_STICK_CLICK, 190, 229, 8);                 // click the stick to buy
         rc_DrawText("Buy", 225, 229, (rc_gold >= cost) ? C_GREEN : C_BAD);
     }
     else if(rc_aegis) rc_DrawText("SHIELD UP!", SCREEN_W / 2, 229, COLOR_SKY_BLUE);
@@ -57,13 +57,13 @@ static void DrawHint(void)
     else if(rc_pSlow)   rc_DrawText("SLOWED!", SCREEN_W / 2, 229, COLOR_SKY_BLUE);
     else
     {
-        static const UiHint k[] =
+        static const UiHint k[] =                       // the original buttons
         {
-            { UI_ICON_MOVE,   "Move" },
-            { UI_ICON_SELECT, "Use"  },
-            { UI_ICON_BACK,   "Swap" },
-            { UI_ICON_ACT2,   ""     },
-            { UI_ICON_ACT3,   "Turn" }
+            { UI_ICON_STICK, "Move" },
+            { UI_ICON_U,     "Use"  },
+            { UI_ICON_D,     "Swap" },
+            { UI_ICON_L,     ""     },
+            { UI_ICON_R,     "Turn" }
         };
         Ui_DrawHints(k, UI_ARRAY_LEN(k), 229, C_BLACK);
     }
