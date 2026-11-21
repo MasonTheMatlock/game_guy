@@ -1,20 +1,51 @@
-# --- CCS / Eclipse build output ---
-Debug/
-Release/
-*.obj
-*.out
-*.map
-*.txt
-*.xml
-*.json
-*.d
-*.pp
+# =====================================================================
+#  Game Guy - .gitignore (allowlist style)
+#
+#  Everything is ignored by default. Only the files someone needs to
+#  import this project into CCS, build it, and flash a LaunchXL-F28069M
+#  are allowed back in below. Anything else (AI tooling, notes, build
+#  output, backups) stays local automatically.
+# =====================================================================
 
-# --- IDE Project Configuration & Cache (Keep .ccsproject, .cproject, .project) ---
-=======
-*.pp
-*.d
-*_linkInfo.xml
-.clangd
+# 1) Ignore everything...
+*
 
-grlib/fonts/
+# ...but still descend into folders so the rules below can match files.
+!*/
+
+# 2) CCS project files (needed for File > Import)
+!/.project
+!/.cproject
+!/.ccsproject
+!/.settings/
+!/.settings/*.prefs
+!/.theia/
+!/.theia/launch.json
+
+# 3) Source code
+!*.c
+!*.h
+!*.asm
+
+# 4) Linker command files, target config, GEL script (needed to flash/debug)
+!*.cmd
+!*.ccxml
+!*.gel
+!/targetConfigs/readme.txt
+
+# 5) This file
+!/.gitignore
+
+# ---------------------------------------------------------------------
+#  Re-ignore folders that contain allowed extensions but aren't needed
+# ---------------------------------------------------------------------
+
+# Build output (CCS regenerates these)
+/Debug/
+/Release/
+
+# Fonts excluded from the build in .cproject
+/grlib/fonts/
+
+# AI / Claude Code tooling - never tracked
+/.claude/
