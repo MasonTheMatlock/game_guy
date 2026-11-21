@@ -177,6 +177,11 @@ extern const Song song_corridor_run;
 #define RC_TREASURE_AT  5               // treasure round: round 5, 15, 25 ... ((round+1) % 10 == 5)
 #define RC_WALL_DECOR   1               // 1 = stone blocks and boss patterns on close walls, 0 = flat colour only
 #define RC_WALL_THEMES  1               // 1 = walls, floor and ceiling take on each mini-boss's look
+#define RC_WALL_ART     1               // 1 = banners / torches on pillars, arched iron-bound doors, Dragon Den eye door
+#define RC_ART_MAX_SHADE 1              // how far the art shows: 0 = within 2 tiles (cheapest), 1 = within 4 tiles
+#if RC_ART_MAX_SHADE > 1
+#error RC_ART_MAX_SHADE must be 0 or 1 (the banner colours only exist for the two nearest shades)
+#endif
 #define RC_TREASURE_ROUNDS 1            // treasure rounds (a chest in a room) as well as the hallway chests
 #define RC_DRAGON_MINIS 3               // mini-bosses to beat (with all 6 doors bought) before the Dragon wakes
 

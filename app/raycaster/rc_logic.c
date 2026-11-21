@@ -110,6 +110,23 @@ void rc_HurtPlayer(void)
 }
 
 
+// The wall theme follows whichever boss is alive: the Dragon first, then a mini-boss, otherwise
+// the plain dungeon. It is worked out from who is alive, so it cannot get stuck on a boss look.
+// Call it whenever a boss appears or dies. It only recolours when the theme actually changes.
+static void RefreshTheme(void)
+{
+    uint16_t i, t = TH_BASEMENT;
+
+    for(i = 0; i < RC_MAX_ENEMIES; i++)
+    {
+        if(!rc_en[i].alive) continue;
+        if(rc_en[i].type == ET_DRAGON) { t = TH_DRAGON; break; }
+        if(RC_IS_MINI(rc_en[i].type))  t = rc_ThemeOfMini(rc_en[i].type);
+    }
+    if(t != rc_theme) rc_ApplyTheme(t);
+}
+
+
 static void KillEnemy(Enemy *e)
 {
     const EnemyDef *d = &rc_kEnemy[e->type];
@@ -176,12 +193,15 @@ static void KillEnemy(Enemy *e)
     if(e->type == ET_DRAGON)
     {
         rc_bossAlive = 0;
+        rc_miniAlive = 0;                       // a mini-boss that was still alive dies with it too
         rc_miniKills = 0;                       // three more mini-bosses wake it again
         rc_dragonKills++;
         for(i = 0; i < RC_MAX_ENEMIES; i++)     // minions die with their master
             rc_en[i].alive = 0;
         rc_alive = 0;
     }
+
+    if(mini || e->type == ET_DRAGON) RefreshTheme();    // the boss is gone: walls change back
 }
 
 
@@ -966,6 +986,7 @@ void rc_TrySpawn(void)
         if(rc_SpawnEnemy(PickMini(), x, y) != NULL)
         {
             rc_miniAlive++;
+            RefreshTheme();                         // the walls take on the boss's look
             rc_Sfx(&sfx_level_up);
         }
         rc_miniPending = 0;
@@ -978,6 +999,7 @@ void rc_TrySpawn(void)
     {
         if(!PickMarker(true, &x, &y)) { rc_spawnTimer = 20; return; }
         rc_SpawnEnemy(ET_DRAGON, x, y);
+        RefreshTheme();                             // lava walls
         rc_bossSpawned = 1;
         rc_bossAlive   = 1;
         rc_toSpawn     = 0;

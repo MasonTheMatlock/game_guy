@@ -5,8 +5,23 @@
 
 static uint32_t IdColor(uint16_t id)
 {
-    if(id == ID_CEIL)  return COL_CEIL;
-    if(id == ID_FLOOR) return COL_FLOOR;
+    if(id == ID_CEIL)  return rc_colCeil;
+    if(id == ID_FLOOR) return rc_colFloor;
+    if(id >= ID_THEME0 && id < ID_THEME0 + 16u)
+    {
+        id -= ID_THEME0;
+        return rc_themeCol[id >> 3][(id >> 1) & 3u][id & 1u];
+    }
+    /* Wall art: gold trim, banner cloth, door frame, ember and flame. */
+    if(id >= ID_BANNER0 && id < ID_BANNER0 + 8u)
+    {
+        static const uint32_t gold[4] = { 0x00DDB43Au, 0x00AC8C2Du, 0x00A4852Bu, 0x00806721u };
+        id -= ID_BANNER0;
+        return (id < 4u) ? gold[id] : rc_bannerCol[id - 4u];
+    }
+    if(id == ID_DOOR_FRAME) return 0x002B1A0Fu;
+    if(id == ID_EMBER)      return 0x00E0501Au;
+    if(id == ID_FLAME)      return 0x00FFD060u;
     /* Tiny procedural door textures: no bitmap assets or extra flash use. */
     if(id >= ID_TEX_WOOD0 && id <= 60u)
     {
@@ -314,7 +329,11 @@ static void ProjectSprites(void)
                 break;
 
             case OB_CHEST:
-                ProjectOne(o->x, o->y, SH_CHEST, PT_CHEST, 12, 0, 0);
+                ProjectOne(o->x, o->y, SH_CHEST, (o->aux == CH_CURSED) ? PT_CHEST_CURSED : PT_CHEST, 12, 0, 0);
+                break;
+
+            case OB_MERCHANT:
+                ProjectOne(o->x, o->y, SH_MERCHANT, PT_MERCHANT, 15, 0, 0);
                 break;
 
             default:                                    // cloud / spark
@@ -331,25 +350,26 @@ static void ProjectSprites(void)
 // The 16 art rows are scanned here, so a column may hold any number of colour runs.
 static void PaintSlice(uint16_t *nl, uint16_t *nn, const Spr *sp, int16_t xc)
 {
-    const char *const *art = rc_kArt[sp->shape];
-    uint16_t u, y, y1, id;
+    const uint16_t *art = rc_kArt[sp->shape];
+    uint16_t u, y, y1, id, px, sh, wi;
     int16_t  xs = (int16_t)(xc - sp->x0);
-    char     ch;
 
     if(xs < 0) xs = 0;
     u = (uint16_t)(((int32_t)xs * sp->uStep) >> 8);
     if(u > SPR_N - 1) u = SPR_N - 1;
+    wi = (uint16_t)(u >> 2);                            // which word of a row holds this column
+    sh = (uint16_t)((u & 3u) << 2);                     // and which nibble of it
 
     y = 0;
     while(y < SPR_N)
     {
         int16_t py0, py1;
 
-        ch = art[y][u];
-        if(ch == '.') { y++; continue; }
+        px = (uint16_t)((art[(y << 2) + wi] >> sh) & 15u);
+        if(px == 0) { y++; continue; }
 
         y1 = y;
-        while(y1 + 1 < SPR_N && art[y1 + 1][u] == ch) y1++;
+        while(y1 + 1 < SPR_N && (uint16_t)((art[((y1 + 1) << 2) + wi] >> sh) & 15u) == px) y1++;
 
         py0 = (int16_t)(sp->top + (int16_t)(((int32_t)y * sp->size) >> 4));
         py1 = (int16_t)(sp->top + (int16_t)(((int32_t)(y1 + 1) * sp->size) >> 4) - 1);
@@ -358,7 +378,7 @@ static void PaintSlice(uint16_t *nl, uint16_t *nn, const Spr *sp, int16_t xc)
         if(py1 >= py0)
         {
             id = sp->flash ? (uint16_t)(ID_TINT + sp->flash)
-                           : rc_palId[sp->type][(uint16_t)(ch - 'a') & 7u];
+                           : rc_palId[sp->type][px - 1u];
             ListPaint(nl, nn, RC_MAXN, py0, py1, id);
         }
         y = y1 + 1;
@@ -499,9 +519,308 @@ static void DrawFx(void)
 }
 
 
+// Where a ray hit the wall: u = distance along the wall face, v = the wall's own tile row / column.
+static void WallUV(int16_t ang, uint16_t dist, uint16_t side, uint16_t *u, uint16_t *v)
+{
+    int16_t hx = (int16_t)(rc_px + (int16_t)(((int32_t)COS(ang) * (int32_t)dist) >> 12));
+    int16_t hy = (int16_t)(rc_py + (int16_t)(((int32_t)SIN(ang) * (int32_t)dist) >> 12));
+
+    if(side == 0) { *u = (uint16_t)hy & 0x7FFFu; *v = (uint16_t)(hx >> 10) & 31u; }
+    else          { *u = (uint16_t)hx & 0x7FFFu; *v = (uint16_t)(hy >> 10) & 31u; }
+}
+
+
+// Paint stone blocks (running bond) plus the current boss theme's pattern over a plain wall strip.
+// Only close walls get the pattern; far walls stay flat so they don't shimmer.
+static void WallDecor(uint16_t *nl, uint16_t *nn, int16_t top, uint16_t lineH,
+                      uint16_t u, uint16_t v, uint16_t shade, uint16_t side)
+{
+    uint16_t mortar = (uint16_t)(ID_THEME0 + shade * 2u + side);
+    uint16_t accent = (uint16_t)(ID_THEME0 + 8u + shade * 2u + side);
+    uint16_t blk0   = (uint16_t)((u >> 9) * 5u + v * 13u + side * 3u);
+    uint16_t blk1   = (uint16_t)(((u + 256u) >> 9) * 7u + v * 11u + side * 5u);
+    int16_t  mid    = (int16_t)(top + (int16_t)(lineH >> 1));
+    int16_t  bot    = (int16_t)(top + (int16_t)lineH - 1);
+    int16_t  seam   = (lineH >= 60u) ? 1 : 0;           // seam is 1 or 2 rows thick
+    int16_t  y0, y1;
+    uint16_t pu = (uint16_t)(u & 63u), q = (uint16_t)((u >> 6) + v * 3u);
+
+#if !RC_WALL_DECOR
+    (void)nl; (void)nn; (void)top; (void)lineH; (void)u; (void)v; (void)shade; (void)side;
+    return;
+#endif
+    if(shade > 1u || lineH < 40u) return;               // far away: plain colour (thin lines would only shimmer)
+
+    // moss / stained blocks, then the vertical seams, then the horizontal seam
+    if((blk0 % 9u) == 0u) ListPaint(nl, nn, RC_MAXN, top, (int16_t)(mid - seam - 1), accent);
+    if((blk1 % 9u) == 4u) ListPaint(nl, nn, RC_MAXN, (int16_t)(mid + 1), bot, accent);
+    if((u & 511u) < 52u)                 ListPaint(nl, nn, RC_MAXN, top, (int16_t)(mid - seam - 1), mortar);
+    if(((u + 256u) & 511u) < 52u)        ListPaint(nl, nn, RC_MAXN, (int16_t)(mid + 1), bot, mortar);
+    ListPaint(nl, nn, RC_MAXN, (int16_t)(mid - seam), (int16_t)(mid + seam), mortar);
+
+    switch(rc_theme)
+    {
+        case TH_SLIME:                                  // slime drips from the top
+            if((q & 3u) == 0u && pu < 20u)
+            {
+                y1 = (int16_t)(top + (int16_t)(((uint32_t)lineH * (22u + (q * 7u) % 40u)) / 100u));
+                ListPaint(nl, nn, RC_MAXN, top, y1, accent);
+            }
+            break;
+
+        case TH_GOLEM:                                  // glowing cracks
+        case TH_DRAGON:                                 // lava veins
+            if(((q % ((rc_theme == TH_DRAGON) ? 3u : 5u)) == 0u) && pu < 9u)
+            {
+                y0 = (int16_t)(top + (int16_t)(((uint32_t)lineH * ((pu < 4u) ? 12u : 24u)) / 100u));
+                y1 = (int16_t)(top + (int16_t)(((uint32_t)lineH * ((pu < 4u) ? 80u : 68u)) / 100u));
+                ListPaint(nl, nn, RC_MAXN, y0, y1, accent);
+            }
+            break;
+
+        case TH_VAMPIRE:                                // blood veins
+            if(((q % 6u) == 1u) && pu < 7u)
+                ListPaint(nl, nn, RC_MAXN, top, bot, accent);
+            break;
+
+        case TH_EYE:                                    // watching eyes
+            if((blk0 % 4u) == 1u && (u & 511u) > 190u && (u & 511u) < 322u)
+            {
+                y0 = (int16_t)(top + (int16_t)(((uint32_t)lineH * 22u) / 100u));
+                y1 = (int16_t)(top + (int16_t)(((uint32_t)lineH * 38u) / 100u));
+                ListPaint(nl, nn, RC_MAXN, y0, y1, accent);
+            }
+            break;
+
+        case TH_LICH:                                   // bone bands
+            y0 = (int16_t)(top + (int16_t)(((uint32_t)lineH * 12u) / 100u));
+            ListPaint(nl, nn, RC_MAXN, y0, (int16_t)(y0 + 1 + seam), accent);
+            y0 = (int16_t)(top + (int16_t)(((uint32_t)lineH * 82u) / 100u));
+            ListPaint(nl, nn, RC_MAXN, y0, (int16_t)(y0 + 1 + seam), accent);
+            break;
+
+        default:
+            break;
+    }
+}
+
+
+// ==== WALL ART BEGIN =========================================================
+// Pillars get a hanging banner (three emblems) or a wall torch, chosen by the pillar's map cell so
+// all four faces of one pillar match. Doors are arched, bound with iron bands and studs; the
+// Dragon Den door has a glowing dragon eye. Everything is a few ListPaint calls per strip, drawn
+// only on close walls (far walls stay flat so thin detail would not shimmer). All art is
+// left/right symmetric, so it looks right from either side.
+//
+// Speed notes (C28x has no fast divide): every percentage is turned into a row with one multiply
+// and a shift, and every proportional size uses a 16-bit reciprocal (MULQ16). All intermediate
+// values fit in 16 bits except where a uint32_t is spelled out, because int is 16 bits here.
+#if RC_WALL_ART
+#define FR(pct)       ((int16_t)(top + (int16_t)(((uint32_t)(uint16_t)(lineH * (uint16_t)(pct)) * 5243UL) >> 19)))
+#define MULQ16(a, m)  ((uint16_t)(((uint32_t)(a) * (m)) >> 16))
+#define LPT(y0, y1, id)  ListPaint(nl, nn, RC_MAXN, (y0), (y1), (id))
+#define ID_STEEL_DK   ((uint16_t)(ID_TEX_MET0 + 2u))
+#define ID_STEEL_LT   ((uint16_t)(ID_TEX_MET0 + 1u))
+#define ID_BRASS      ((uint16_t)ID_BANNER0)
+#endif
+
+
+// Where along its door the ray hit, and how wide the door is. A door is a run of identical map
+// characters along the face the ray hit (a 1-tile hallway door gives 1024, a 3-tile door 3072).
+// Cheap: at most a few map reads, and only for door strips.
+static void DoorSpan(uint16_t side, uint16_t u, uint16_t *loc, uint16_t *span)
+{
+    int16_t  cx = rc_rayCx, cy = rc_rayCy, p;
+    uint16_t k = 0, a = 0;
+    char     ch;
+
+    *loc  = (uint16_t)(u & 1023u);
+    *span = 1024u;
+    if((uint16_t)cx >= RC_MAP_W || (uint16_t)cy >= RC_MAP_H) return;
+    ch = rc_kMaps[0][cy][cx];
+
+    if(side == 1u)                                          // a y-face: the door runs along x
+    {
+        for(p = (int16_t)(cx - 1); p >= 0 && rc_kMaps[0][cy][p] == ch; p--) k++;
+        for(p = (int16_t)(cx + 1); p < RC_MAP_W && rc_kMaps[0][cy][p] == ch; p++) a++;
+    }
+    else                                                    // an x-face: the door runs along y
+    {
+        for(p = (int16_t)(cy - 1); p >= 0 && rc_kMaps[0][p][cx] == ch; p--) k++;
+        for(p = (int16_t)(cy + 1); p < RC_MAP_H && rc_kMaps[0][p][cx] == ch; p++) a++;
+    }
+    *loc  = (uint16_t)(k * 1024u + (u & 1023u));
+    *span = (uint16_t)((k + 1u + a) * 1024u);
+}
+
+
+#if RC_WALL_ART
+static void PillarArt(uint16_t *nl, uint16_t *nn, int16_t top, uint16_t lineH,
+                      uint16_t u, uint16_t shade, uint16_t side)
+{
+    uint16_t uu     = (uint16_t)(u & 1023u);
+    uint16_t dx     = (uu >= 512u) ? (uint16_t)(uu - 512u) : (uint16_t)(512u - uu);
+    uint16_t gold   = (uint16_t)(ID_BANNER0 + shade * 2u + side);
+    uint16_t cloth  = (uint16_t)(ID_BANNER0 + 4u + shade * 2u + side);
+    uint16_t ink    = (uint16_t)(ID_THEME0 + 8u + shade * 2u + side);       // theme accent
+    uint16_t design = (uint16_t)(((uint16_t)rc_rayCx * 3u + (uint16_t)rc_rayCy * 5u) & 3u);
+    uint16_t bF, hh;
+
+    if(shade > RC_ART_MAX_SHADE || lineH < 40u) return;
+
+    if(design == 3u)                                    // wall torch
+    {
+        if(dx < 20u) LPT(FR(46), FR(70) - 1, ID_STEEL_DK);              // iron post
+        if(dx < 56u) LPT(FR(58), FR(65) - 1, ID_STEEL_DK);              // cup
+        if(dx < 52u)
+        {
+            hh = (uint16_t)((52u - dx) >> 1);                           // 26 * (52 - dx) / 52
+            LPT(FR(48u - hh), FR(58) - 1, ID_EMBER);                    // flame
+        }
+        if(dx < 26u)
+        {
+            hh = MULQ16(26u - dx, 45371u);                              // 18 * (26 - dx) / 26
+            LPT(FR(53u - hh), FR(58) - 1, ID_FLAME);                    // hot core
+        }
+        return;
+    }
+
+    if(dx < 290u) LPT(FR(5), FR(8) - 1, ID_STEEL_DK);                   // hanging rod
+    if(dx >= 260u) return;
+
+    bF = (uint16_t)(62u + MULQ16(260u - dx, 5041u));                    // pointed bottom edge
+    LPT(FR(8), FR(bF) - 1, cloth);
+    if(dx >= 226u)
+        LPT(FR(8), FR(bF) - 1, gold);                                   // side trim
+    else
+    {
+        LPT(FR(8), FR(11) - 1, gold);                                   // top trim
+        LPT(FR(bF - 3u), FR(bF) - 1, gold);                             // trim along the point
+    }
+
+    switch(design)
+    {
+        case 0u:                                                        // sword
+            if(dx < 20u) LPT(FR(20), FR(66) - 1, ink);                  // blade and grip
+            if(dx < 70u) LPT(FR(51), FR(56) - 1, ink);                  // cross guard
+            if(dx < 28u) LPT(FR(66), FR(71) - 1, ink);                  // pommel
+            break;
+
+        case 1u:                                                        // diamond
+            if(dx < 84u)
+            {
+                hh = MULQ16(84u - dx, 14043u);                          // 18 * (84 - dx) / 84
+                LPT(FR(40u - hh), FR(41u + hh) - 1, ink);
+            }
+            break;
+
+        default:                                                        // rune cross
+            if(dx < 22u) LPT(FR(22), FR(60) - 1, ink);
+            if(dx < 70u) LPT(FR(32), FR(39) - 1, ink);
+            break;
+    }
+}
+
+
+// Rounded top: how many percent of the door height the stone frame cuts off at distance dx
+// from the door's centre (0 in the middle, about 24 at the corners of a 3-tile door).
+static uint16_t ArchCut(uint16_t dx)
+{
+    uint32_t t, c;
+
+    if(dx <= 700u) return 0u;
+    t = (uint32_t)(dx - 700u);
+    c = (t * t * 36UL) >> 20;                               // t * t / 29127
+    return (c > 30UL) ? 30u : (uint16_t)c;
+}
+
+
+// Wooden door: stone arch, dark frame, two iron bands with brass studs, brass handle plates and,
+// on a double door, a centre seam. Planks (the base colour) come from the caller.
+static void DoorWood(uint16_t *nl, uint16_t *nn, int16_t top, uint16_t lineH,
+                     uint16_t L, uint16_t span, uint16_t shade, uint16_t side)
+{
+    uint16_t mid    = (uint16_t)(span >> 1);
+    uint16_t dx     = (L >= mid) ? (uint16_t)(L - mid) : (uint16_t)(mid - L);
+    uint16_t cut    = ArchCut(dx), dr, k;
+    bool     dbl    = (span > 1536u);                       // double door, or a single narrow leaf
+    int16_t  bot    = (int16_t)(top + (int16_t)lineH - 1);
+
+    if(cut) LPT(top, FR(cut) - 1, (uint16_t)ID_WALL(1u, shade, side));  // stone beside the arch
+    LPT(FR(cut), FR(cut + 4u) - 1, ID_DOOR_FRAME);                      // arch rim
+
+    if(L < 100u || L > (uint16_t)(span - 100u) || (dbl && dx < 30u))    // side posts, centre seam
+    {
+        LPT(FR(cut + 4u), bot, ID_DOOR_FRAME);
+        return;
+    }
+
+    LPT(FR(22), FR(29) - 1, ID_STEEL_DK);                               // iron bands
+    LPT(FR(72), FR(79) - 1, ID_STEEL_DK);
+    if((L & 255u) >= 96u && (L & 255u) < 160u)                          // brass studs
+    {
+        LPT(FR(24), FR(27) - 1, ID_BRASS);
+        LPT(FR(74), FR(77) - 1, ID_BRASS);
+    }
+
+    for(k = 0; k < (dbl ? 2u : 1u); k++)                                // handle plates
+    {
+        uint16_t c = !dbl ? (uint16_t)(span - 230u)
+                          : (k == 0u) ? (uint16_t)(mid - 190u) : (uint16_t)(mid + 190u);
+
+        dr = (L >= c) ? (uint16_t)(L - c) : (uint16_t)(c - L);
+        if(dr >= 44u) continue;
+        LPT(FR(44), FR(64) - 1, ID_BRASS);                              // brass plate
+        if(dr < 16u) LPT(FR(50), FR(58) - 1, ID_DOOR_FRAME);            // with a dark hole
+    }
+}
+
+
+// Dragon Den door: riveted steel with a glowing dragon eye; the centre seam is its pupil.
+static void DoorSteel(uint16_t *nl, uint16_t *nn, int16_t top, uint16_t lineH,
+                      uint16_t L, uint16_t span, uint16_t shade, uint16_t side)
+{
+    uint16_t mid = (uint16_t)(span >> 1);
+    uint16_t dx  = (L >= mid) ? (uint16_t)(L - mid) : (uint16_t)(mid - L);
+    uint16_t cut = ArchCut(dx), hh;
+    int16_t  bot = (int16_t)(top + (int16_t)lineH - 1);
+
+    if(cut) LPT(top, FR(cut) - 1, (uint16_t)ID_WALL(1u, shade, side));
+    LPT(FR(cut), FR(cut + 4u) - 1, ID_STEEL_DK);
+
+    if(L < 100u || L > (uint16_t)(span - 100u))
+    {
+        LPT(FR(cut + 4u), bot, ID_STEEL_DK);
+        return;
+    }
+
+    LPT(FR(14), FR(21) - 1, ID_STEEL_DK);                               // heavy cross bars
+    LPT(FR(79), FR(86) - 1, ID_STEEL_DK);
+    if((L & 255u) >= 96u && (L & 255u) < 160u)
+        LPT(FR(16), FR(19) - 1, ID_STEEL_LT);                           // rivets
+    if(dx < 14u) LPT(FR(cut + 4u), bot, ID_DOOR_FRAME);                 // centre seam
+
+    if(dx < 300u)                                                       // the eye
+    {
+        hh = MULQ16(300u - dx, 8738u);                                  // 40 * (300 - dx) / 300
+        LPT(FR(50u - hh), FR(51u + hh) - 1, ID_EMBER);
+        if(dx < 110u)
+        {
+            hh = MULQ16(110u - dx, 13107u);                             // 22 * (110 - dx) / 110
+            LPT(FR(50u - hh), FR(51u + hh) - 1, ID_FLAME);
+        }
+        if(dx < 22u) LPT(FR(34), FR(66) - 1, ID_DOOR_FRAME);            // slit pupil
+    }
+}
+#endif
+// ==== WALL ART END ===========================================================
+
+
 void rc_RenderView(void)
 {
     uint16_t c, k, tile, side, dist, perp, lineH, shade, h, nStrips, nn, si, wallId;
+    uint16_t dL = 0, dSpan = 0;
+    bool     isDoor = false;
     int16_t  top, bot, sx, w, ak;
     uint16_t nl[RC_MAXN];
     int16_t  cxp = RC_VIEW_X0 + RC_VIEW_W / 2;
@@ -551,20 +870,23 @@ void rc_RenderView(void)
         shade  = (perp < 512) ? 0 : (perp < 1024) ? 1 : (perp < 1792) ? 2 : 3;
         if(tile == TILE_PORTAL && rc_portalPhase) tile = TILE_PORTAL + 1u;   // pulse
 
-        /* Door faces use inexpensive column-pattern textures instead of flat fills.
-         * The three colours create plank seams/grain on wood and panel seams on steel.
-         * Keep the existing raycast, collision, and strip renderer unchanged. */
-        if(tile == TILE_DOOR)
+        /* Door faces: planks / steel panels plus the art above. The pattern is tied to the position
+         * along the door (not the screen column), so it moves with the door when you turn. Far away
+         * the door is one flat colour, because thin detail would only shimmer. */
+        isDoor = (tile == TILE_DOOR || tile == TILE_METAL_DOOR);
+        if(isDoor)
         {
-            uint16_t pattern = (uint16_t)c & 7u;
-            wallId = (uint16_t)(ID_TEX_WOOD0 + ((pattern == 0u || pattern == 1u) ? 2u :
-                                                 ((pattern == 4u) ? 0u : 1u)));
-        }
-        else if(tile == TILE_METAL_DOOR)
-        {
-            uint16_t pattern = (uint16_t)c & 15u;
-            wallId = (uint16_t)(ID_TEX_MET0 + ((pattern == 0u || pattern == 1u || pattern == 8u) ? 2u :
-                                                 ((pattern == 4u || pattern == 12u) ? 1u : 0u)));
+            uint16_t du, dv;
+
+            WallUV((int16_t)(rc_ang + rc_colOff[c]), dist, side, &du, &dv);
+            (void)dv;
+            DoorSpan(side, du, &dL, &dSpan);
+            if(tile == TILE_DOOR)
+                wallId = (uint16_t)(ID_TEX_WOOD0 + ((shade > 1u) ? 1u :
+                                     ((dL & 127u) < 14u) ? 2u : (((dL >> 7) & 1u) ? 0u : 1u)));
+            else
+                wallId = (uint16_t)(ID_TEX_MET0 + ((shade > 1u) ? 0u :
+                                     ((dL & 255u) < 18u) ? 2u : (((dL & 255u) >= 128u && (dL & 255u) < 146u) ? 1u : 0u)));
         }
         else
             wallId = ID_WALL(tile, shade, side);
@@ -584,6 +906,29 @@ void rc_RenderView(void)
             nl[nn++] = RUN_MAKE(bot, wallId);
             if(bot < RC_VIEW_H - 1)
                 nl[nn++] = RUN_MAKE(RC_VIEW_H - 1, ID_FLOOR);
+
+            if(tile == TILE_WALL_STONE)
+            {
+                uint16_t wu, wv;
+
+                WallUV((int16_t)(rc_ang + rc_colOff[c]), dist, side, &wu, &wv);
+                WallDecor(nl, &nn, top, lineH, wu, wv, shade, side);
+            }
+#if RC_WALL_ART
+            else if(isDoor && shade <= RC_ART_MAX_SHADE && lineH >= 40u)
+            {
+                if(tile == TILE_DOOR) DoorWood(nl, &nn, top, lineH, dL, dSpan, shade, side);
+                else                  DoorSteel(nl, &nn, top, lineH, dL, dSpan, shade, side);
+            }
+            else if(tile == 2u && shade <= RC_ART_MAX_SHADE && lineH >= 40u)   // pillar
+            {
+                uint16_t pu, pv;
+
+                WallUV((int16_t)(rc_ang + rc_colOff[c]), dist, side, &pu, &pv);
+                (void)pv;
+                PillarArt(nl, &nn, top, lineH, pu, shade, side);
+            }
+#endif
 
             // sprites, far to near, hidden behind nearer wall
             for(k = 0; k < rc_nSpr; k++)

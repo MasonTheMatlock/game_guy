@@ -30,6 +30,7 @@ void rc_ResetRun(void)
     rc_miniKills = rc_miniAlive = rc_miniPending = 0;
     rc_lastMini = 0xFFFFu;
     rc_dragonKills = 0;
+    rc_ApplyTheme(TH_BASEMENT);                 // a new run starts in the plain dungeon
     rc_chestTimer = 0;
     rc_lastMap = 0xFFFFu;
     rc_wLoaded = 0xFFFFu;
