@@ -71,12 +71,15 @@
 // no per-row or per-column cursor writes are needed. Primitives that address
 // single pixels (text, images, diagonal lines) need the full-screen window, so
 // SSD2119_EnsureFullWindow() restores it only when a fill has narrowed it. The
-// entry mode (scan direction) is cached and only written when it changes.
+// entry mode and the three window registers are cached and only sent when they
+// change: the renderer fills several runs in the same 5-pixel strip in a row, and
+// those share the same columns, so their horizontal start / end are not resent.
 // Everything here runs from RAM (.TI.ramfunc).
 //
 //*****************************************************************************
 #pragma CODE_SECTION(SSD2119_SetEntry,         ".TI.ramfunc")
 #pragma CODE_SECTION(SSD2119_EnsureFullWindow, ".TI.ramfunc")
+#pragma CODE_SECTION(SSD2119_SetWindow,        ".TI.ramfunc")
 #pragma CODE_SECTION(SSD2119_FillWindow,       ".TI.ramfunc")
 #pragma CODE_SECTION(Kitronix320x240x16_SSD2119_setCursorLtoR,    ".TI.ramfunc")
 #pragma CODE_SECTION(Kitronix320x240x16_SSD2119_setCursorTtoB,    ".TI.ramfunc")
@@ -88,7 +91,20 @@
 #pragma CODE_SECTION(Kitronix320x240x16_SSD2119ColorTranslate,    ".TI.ramfunc")
 
 static uint16_t s_entryMode  = 0xFFFF;  // last value written to the entry mode register
-static uint16_t s_fullWindow = 1;       // 1 = the GRAM window is the whole screen
+// Last values written to the GRAM window registers (Init leaves the full screen).
+#define WIN_V_FULL   ((uint16_t)((LCD_VERTICAL_MAX - 1) << 8))
+#define WIN_HE_FULL  ((uint16_t)(LCD_HORIZONTAL_MAX - 1))
+static uint16_t s_winV  = WIN_V_FULL;   // V_RAM_POS: end << 8 | start
+static uint16_t s_winHs = 0;            // H_RAM_START
+static uint16_t s_winHe = WIN_HE_FULL;  // H_RAM_END
+
+// Set the GRAM window, sending only the registers whose value changed.
+static void SSD2119_SetWindow(uint16_t v, uint16_t hs, uint16_t he)
+{
+    if(v != s_winV)   { s_winV  = v;  HAL_LCD_writeCommand(SSD2119_V_RAM_POS_REG);   HAL_LCD_writeData(v);  }
+    if(hs != s_winHs) { s_winHs = hs; HAL_LCD_writeCommand(SSD2119_H_RAM_START_REG); HAL_LCD_writeData(hs); }
+    if(he != s_winHe) { s_winHe = he; HAL_LCD_writeCommand(SSD2119_H_RAM_END_REG);   HAL_LCD_writeData(he); }
+}
 
 static void SSD2119_SetEntry(uint16_t dir)
 {
@@ -102,14 +118,7 @@ static void SSD2119_SetEntry(uint16_t dir)
 
 static void SSD2119_EnsureFullWindow(void)
 {
-    if(s_fullWindow) return;
-    s_fullWindow = 1;
-    HAL_LCD_writeCommand(SSD2119_V_RAM_POS_REG);
-    HAL_LCD_writeData((uint16_t)(LCD_VERTICAL_MAX - 1) << 8);
-    HAL_LCD_writeCommand(SSD2119_H_RAM_START_REG);
-    HAL_LCD_writeData(0x0000);
-    HAL_LCD_writeCommand(SSD2119_H_RAM_END_REG);
-    HAL_LCD_writeData(LCD_HORIZONTAL_MAX - 1);
+    SSD2119_SetWindow(WIN_V_FULL, 0, WIN_HE_FULL);      // free when it already is
 }
 
 // Fill screen rectangle (x0, y0)-(x1, y1), inclusive, with one colour. The caller selects the LCD.
@@ -122,13 +131,7 @@ static void SSD2119_FillWindow(int16_t x0, int16_t y0, int16_t x1, int16_t y1, u
     if(ax > bx) { t = ax; ax = bx; bx = t; }            // GRAM window corners (any orientation)
     if(ay > by) { t = ay; ay = by; by = t; }
 
-    s_fullWindow = 0;
-    HAL_LCD_writeCommand(SSD2119_V_RAM_POS_REG);
-    HAL_LCD_writeData((uint16_t)((by << 8) | ay));
-    HAL_LCD_writeCommand(SSD2119_H_RAM_START_REG);
-    HAL_LCD_writeData(ax);
-    HAL_LCD_writeCommand(SSD2119_H_RAM_END_REG);
-    HAL_LCD_writeData(bx);
+    SSD2119_SetWindow((uint16_t)((by << 8) | ay), ax, bx);
     SSD2119_SetEntry(HORIZ_DIRECTION);                  // screen left-to-right, then down
     HAL_LCD_writeCommand(SSD2119_X_RAM_ADDR_REG);
     HAL_LCD_writeData(MAPPED_X(x0, y0));
