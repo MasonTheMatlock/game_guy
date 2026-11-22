@@ -28,7 +28,7 @@
 void InitLCDInterfaceSPI(void)
 {
     EALLOW;
-    SysCtrlRegs.LOSPCP.all = 0x0000;       // LSPCLK = SYSCLKOUT/2 = 45 MHz
+    SysCtrlRegs.LOSPCP.all = 0x0000;       // LSPCLK = SYSCLKOUT/1 = 90 MHz
     SpiaRegs.SPIBRR = 0x0003; // Sets SPI clock to 22.5 MHz (assuming LSPCLK is 90 MHz)
 
 
@@ -99,33 +99,86 @@ void HAL_LCD_initLCD(void)
     DELAY_US(1000L);
 }
 
-static inline void HAL_LCD_spiWaitDone(void)
+//*****************************************************************************
+//
+// Streaming SPI. Bytes are queued into the 4-deep TX FIFO without waiting for
+// each one to finish, so the wire runs back to back at the full 22.5 MHz.
+// Every byte sent also clocks one byte into the RX FIFO; s_inFlight counts the
+// bytes sent but not yet echoed back. HAL_LCD_flush() waits until that count is
+// zero, i.e. the last bit has left the shift register. D/C and CS may only
+// change after a flush (the LCD samples D/C on the last bit of each byte).
+// All of it runs from RAM (.TI.ramfunc): no flash wait states per byte.
+//
+//*****************************************************************************
+#pragma CODE_SECTION(HAL_LCD_flush,          ".TI.ramfunc")
+#pragma CODE_SECTION(HAL_LCD_writeCommand,   ".TI.ramfunc")
+#pragma CODE_SECTION(HAL_LCD_writeData,      ".TI.ramfunc")
+#pragma CODE_SECTION(HAL_LCD_writeDataRepeat, ".TI.ramfunc")
+#pragma CODE_SECTION(HAL_LCD_selectLCD,      ".TI.ramfunc")
+#pragma CODE_SECTION(HAL_LCD_deselectLCD,    ".TI.ramfunc")
+
+static Uint16 s_inFlight;               // bytes queued but not yet fully shifted out
+
+// Collect the echo bytes that have arrived (keeps the RX FIFO from overflowing).
+static inline void HAL_LCD_spiReap(void)
 {
-    while(SpiaRegs.SPIFFRX.bit.RXFFST == 0)
+    while(SpiaRegs.SPIFFRX.bit.RXFFST != 0)
     {
-        ;
+        (void)SpiaRegs.SPIRXBUF;
+        s_inFlight--;
     }
 }
 
-static inline void HAL_LCD_spiSendByte(Uint16 byte)
+static inline void HAL_LCD_spiPut(Uint16 byte)
 {
-    // 8-bit characters are left-justified in the 16-bit TX buffer.
-    SpiaRegs.SPITXBUF = (Uint16)(byte << 8);
-    HAL_LCD_spiWaitDone();
-    (void)SpiaRegs.SPIRXBUF;
+    while(SpiaRegs.SPIFFTX.bit.TXFFST >= 4)     // FIFO full: let the wire catch up
+    {
+        HAL_LCD_spiReap();
+    }
+    SpiaRegs.SPITXBUF = (Uint16)(byte << 8);    // 8-bit characters are left-justified
+    s_inFlight++;
+    HAL_LCD_spiReap();
+}
+
+// Wait until every queued byte is out on the wire. The loop limit only guards
+// against a lost echo byte (it cannot normally happen): ~50x a byte time.
+void HAL_LCD_flush(void)
+{
+    Uint16 guard = 0;
+
+    while(s_inFlight != 0 && guard < 2000)
+    {
+        if(SpiaRegs.SPIFFRX.bit.RXFFST != 0) { (void)SpiaRegs.SPIRXBUF; s_inFlight--; guard = 0; }
+        else guard++;
+    }
+    s_inFlight = 0;
 }
 
 void HAL_LCD_writeCommand(Uint16 command)
 {
-    GpioDataRegs.GPACLEAR.bit.GPIO22 = 1;  // D/C low = command
-    HAL_LCD_spiSendByte(command & 0xFF);
-    GpioDataRegs.GPASET.bit.GPIO22 = 1;    // D/C high = data
+    HAL_LCD_flush();                            // earlier data must finish with D/C high
+    GpioDataRegs.GPACLEAR.bit.GPIO22 = 1;       // D/C low = command
+    HAL_LCD_spiPut(command & 0xFF);
+    HAL_LCD_flush();
+    GpioDataRegs.GPASET.bit.GPIO22 = 1;         // D/C high = data
 }
 
 void HAL_LCD_writeData(Uint16 data)
 {
-    HAL_LCD_spiSendByte((Uint16)(data >> 8) & 0xFF);
-    HAL_LCD_spiSendByte((Uint16)data & 0xFF);
+    HAL_LCD_spiPut((data >> 8) & 0xFF);
+    HAL_LCD_spiPut(data & 0xFF);
+}
+
+// The same 16-bit value count times (rectangle fills): the hot loop of the display.
+void HAL_LCD_writeDataRepeat(Uint16 data, Uint32 count)
+{
+    Uint16 hi = (data >> 8) & 0xFF, lo = data & 0xFF;
+
+    while(count--)
+    {
+        HAL_LCD_spiPut(hi);
+        HAL_LCD_spiPut(lo);
+    }
 }
 
 void HAL_LCD_selectLCD(void)
@@ -135,6 +188,7 @@ void HAL_LCD_selectLCD(void)
 
 void HAL_LCD_deselectLCD(void)
 {
+    HAL_LCD_flush();                            // never cut CS while bits are on the wire
     GpioDataRegs.GPBSET.bit.GPIO50 = 1;
 }
 

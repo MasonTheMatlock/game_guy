@@ -94,7 +94,13 @@ extern const Song song_corridor_run;
 
 #define RC_FOOTSTEPS    1
 #define RC_STEP_DIST    560
-#define RC_PX_PER_UNIT  ((RC_COLS * RC_COL_W) / RC_FOV_UNITS)
+// Camera (Wolfenstein-style camera plane): column c looks along dir + plane * x, x evenly spaced
+// from -1 to +1, so the view is a true perspective (straight walls, even column spacing).
+// RC_PLANE = tan(half the field of view): 160 / 1024 turns = 56.25 degrees.
+// RC_FOCAL_PX = screen pixels per unit of (sideways / forward): (RC_VIEW_W / 2) / RC_PLANE.
+// Sprites and beam effects use the same projection, so they stay glued to the walls.
+#define RC_PLANE        0.53451f
+#define RC_FOCAL_PX     281
 
 // Game modes
 #define MODE_INTRO      0               // wave banner, world frozen
@@ -555,11 +561,6 @@ extern const uint32_t *const rc_kWpnPal[WPN_PALS];
 //*****************************************************************************
 #define PAL_N 8
 extern int16_t  rc_qsin[257];
-extern uint16_t rc_qinv[257];
-extern float    rc_qinvF[257];
-extern int16_t  rc_colOff[RC_COLS];
-extern int16_t  rc_colCos[RC_COLS];
-extern int16_t  rc_atan[257];
 extern uint32_t rc_wallCol[TILE_KINDS][4][2];
 #define SPR_COLORS  120
 extern uint32_t rc_sprRgb[SPR_COLORS];
@@ -574,14 +575,6 @@ static __inline int16_t SinLut(uint16_t a)
     if(a & 256u) i = (uint16_t)(256u - i);
     v = rc_qsin[i];
     return (a & 512u) ? (int16_t)-v : v;
-}
-
-static __inline float QInvF(uint16_t b)
-{
-    uint16_t i = b & 255u;
-
-    if(b & 256u) i = (uint16_t)(256u - i);
-    return rc_qinvF[i];
 }
 
 #define SIN(a)  SinLut((uint16_t)(a))
@@ -922,7 +915,7 @@ static __inline bool Blocked(int32_t x, int32_t y, int16_t r)
 }
 void rc_LoadMap(void);
 void rc_BuildMaze(void);
-uint16_t rc_RC_CastRay(int16_t angle, uint16_t *tile, uint16_t *side);
+uint16_t rc_CastCol(float rdx, float rdy, uint16_t *tile, uint16_t *side, uint16_t *u, uint16_t *v);
 extern int16_t rc_rayCx;
 extern int16_t rc_rayCy;
 void rc_SetTiles(char ch, uint16_t tile);        // every map cell with this character -> tile

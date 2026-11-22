@@ -24,6 +24,8 @@
 
 
 
+
+
 //*****************************************************************************
 // Init-time table builders
 //*****************************************************************************
@@ -113,8 +115,8 @@ uint16_t rc_ThemeOfMini(uint16_t type)
 
 void rc_BuildTables(void)
 {
-    uint16_t i, c, sh;
-    float    s, f;
+    uint16_t i, sh;
+    float    s;
 
     if(rc_tablesReady) return;
 
@@ -122,21 +124,7 @@ void rc_BuildTables(void)
     {
         s = sinf((float)i * (6.2831853f / RC_ANGLES));
         rc_qsin[i] = (int16_t)(s * 16384.0f + 0.5f);
-        f = (fabsf(s) < 0.0001f) ? 65535.0f : 256.0f / fabsf(s);
-        rc_qinv[i]  = (f > 65535.0f) ? 65535u : (uint16_t)f;
-        rc_qinvF[i] = (fabsf(s) < 0.00005f) ? 20000.0f : (1.0f / fabsf(s));
     }
-
-    for(c = 0; c < RC_COLS; c++)
-    {
-        int16_t off = (int16_t)(((int32_t)(2 * (int16_t)c - (RC_COLS - 1)) * RC_FOV_UNITS)
-                                / (2 * RC_COLS));
-        rc_colOff[c] = off;
-        rc_colCos[c] = COS(off);
-    }
-
-    for(i = 0; i <= 256; i++)
-        rc_atan[i] = (int16_t)(atanf((float)i / 256.0f) * (RC_ANGLES / 6.2831853f) + 0.5f);
 
     for(i = 1; i < TILE_KINDS; i++)
         for(sh = 0; sh < 4; sh++)
@@ -441,48 +429,48 @@ void rc_BuildMaze(void)
 }
 
 
+
+
 //*****************************************************************************
-// The ray caster: grid DDA over the 64 x 48 world.
-//   returns the distance ALONG the ray in Q8 (not yet fisheye-corrected)
-//   *tile = wall type hit, *side = 0 for an x-face, 1 for a y-face
+// Render ray (one per screen column). (rdx, rdy) = dir + plane * x is NOT normalised: that is
+// what makes the DDA's distance come out perpendicular to the view (no fisheye, no cosine
+// table). Returns that distance in Q8 tiles, the tile and face hit, and the exact point on the
+// face: *u = Q10 world coordinate along the face (low 15 bits), *v = the wall's tile row /
+// column. Taking u from the DDA itself keeps brick seams and door art from swimming while
+// turning (it used to be recomputed from a rounded distance with table trig).
 //*****************************************************************************
-uint16_t rc_RC_CastRay(int16_t angle, uint16_t *tile, uint16_t *side)
+#pragma CODE_SECTION(rc_CastCol, ".TI.ramfunc")          // per column: runs from RAM
+uint16_t rc_CastCol(float rdx, float rdy, uint16_t *tile, uint16_t *side, uint16_t *u, uint16_t *v)
 {
-    uint16_t a     = (uint16_t)angle & RC_ANGLE_MASK;
-    int16_t  c     = COS(a);
-    int16_t  s     = SIN(a);
-    float    dX    = QInvF((uint16_t)(a + 256u));
-    float    dY    = QInvF(a);
-    int16_t  mx    = (int16_t)(rc_px >> 10);
-    int16_t  my    = (int16_t)(rc_py >> 10);
-    float    fx    = (float)((uint16_t)rc_px & 1023u) * (1.0f / 1024.0f);
-    float    fy    = (float)((uint16_t)rc_py & 1023u) * (1.0f / 1024.0f);
-    int16_t  stepX, stepY;
-    float    sideX, sideY, dist = 0.0f;
-    uint16_t hit = 1, sd = 0, i;
+    float    posX = (float)rc_px * (1.0f / 1024.0f), posY = (float)rc_py * (1.0f / 1024.0f);
+    int16_t  mx = (int16_t)(rc_px >> 10), my = (int16_t)(rc_py >> 10), stepX, stepY;
+    float    dX = (rdx == 0.0f) ? 1.0e6f : fabsf(1.0f / rdx);
+    float    dY = (rdy == 0.0f) ? 1.0e6f : fabsf(1.0f / rdy);
+    float    sideX, sideY, dist = 0.0f, hit;
+    uint16_t t = 1, sd = 0, i;
 
-    // Floating point on purpose: fixed point picked the wrong wall face at corners.
-    if(c < 0) { stepX = -1; sideX = fx * dX; }
-    else      { stepX =  1; sideX = (1.0f - fx) * dX; }
-
-    if(s < 0) { stepY = -1; sideY = fy * dY; }
-    else      { stepY =  1; sideY = (1.0f - fy) * dY; }
+    if(rdx < 0.0f) { stepX = -1; sideX = (posX - (float)mx) * dX; }
+    else           { stepX =  1; sideX = ((float)mx + 1.0f - posX) * dX; }
+    if(rdy < 0.0f) { stepY = -1; sideY = (posY - (float)my) * dY; }
+    else           { stepY =  1; sideY = ((float)my + 1.0f - posY) * dY; }
 
     for(i = 0; i < RC_MAX_STEPS; i++)
     {
         if(sideX < sideY) { dist = sideX; sideX += dX; mx += stepX; sd = 0; }
         else              { dist = sideY; sideY += dY; my += stepY; sd = 1; }
 
-        if((uint16_t)mx >= RC_MAP_W || (uint16_t)my >= RC_MAP_H) { hit = 1; break; }
-
-        hit = rc_tile[((uint16_t)my << RC_MAP_SHIFT) + (uint16_t)mx];
-        if(hit && hit != TILE_BLOCK) break;     // rays pass decorations (they are sprites)
+        if((uint16_t)mx >= RC_MAP_W || (uint16_t)my >= RC_MAP_H) { t = 1; break; }
+        t = rc_tile[((uint16_t)my << RC_MAP_SHIFT) + (uint16_t)mx];
+        if(t && t != TILE_BLOCK) break;             // rays pass decorations (they are sprites)
     }
 
     rc_rayCx = mx;
     rc_rayCy = my;
-    *tile = (hit == 0 || hit >= TILE_KINDS) ? 1u : hit;
+    *tile = (t == 0 || t >= TILE_KINDS) ? 1u : t;
     *side = sd;
+    hit = (sd == 0u) ? (posY + dist * rdy) : (posX + dist * rdx);  // where on the face, in tiles
+    *u = (uint16_t)((int32_t)(hit * 1024.0f)) & 0x7FFFu;
+    *v = (uint16_t)((sd == 0u) ? mx : my) & 63u;
     dist *= 256.0f;
     return (dist > 65535.0f) ? 65535u : (uint16_t)dist;
 }

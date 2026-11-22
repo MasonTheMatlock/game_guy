@@ -21,11 +21,6 @@
 // Tables (built once in RAM by rc_BuildTables)
 //*****************************************************************************
 int16_t  rc_qsin[257];
-uint16_t rc_qinv[257];
-float    rc_qinvF[257];
-int16_t  rc_colOff[RC_COLS];
-int16_t  rc_colCos[RC_COLS];
-int16_t  rc_atan[257];
 uint32_t rc_wallCol[TILE_KINDS][4][2];
 uint32_t rc_sprRgb[SPR_COLORS];
 uint16_t rc_palId[PT_COUNT][PAL_N];

@@ -32,6 +32,10 @@
 
 #include "grlib.h"
 
+// Game Guy: per-rectangle dispatch runs from RAM.
+#pragma CODE_SECTION(Graphics_Graphics_FillRectangleOnDisplay, ".TI.ramfunc")
+#pragma CODE_SECTION(Graphics_translateColorOnDisplay, ".TI.ramfunc")
+
 //*****************************************************************************
 //
 //! \addtogroup display_api

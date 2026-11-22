@@ -66,6 +66,27 @@ static void ShowCalibrationWarning(void)
 }
 
 //*****************************************************************************
+// Flash speed. Out of reset the flash runs at 15 wait states with the prefetch
+// pipeline off; TI's InitFlash() was never called (and is tagged for the old
+// "ramfuncs" section, which this compiler's linker file no longer copies to RAM).
+// These are InitFlash's settings for 90 MHz (datasheet: 3 paged / 3 random / 5 OTP).
+// It MUST run from RAM: changing flash timing while executing from flash is undefined.
+//*****************************************************************************
+#pragma CODE_SECTION(FlashSpeedUp, ".TI.ramfunc")
+static void FlashSpeedUp(void)
+{
+    EALLOW;
+    FlashRegs.FOPT.bit.ENPIPE          = 1;     // prefetch pipeline on
+    FlashRegs.FBANKWAIT.bit.PAGEWAIT   = 3;
+    FlashRegs.FBANKWAIT.bit.RANDWAIT   = 3;
+    FlashRegs.FOTPWAIT.bit.OTPWAIT     = 5;
+    FlashRegs.FSTDBYWAIT.bit.STDBYWAIT = 0x01FF;  // defaults (TI: do not change)
+    FlashRegs.FACTIVEWAIT.bit.ACTIVEWAIT = 0x01FF;
+    EDIS;
+    __asm(" RPT #7 || NOP");                    // let the pipeline settle before returning to flash
+}
+
+//*****************************************************************************
 // main
 //*****************************************************************************
 void main(void)
@@ -80,6 +101,9 @@ void main(void)
 
     // Step 1. Clocks, PLL, watchdog, GPIO.
     InitSysCtrl();
+#ifdef _RELEASE
+    FlashSpeedUp();                         // 90 MHz is up: drop flash to 3 wait states
+#endif
     InitGpio();
 
     EALLOW;

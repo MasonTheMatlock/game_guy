@@ -141,7 +141,9 @@ codestart   : > BEGIN, PAGE = 0
 
 #ifdef __TI_COMPILER_VERSION__
     #if __TI_COMPILER_VERSION__ >= 15009000
-    .TI.ramfunc : {} LOAD = FLASHCD,
+    /* RAM-resident code (flash timing setup, flash writes, the renderer's hot path):
+       loaded from FLASHG because FLASHCD is full, copied to L0-L4 by main(). */
+    .TI.ramfunc : {} LOAD = FLASHG,
                          RUN = RAML0_4,
                          LOAD_START(_RamfuncsLoadStart),
                          LOAD_END(_RamfuncsLoadEnd),

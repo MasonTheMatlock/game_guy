@@ -18,6 +18,25 @@
 #pragma FUNCTION_OPTIONS(PillarArt, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(SecretArt, "--opt_for_speed=0")
 
+// ---- RAM-RESIDENT (F28069): flash costs 3 wait states per fetch even with the pipeline;
+// L0-L4 RAM costs none. The per-strip path runs from RAM (copied there by main()).
+#pragma CODE_SECTION(IdColor, ".TI.ramfunc")
+#pragma CODE_SECTION(StripIndex, ".TI.ramfunc")
+#pragma CODE_SECTION(AddRange, ".TI.ramfunc")
+#pragma CODE_SECTION(ListPaint, ".TI.ramfunc")
+#pragma CODE_SECTION(EmitStrip, ".TI.ramfunc")
+#pragma CODE_SECTION(ProjectOne, ".TI.ramfunc")
+#pragma CODE_SECTION(PaintSlice, ".TI.ramfunc")
+#pragma CODE_SECTION(PaintWeapon, ".TI.ramfunc")
+#pragma CODE_SECTION(WallDecor, ".TI.ramfunc")
+#pragma CODE_SECTION(DoorSpan, ".TI.ramfunc")
+#pragma CODE_SECTION(SecretArt, ".TI.ramfunc")
+#pragma CODE_SECTION(PillarArt, ".TI.ramfunc")
+#pragma CODE_SECTION(ArchCut, ".TI.ramfunc")
+#pragma CODE_SECTION(DoorWood, ".TI.ramfunc")
+#pragma CODE_SECTION(DoorSteel, ".TI.ramfunc")
+#pragma CODE_SECTION(rc_RenderView, ".TI.ramfunc")
+
 
 
 
@@ -205,7 +224,7 @@ static void ProjectOne(int32_t wx, int32_t wy, uint16_t shape, uint16_t pal,
                        uint16_t scale, uint16_t zoff, uint16_t tint)
 {
     Spr     *sp;
-    int16_t  rx, ry, along, side, ratio, theta, cx, x0, x1, lo, hi;
+    int16_t  rx, ry, along, side, cx, x0, x1, lo, hi;
     uint16_t perp8, lineH, size, k;
     int16_t  floorY, bottom;
 
@@ -217,13 +236,10 @@ static void ProjectOne(int32_t wx, int32_t wy, uint16_t shape, uint16_t pal,
     if(along < 150) return;                                 // behind / too close
 
     side  = (int16_t)(((int32_t)ry * rc_projC - (int32_t)rx * rc_projS) >> 14);
-    ratio = (int16_t)(((int32_t)side * 256L) / along);
-    theta = (ratio < 0) ? -ratio : ratio;
-    if(theta > 256) return;                                 // way outside the view
-    theta = rc_atan[theta];
-    if(ratio < 0) theta = -theta;
+    if(side > along || -side > along) return;              // more than 45 degrees off: not in view
 
-    cx = (int16_t)(RC_VIEW_X0 + RC_VIEW_W / 2 + theta * RC_PX_PER_UNIT);
+    // the walls' projection exactly: screen x = centre + focal * sideways / forward
+    cx = (int16_t)(RC_VIEW_X0 + RC_VIEW_W / 2 + (int16_t)(((int32_t)side * RC_FOCAL_PX) / along));
 
     perp8 = (uint16_t)(along >> 2);
     if(perp8 < RC_MIN_DIST) perp8 = RC_MIN_DIST;
@@ -622,17 +638,6 @@ static void DrawFx(void)
 }
 
 
-// Where a ray hit the wall: u = distance along the wall face, v = the wall's own tile row / column.
-static void WallUV(int16_t ang, uint16_t dist, uint16_t side, uint16_t *u, uint16_t *v)
-{
-    int32_t hx = rc_px + (((int32_t)COS(ang) * (int32_t)dist) >> 12);
-    int32_t hy = rc_py + (((int32_t)SIN(ang) * (int32_t)dist) >> 12);
-
-    if(side == 0) { *u = (uint16_t)hy & 0x7FFFu; *v = (uint16_t)(hx >> 10) & 63u; }
-    else          { *u = (uint16_t)hx & 0x7FFFu; *v = (uint16_t)(hy >> 10) & 63u; }
-}
-
-
 // Paint stone blocks (running bond) plus the current boss theme's pattern over a plain wall strip.
 // Only close walls get the pattern; far walls stay flat so they don't shimmer.
 static void WallDecor(uint16_t *nl, uint16_t *nn, int16_t top, uint16_t lineH,
@@ -939,13 +944,16 @@ static void DoorSteel(uint16_t *nl, uint16_t *nn, int16_t top, uint16_t lineH,
 
 void rc_RenderView(void)
 {
-    uint16_t c, k, tile, side, dist, perp, lineH, shade, h, nStrips, nn, si, wallId;
+    uint16_t c, k, tile, side, perp, lineH, shade, h, nStrips, nn, si, wallId, wu, wv;
     uint16_t dL = 0, dSpan = 0;
     bool     isDoor = false;
     int16_t  top, bot, sx, w, ak;
     uint16_t nl[RC_MAXN];
     int16_t  cxp = RC_VIEW_X0 + RC_VIEW_W / 2;
     int16_t  cyp = RC_VIEW_Y0 + RC_HORIZON;
+    float    dirX = (float)COS(rc_ang) * (1.0f / 16384.0f), dirY = (float)SIN(rc_ang) * (1.0f / 16384.0f);
+    float    plX  = -dirY * RC_PLANE, plY = dirX * RC_PLANE;           // camera plane (to the right)
+    float    camX = -1.0f + 1.0f / RC_COLS;                              // column centre, -1 .. +1
 
     if(rc_invalidate)
     {
@@ -976,8 +984,8 @@ void rc_RenderView(void)
 
     for(c = 0; c < RC_COLS; c++)
     {
-        dist = rc_RC_CastRay(rc_ang + rc_colOff[c], &tile, &side);
-        perp = (uint16_t)(((uint32_t)dist * (uint16_t)rc_colCos[c]) >> 14);
+        perp = rc_CastCol(dirX + plX * camX, dirY + plY * camX, &tile, &side, &wu, &wv);
+        camX += 2.0f / RC_COLS;
         if(perp < RC_MIN_DIST) perp = RC_MIN_DIST;
 
         lineH = RC_PROJ / perp;
@@ -997,11 +1005,7 @@ void rc_RenderView(void)
         isDoor = (tile == TILE_DOOR || tile == TILE_METAL_DOOR);
         if(isDoor)
         {
-            uint16_t du, dv;
-
-            WallUV((int16_t)(rc_ang + rc_colOff[c]), dist, side, &du, &dv);
-            (void)dv;
-            DoorSpan(side, du, &dL, &dSpan);
+            DoorSpan(side, wu, &dL, &dSpan);
             if(tile == TILE_DOOR)
                 wallId = (uint16_t)(ID_TEX_WOOD0 + ((shade > 1u) ? 1u :
                                      ((dL & 127u) < 14u) ? 2u : (((dL >> 7) & 1u) ? 0u : 1u)));
@@ -1030,9 +1034,6 @@ void rc_RenderView(void)
 
             if(tile == TILE_WALL_STONE)
             {
-                uint16_t wu, wv;
-
-                WallUV((int16_t)(rc_ang + rc_colOff[c]), dist, side, &wu, &wv);
                 WallDecor(nl, &nn, top, lineH, wu, wv, shade, side);
 #if RC_WALL_ART
                 if((uint16_t)rc_rayCx < RC_MAP_W && (uint16_t)rc_rayCy < RC_MAP_H &&
@@ -1047,13 +1048,7 @@ void rc_RenderView(void)
                 else                  DoorSteel(nl, &nn, top, lineH, dL, dSpan, shade, side);
             }
             else if(tile == 2u && shade <= RC_ART_MAX_SHADE && lineH >= 40u)   // pillar
-            {
-                uint16_t pu, pv;
-
-                WallUV((int16_t)(rc_ang + rc_colOff[c]), dist, side, &pu, &pv);
-                (void)pv;
-                PillarArt(nl, &nn, top, lineH, pu, shade, side);
-            }
+                PillarArt(nl, &nn, top, lineH, wu, shade, side);
 #endif
 
             // sprites, far to near, hidden behind nearer wall

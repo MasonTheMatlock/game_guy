@@ -66,6 +66,80 @@
 
 //*****************************************************************************
 //
+// Fast path (Game Guy). A rectangle is ONE window setup followed by one stream
+// of pixels: the SSD2119 wraps its address counter inside the GRAM window, so
+// no per-row or per-column cursor writes are needed. Primitives that address
+// single pixels (text, images, diagonal lines) need the full-screen window, so
+// SSD2119_EnsureFullWindow() restores it only when a fill has narrowed it. The
+// entry mode (scan direction) is cached and only written when it changes.
+// Everything here runs from RAM (.TI.ramfunc).
+//
+//*****************************************************************************
+#pragma CODE_SECTION(SSD2119_SetEntry,         ".TI.ramfunc")
+#pragma CODE_SECTION(SSD2119_EnsureFullWindow, ".TI.ramfunc")
+#pragma CODE_SECTION(SSD2119_FillWindow,       ".TI.ramfunc")
+#pragma CODE_SECTION(Kitronix320x240x16_SSD2119_setCursorLtoR,    ".TI.ramfunc")
+#pragma CODE_SECTION(Kitronix320x240x16_SSD2119_setCursorTtoB,    ".TI.ramfunc")
+#pragma CODE_SECTION(Kitronix320x240x16_SSD2119PixelDraw,         ".TI.ramfunc")
+#pragma CODE_SECTION(Kitronix320x240x16_SSD2119PixelDrawMultiple, ".TI.ramfunc")
+#pragma CODE_SECTION(Kitronix320x240x16_SSD2119LineDrawH,         ".TI.ramfunc")
+#pragma CODE_SECTION(Kitronix320x240x16_SSD2119LineDrawV,         ".TI.ramfunc")
+#pragma CODE_SECTION(Kitronix320x240x16_SSD2119RectFill,          ".TI.ramfunc")
+#pragma CODE_SECTION(Kitronix320x240x16_SSD2119ColorTranslate,    ".TI.ramfunc")
+
+static uint16_t s_entryMode  = 0xFFFF;  // last value written to the entry mode register
+static uint16_t s_fullWindow = 1;       // 1 = the GRAM window is the whole screen
+
+static void SSD2119_SetEntry(uint16_t dir)
+{
+    uint16_t m = MAKE_ENTRY_MODE(dir);
+
+    if(m == s_entryMode) return;
+    s_entryMode = m;
+    HAL_LCD_writeCommand(SSD2119_ENTRY_MODE_REG);
+    HAL_LCD_writeData(m);
+}
+
+static void SSD2119_EnsureFullWindow(void)
+{
+    if(s_fullWindow) return;
+    s_fullWindow = 1;
+    HAL_LCD_writeCommand(SSD2119_V_RAM_POS_REG);
+    HAL_LCD_writeData((uint16_t)(LCD_VERTICAL_MAX - 1) << 8);
+    HAL_LCD_writeCommand(SSD2119_H_RAM_START_REG);
+    HAL_LCD_writeData(0x0000);
+    HAL_LCD_writeCommand(SSD2119_H_RAM_END_REG);
+    HAL_LCD_writeData(LCD_HORIZONTAL_MAX - 1);
+}
+
+// Fill screen rectangle (x0, y0)-(x1, y1), inclusive, with one colour. The caller selects the LCD.
+static void SSD2119_FillWindow(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t value)
+{
+    uint16_t ax = MAPPED_X(x0, y0), bx = MAPPED_X(x1, y1);
+    uint16_t ay = MAPPED_Y(x0, y0), by = MAPPED_Y(x1, y1);
+    uint16_t t;
+
+    if(ax > bx) { t = ax; ax = bx; bx = t; }            // GRAM window corners (any orientation)
+    if(ay > by) { t = ay; ay = by; by = t; }
+
+    s_fullWindow = 0;
+    HAL_LCD_writeCommand(SSD2119_V_RAM_POS_REG);
+    HAL_LCD_writeData((uint16_t)((by << 8) | ay));
+    HAL_LCD_writeCommand(SSD2119_H_RAM_START_REG);
+    HAL_LCD_writeData(ax);
+    HAL_LCD_writeCommand(SSD2119_H_RAM_END_REG);
+    HAL_LCD_writeData(bx);
+    SSD2119_SetEntry(HORIZ_DIRECTION);                  // screen left-to-right, then down
+    HAL_LCD_writeCommand(SSD2119_X_RAM_ADDR_REG);
+    HAL_LCD_writeData(MAPPED_X(x0, y0));
+    HAL_LCD_writeCommand(SSD2119_Y_RAM_ADDR_REG);
+    HAL_LCD_writeData(MAPPED_Y(x0, y0));
+    HAL_LCD_writeCommand(SSD2119_RAM_DATA_REG);
+    HAL_LCD_writeDataRepeat(value, (uint32_t)(x1 - x0 + 1) * (uint32_t)(y1 - y0 + 1));
+}
+
+//*****************************************************************************
+//
 //! Initializes the display driver.
 //!
 //! This function initializes the SSD2119 display controller on the panel,
@@ -236,8 +310,8 @@ Kitronix320x240x16_SSD2119Init(void)
 void Kitronix320x240x16_SSD2119_setCursorLtoR(uint16_t X,
                                               uint16_t Y)
 {
-    HAL_LCD_writeCommand(SSD2119_ENTRY_MODE_REG);
-    HAL_LCD_writeData(MAKE_ENTRY_MODE(HORIZ_DIRECTION));
+    SSD2119_EnsureFullWindow();
+    SSD2119_SetEntry(HORIZ_DIRECTION);
     HAL_LCD_writeCommand(SSD2119_X_RAM_ADDR_REG);
     HAL_LCD_writeData(MAPPED_X(X, Y));
     HAL_LCD_writeCommand(SSD2119_Y_RAM_ADDR_REG);
@@ -264,8 +338,8 @@ void Kitronix320x240x16_SSD2119_setCursorLtoR(uint16_t X,
 void Kitronix320x240x16_SSD2119_setCursorTtoB(uint16_t X,
                                               uint16_t Y)
 {
-    HAL_LCD_writeCommand(SSD2119_ENTRY_MODE_REG);
-    HAL_LCD_writeData(MAKE_ENTRY_MODE(VERT_DIRECTION));
+    SSD2119_EnsureFullWindow();
+    SSD2119_SetEntry(VERT_DIRECTION);
     HAL_LCD_writeCommand(SSD2119_X_RAM_ADDR_REG);
     HAL_LCD_writeData(MAPPED_X(X, Y));
     HAL_LCD_writeCommand(SSD2119_Y_RAM_ADDR_REG);
@@ -299,6 +373,7 @@ Kitronix320x240x16_SSD2119PixelDraw(void *pvDisplayData,
     // Select the LCD for SPI comunication.
     //
     HAL_LCD_selectLCD();
+    SSD2119_EnsureFullWindow();
 
     //
     // Set the X address of the display cursor.
@@ -522,30 +597,9 @@ Kitronix320x240x16_SSD2119LineDrawH(void *pvDisplayData,
                                     int16_t Y,
                                     uint16_t Value)
 {
-    //
-    // Select the LCD for SPI comunication.
-    //
+    if(X2 < X1) return;
     HAL_LCD_selectLCD();
-
-    //
-    // Set the cursor increment to left to right, followed by top to bottom.
-    //
-    Kitronix320x240x16_SSD2119_setCursorLtoR(X1, Y);
-
-    //
-    // Loop through the pixels of this horizontal line.
-    //
-    while(X1++ <= X2)
-    {
-        //
-        // Write the pixel value.
-        //
-        HAL_LCD_writeData(Value);
-    }
-
-    //
-    // Deselect the LCD for SPI comunication.
-    //
+    SSD2119_FillWindow(X1, Y, X2, Y, Value);            // one setup, one pixel stream
     HAL_LCD_deselectLCD();
 }
 
@@ -573,30 +627,9 @@ Kitronix320x240x16_SSD2119LineDrawV(void *pvDisplayData,
                                     int16_t Y2,
                                     uint16_t Value)
 {
-    //
-    // Select the LCD for SPI comunication.
-    //
+    if(Y2 < Y1) return;
     HAL_LCD_selectLCD();
-
-    //
-    // Set the cursor increment top to bottom, followed by left to right
-    //
-    Kitronix320x240x16_SSD2119_setCursorTtoB(X, Y1);
-
-    //
-    // Loop through the pixels of this vertical line.
-    //
-    while(Y1++ <= Y2)
-    {
-        //
-        // Write the pixel value.
-        //
-        HAL_LCD_writeData(Value);
-    }
-
-    //
-    // Deselect the LCD for SPI comunication.
-    //
+    SSD2119_FillWindow(X, Y1, X, Y2, Value);            // one setup, one pixel stream
     HAL_LCD_deselectLCD();
 }
 
@@ -694,6 +727,7 @@ Kitronix320x240x16_SSD2119LineDraw(void *pvDisplayData,
     // Select the LCD for SPI comunication.
     //
     HAL_LCD_selectLCD();
+    SSD2119_EnsureFullWindow();
 
     //
     // Loop through all the points along the X axis of the line.
@@ -802,28 +836,10 @@ Kitronix320x240x16_SSD2119RectFill(void *pvDisplayData,
                                    const Graphics_Rectangle *pRect,
                                    uint16_t ulValue)
 {
-    int16_t x0 = pRect->sXMin;
-    int16_t x1 = pRect->sXMax;
-    int16_t y0 = pRect->sYMin;
-    int16_t y1 = pRect->sYMax;
-
-    // Less horizontal lines
-    if((x1 - x0) > (y1 - y0))     // Less horizontal lines
-    {
-        for(; y0 <= y1; y0++)
-        {
-            Kitronix320x240x16_SSD2119LineDrawH(pvDisplayData, x0, x1, y0,
-                                                ulValue);
-        }
-    }
-    else                          // Less vertical lines
-    {
-        for(; x0 <= x1; x0++)
-        {
-            Kitronix320x240x16_SSD2119LineDrawV(pvDisplayData, x0, y0, y1,
-                                                ulValue);
-        }
-    }
+    if(pRect->sXMax < pRect->sXMin || pRect->sYMax < pRect->sYMin) return;
+    HAL_LCD_selectLCD();
+    SSD2119_FillWindow(pRect->sXMin, pRect->sYMin, pRect->sXMax, pRect->sYMax, ulValue);
+    HAL_LCD_deselectLCD();
 }
 
 //*****************************************************************************
@@ -895,14 +911,9 @@ static void
 Kitronix320x240x16_SSD2119ClearScreen(void *pvDisplayData,
                                       uint16_t ulValue)
 {
-    uint16_t y0;
-
-    for(y0 = 0; y0 < LCD_VERTICAL_MAX; y0++)
-    {
-        Kitronix320x240x16_SSD2119LineDrawH(pvDisplayData, 0,
-                                            LCD_HORIZONTAL_MAX - 1, y0,
-                                            ulValue);
-    }
+    HAL_LCD_selectLCD();
+    SSD2119_FillWindow(0, 0, LCD_HORIZONTAL_MAX - 1, LCD_VERTICAL_MAX - 1, ulValue);   // one stream
+    HAL_LCD_deselectLCD();
 }
 
 //*****************************************************************************

@@ -32,6 +32,10 @@
 
 #include "grlib.h"
 
+// Game Guy: the per-rectangle path runs from RAM (no flash wait states between the
+// renderer and the SPI FIFO).
+#pragma CODE_SECTION(Graphics_Graphics_FillRectangle, ".TI.ramfunc")
+
 //*****************************************************************************
 //
 //! \addtogroup rectangle_api

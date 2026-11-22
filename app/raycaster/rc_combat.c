@@ -30,6 +30,7 @@
 
 
 
+
 static uint16_t s_charge;               // Infernal Scepter: frames charged (fire held)
 static uint16_t s_chan;                 // Eldritch Focus: frames channelled
 static bool     s_held;                 // fire was held last tick
@@ -352,10 +353,14 @@ static uint16_t FireBeam(int16_t angle, uint16_t dmg, uint16_t elem, uint16_t pi
     int16_t  c, s, best = -1, last = -1, rx, ry;
     int32_t  wall, bestAlong, along, perp;
 
+    uint16_t wu, wv;
+
     angle &= RC_ANGLE_MASK;
-    wall = (int32_t)rc_RC_CastRay(angle, &tile, &side) << 2;
     c = COS(angle);
     s = SIN(angle);
+    // A unit-length direction makes the render caster's distance the true distance along the beam.
+    wall = (int32_t)rc_CastCol((float)c * (1.0f / 16384.0f), (float)s * (1.0f / 16384.0f),
+                               &tile, &side, &wu, &wv) << 2;
 
     while(left--)
     {
@@ -463,7 +468,8 @@ static void Attack(uint16_t mult)       // mult in quarters: 4 = normal, up to 1
     {
         off = (int16_t)((((int16_t)(2 * i) - (int16_t)(beams - 1)) * (int16_t)spread) / 2);
         (void)FireBeam((int16_t)(rc_ang + off), dmg, sd->elem, pierce, chain);
-        rc_fxX[i] = (int16_t)(RC_VIEW_X0 + RC_VIEW_W / 2 + off * RC_PX_PER_UNIT);
+        rc_fxX[i] = (int16_t)(RC_VIEW_X0 + RC_VIEW_W / 2 +                // same projection as the view
+                              (int16_t)(((int32_t)SIN(off) * RC_FOCAL_PX) / COS(off)));
     }
     rc_fxTimer   = 4;
     rc_viewDirty = 2;

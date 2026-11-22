@@ -40,7 +40,7 @@ extern "C" {
 #define HAL_LCD_SYSCLKOUT_FREQUENCY   90000000UL
 
 // LSPCLK = SYSCLKOUT / 4 by default on F2806x.
-#define HAL_LCD_LSPCLK_FREQUENCY      (HAL_LCD_SYSCLKOUT_FREQUENCY / 4UL)
+#define HAL_LCD_LSPCLK_FREQUENCY      (HAL_LCD_SYSCLKOUT_FREQUENCY)       // LOSPCP = 0: /1
 
 // SPI-A bit rate divider. Baud = LSPCLK / (SPIBRR + 1) for SPIBRR = 3..127.
 #define HAL_LCD_SPIBRR                3
@@ -56,7 +56,9 @@ extern "C" {
 extern void InitLCDInterfaceSPI(void);
 extern void HAL_LCD_initLCD(void);
 extern void HAL_LCD_writeCommand(Uint16 command);
-extern void HAL_LCD_writeData(Uint16 data);
+extern void HAL_LCD_writeData(Uint16 data);              // queued: returns before the bytes are sent
+extern void HAL_LCD_writeDataRepeat(Uint16 data, Uint32 count);   // fills: one value, count times
+extern void HAL_LCD_flush(void);                         // wait until everything queued is sent
 extern void HAL_LCD_delay30ms(void);
 extern void HAL_LCD_selectLCD(void);
 extern void HAL_LCD_deselectLCD(void);

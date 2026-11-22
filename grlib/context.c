@@ -32,6 +32,9 @@
 
 #include "grlib.h"
 
+// Game Guy: called once per filled rectangle, so it runs from RAM.
+#pragma CODE_SECTION(Graphics_setForegroundColor, ".TI.ramfunc")
+
 //*****************************************************************************
 //
 //! \addtogroup context_api
