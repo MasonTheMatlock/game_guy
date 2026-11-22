@@ -12,8 +12,12 @@
 #define TX_STAT_N   9
 #define TX_RUNE    183    // 24 entries x 2 string(s)
 #define TX_RUNE_N  24
-#define TX_ROOM    231    // 13 entries x 1 string(s)
-#define TX_ROOM_N  13
-#define TX_COUNT   244
+#define TX_ROOM    231    // 17 entries x 2 string(s)
+#define TX_ROOM_N  17
+#define TX_LETTER  265    // 19 entries x 1 string(s)
+#define TX_LETTER_N  19
+#define TX_HOWTO   284    // 9 entries x 1 string(s)
+#define TX_HOWTO_N   9
+#define TX_COUNT   293
 
 #endif

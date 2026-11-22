@@ -27,6 +27,7 @@
 
 
 
+
 static uint16_t s_dragonWaves;          // endless Dragon waves started so far
 static uint16_t s_hazardTick;           // special-room hazard timer
 static uint16_t s_waveSfx;
@@ -56,6 +57,7 @@ void rc_ResetRun(void)
     rc_manaShown = -1;
     rc_keys = 0;
     rc_keyTaken = 0;
+    rc_roomSeen = 0;
     rc_pSlow = rc_nullify = rc_pull = 0;
     rc_miniKills = rc_miniAlive = rc_miniPending = 0;
     rc_miniBag = 0;
@@ -269,6 +271,8 @@ static void UpdateInteract(void)
             case PR_VENDOR:       ia = IA_VENDOR; break;
             case PR_ALTAR_SHRINE: ia = IA_SHRINE; break;
             case PR_ALTAR_LAB:    ia = IA_LAB;    break;
+            case PR_LECTERN:      ia = IA_LECTERN;  break;
+            case PR_PRISONER:     ia = IA_PRISONER; break;
             default:              continue;
         }
         if(InFront(p->x, p->y, INTERACT_DIST, &d) && d < best)
@@ -371,7 +375,16 @@ static void Interact(void)
         case IA_CHEST:  rc_OpenChest(rc_iaIdx); break;
         case IA_VENDOR: rc_EnterInventory(INV_SHOP); break;    // rc_iaIdx = the vendor's prop
         case IA_SHRINE: rc_EnterCards(CS_SHRINE); break;
-        case IA_LAB:    rc_EnterCards(CS_LAB); break;
+        case IA_LAB:
+        case IA_LECTERN: rc_EnterCards(CS_LAB); break;   // Wason's notes: a free rune study (once)
+        case IA_PRISONER:                               // the Ossuary prisoner hands over a key
+            if(rc_keys >= KEY_CARRY_MAX) { rc_Toast("Your key pockets are full.", NULL); break; }
+            rc_keys++;
+            rc_prop[rc_iaIdx].used = 1;
+            rc_Toast("Prisoner: Take my key. RUN.", NULL);
+            rc_hud |= HUD_TOPR;
+            rc_Sfx(&sfx_coin);
+            break;
         default: break;
     }
     rc_iaShown = 0xFFFFu;
@@ -497,7 +510,11 @@ static void RoomHazards(void)
 {
     uint16_t area;
 
-    if(++s_hazardTick < 110u) return;
+    if((++s_hazardTick & 15u) == 0u &&                  // embers drift in the Forge, the Den and the Treasury
+       (rc_playerRoom == RM_NE || rc_playerRoom == RM_DEN || rc_playerRoom == RM_TREASURY))
+        rc_AddSpark(rc_px + (int32_t)RAND(3000) - 1500, rc_py + (int32_t)RAND(3000) - 1500,
+                    (int16_t)(2u + RAND(10)), 3, PT_PUFF_FIRE, 40);
+    if(s_hazardTick < 110u) return;
     s_hazardTick = 0;
     switch(rc_playerRoom)
     {
@@ -643,6 +660,11 @@ void rc_UpdatePlay(void)
         rc_playerRoom = room;
         rc_RefreshTheme();
         rc_hud |= HUD_HINT;
+        if(!(rc_roomSeen & (1UL << room)))      // first visit this run: the room's flavour line
+        {
+            rc_roomSeen |= 1UL << room;
+            rc_Toast(rc_RoomFlavour(room), NULL);
+        }
     }
 
     PickupKeys();

@@ -60,7 +60,7 @@
 #define RC_MAX_SPAWNS   20              // chamber spawn markers ('a'..'f') + Den ('g')
 #undef RC_MAX_OBJ
 #define RC_MAX_OBJ      20              // projectiles, clouds, sparks, hazards, pickups
-#define RC_MAX_PROPS    20              // chests, vendors, keys, altars (static things)
+#define RC_MAX_PROPS    36              // chests, vendors, keys, altars (static things)
 
 #define COL_CEIL    COLOR_BLACK
 #define COL_FLOOR   COLOR_TETRIS_GRID
@@ -183,7 +183,9 @@ extern const Song song_corridor_run;
 // Rooms. Chambers form a loop: S, SW, W corridor, NW, N, NE, E corridor, SE.
 //*****************************************************************************
 enum { RM_S, RM_SW, RM_WC, RM_NW, RM_N, RM_NE, RM_EC, RM_SE,
-       RM_DEN, RM_VAULT, RM_SHRINE, RM_LAB, RM_MAZE, RM_COUNT, RM_NONE = 0xFF };
+       RM_DEN, RM_VAULT, RM_SHRINE, RM_LAB, RM_MAZE,
+       RM_TREASURY, RM_STUDY, RM_OSSUARY, RM_CLOSET,    // flavour rooms (top strips, west block, off the Lab)
+       RM_COUNT, RM_NONE = 0xFF };
 #define RM_IS_CHAMBER(r) ((r) == RM_S || (r) == RM_SW || (r) == RM_NW || (r) == RM_N || \
                           (r) == RM_NE || (r) == RM_SE)
 typedef struct { uint16_t x0, y0, x1, y1, theme; } RoomDef;          // name: rc_RoomName(r)
@@ -229,6 +231,8 @@ enum { SH_GOBLIN, SH_BAT, SH_SKELETON, SH_LICH, SH_BEHOLDER,
        SH_DRAGON_ROAR, SH_WING_UP, SH_WING_DOWN,   // Dragon: roaring head, left wing frames (mirrored for the right)
        SH_ICON_STAFF, SH_ICON_BODY, SH_ICON_HELM, SH_ICON_RING, SH_ICON_RUNE,   // inventory icons
        SH_SKEL_BACK,                               // a summoned skeleton seen from behind (allies face away)
+       SH_SHELF, SH_HOARD, SH_ANVIL, SH_COFFIN, SH_CRATES,   // room props (decor)
+       SH_LECTERN, SH_CAGED, SH_BRAZIER,
        SH_COUNT };
 #define SH_FLIP   0x8000u                       // OR into a shape: draw it mirrored left-right
 
@@ -253,6 +257,9 @@ enum { PT_GOBLIN, PT_BAT, PT_HOBGOB, PT_SKELETON, PT_BEHOLDER, PT_LICH,
        PT_BARREL, PT_BARREL_G, PT_BONES, PT_CRYSTAL, PT_CANDLE,     // floor decorations
        PT_DRAGON_CORE,                                              // Dragon with its weak spot exposed
        PT_ALLY,                                                     // the player's summons: spectral violet
+       PT_SHELF, PT_HOARD, PT_ANVIL, PT_COFFIN, PT_CRATES, PT_LECTERN, PT_CAGED,
+       PT_BRAZIER, PT_BRAZIER_LIT, PT_CANDLE_LIT,                   // flames flicker between the two
+       PT_STATUE, PT_RUNE, PT_RUNE_LIT,                             // statue of Wason; glowing rune circle
        PT_COUNT };
 #define DR_EXPOSED  3u                          // Dragon state: landed, weak spot open (2x damage)
 
@@ -643,6 +650,7 @@ extern int16_t  rc_manaShown;
 extern bool     rc_manaFlashShown;
 extern uint16_t rc_keys;
 extern uint16_t rc_keyTaken;            // bit k: key k picked up
+extern uint32_t rc_roomSeen;            // bit r: room r entered this run (its flavour line shown)
 uint16_t rc_ManaMax(void);
 uint16_t rc_MaxHpCap(void);
 
@@ -719,7 +727,8 @@ enum { WV_SLIME, WV_FIRE, WV_ICE, WV_STORM, WV_NOVA };
 extern Obj      rc_obj[RC_MAX_OBJ];
 
 // Props: static things in the world (one per map marker, plus the treasure-wave chest)
-enum { PR_CHEST, PR_VENDOR, PR_KEY, PR_ALTAR_SHRINE, PR_ALTAR_LAB, PR_DECOR };
+enum { PR_CHEST, PR_VENDOR, PR_KEY, PR_ALTAR_SHRINE, PR_ALTAR_LAB, PR_DECOR,
+       PR_LECTERN, PR_PRISONER };              // Wason's Study lectern (a free rune study), the Ossuary prisoner
 enum { CH_REGULAR, CH_MIMIC, CH_CURSED, CH_GOOD, CH_BOSS, CH_DRAGON };
 extern uint16_t rc_chestKind;               // the chest being opened (CH_*)
 extern uint16_t rc_chestGold;               // gold offered by its gold card
@@ -733,9 +742,10 @@ typedef struct
     uint16_t alive;
     uint16_t arg;           // boss chest: its relic
 } Prop;
-// Floor decorations (map 'o' blocks movement, '%' is clutter you walk over), themed per room.
-#define RC_MAX_DECOR    32
-typedef struct { uint16_t tx, ty, shape, pal, scale; } Decor;
+// Floor decorations (map 'o' blocks movement, '%' is clutter you walk over), themed per room;
+// '*' is a glowing rune circle, 'w' the statue of Wason. pal2 != 0: flickers between pal and pal2.
+#define RC_MAX_DECOR    96
+typedef struct { uint16_t tx, ty, shape, pal, pal2, scale; } Decor;
 extern Decor    rc_decor[RC_MAX_DECOR];
 extern uint16_t rc_nDecor;
 extern Prop     rc_prop[RC_MAX_PROPS];
@@ -743,7 +753,8 @@ extern uint16_t rc_nProp;
 extern int16_t  rc_treasureProp;        // prop index of this wave's treasure chest (-1 none)
 
 // Interaction (stick button)
-enum { IA_NONE, IA_DOOR, IA_SECRET, IA_EXIT, IA_CHEST, IA_VENDOR, IA_SHRINE, IA_LAB, IA_DEN };
+enum { IA_NONE, IA_DOOR, IA_SECRET, IA_EXIT, IA_CHEST, IA_VENDOR, IA_SHRINE, IA_LAB, IA_DEN,
+       IA_LECTERN, IA_PRISONER };
 extern uint16_t rc_iaKind;
 extern uint16_t rc_iaIdx;               // door number / prop index / tile cell
 extern uint16_t rc_iaShown;
@@ -1074,13 +1085,14 @@ const char *rc_Text(uint16_t id);
 #define rc_StatDesc(i)   rc_Text((uint16_t)(TX_STAT + 2u * (i) + 1u))
 #define rc_RuneName(i)   rc_Text((uint16_t)(TX_RUNE + 2u * (i)))
 #define rc_RuneDesc(i)   rc_Text((uint16_t)(TX_RUNE + 2u * (i) + 1u))
-#define rc_RoomName(i)   rc_Text((uint16_t)(TX_ROOM + (i)))
+#define rc_RoomName(i)   rc_Text((uint16_t)(TX_ROOM + 2u * (i)))
+#define rc_RoomFlavour(i) rc_Text((uint16_t)(TX_ROOM + 2u * (i) + 1u))
 #define rc_EnemyName(i)  rc_Text((uint16_t)(TX_ENEMY + (i)))
 #define rc_ClassName(i)  rc_Text((uint16_t)(TX_CLASS + (i)))
 
 // The title-screen picture (rc_splash_image.c, generated by tools/splashpack.py).
-#define RC_SPLASH_W     128
-#define RC_SPLASH_H     72
+#define RC_SPLASH_W     112
+#define RC_SPLASH_H     63
 extern const uint32_t rc_kSplashPal[16];
 extern const uint16_t rc_kSplash[RC_SPLASH_W * RC_SPLASH_H / 4];
 

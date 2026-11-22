@@ -143,6 +143,8 @@ static void DrawHint(void)
         case IA_VENDOR: Prompt("Vendor", "Trade", C_GOLD);        return;
         case IA_SHRINE: Prompt("Shrine", "Pray", C_XP);           return;
         case IA_LAB:    Prompt("Rune altar", "Study", C_CYAN);    return;
+        case IA_LECTERN:  Prompt("Wason's notes", "Read", C_CYAN);  return;
+        case IA_PRISONER: Prompt("Prisoner", "Talk", C_GOLD);       return;
         default: break;
     }
 

@@ -23,6 +23,7 @@
 
 
 
+
 //*****************************************************************************
 // Init-time table builders
 //*****************************************************************************
@@ -175,25 +176,68 @@ static uint16_t MarkerRoom(char ch)
 }
 
 
-// A floor decoration, themed by the room it stands in. Blocking ones are barrels,
-// candelabra (Crypt, Chapel) or crystals (Observatory); clutter is a pile of bones.
+// Floor decorations. Each kind: shape, palette, flicker palette (0 = none), scale.
+enum { DK_BARREL, DK_BARREL_G, DK_CANDLE, DK_CRYSTAL, DK_BONES, DK_SLIME, DK_RUNE, DK_CRATES,
+       DK_COFFIN, DK_ANVIL, DK_BRAZIER, DK_HOARD, DK_SHELF, DK_CAGE, DK_STATUE };
+static const uint16_t kDecor[][4] =
+{
+    { SH_BARREL,   PT_BARREL,       0,              10 },   // DK_BARREL
+    { SH_BARREL,   PT_BARREL_G,     0,              10 },   // DK_BARREL_G (slimy)
+    { SH_CANDLE,   PT_CANDLE,       PT_CANDLE_LIT,  13 },   // DK_CANDLE (candelabra)
+    { SH_CRYSTAL,  PT_CRYSTAL,      0,              11 },   // DK_CRYSTAL
+    { SH_BONES,    PT_BONES,        0,               6 },   // DK_BONES (walk over)
+    { SH_PUDDLE,   PT_PUDDLE_SLIME, 0,              20 },   // DK_SLIME (walk over)
+    { SH_PUDDLE,   PT_RUNE,         PT_RUNE_LIT,    30 },   // DK_RUNE  (walk over, pulses)
+    { SH_CRATES,   PT_CRATES,       0,              12 },
+    { SH_COFFIN,   PT_COFFIN,       0,              13 },
+    { SH_ANVIL,    PT_ANVIL,        0,              10 },
+    { SH_BRAZIER,  PT_BRAZIER,      PT_BRAZIER_LIT, 12 },
+    { SH_HOARD,    PT_HOARD,        0,              12 },
+    { SH_SHELF,    PT_SHELF,        0,              15 },
+    { SH_CAGED,    PT_CAGED,        0,              14 },   // DK_CAGE (an old prisoner)
+    { SH_MERCHANT, PT_STATUE,       0,              16 },   // DK_STATUE (Wason in bronze)
+};
+
+// What each room's 'o' (two kinds, alternating across the room) and '%' turn into.
+#define KD(a, b, f)   ((a) | ((b) << 4) | ((f) << 8))
+static const uint16_t kRoomDecor[RM_COUNT] =
+{
+    KD(DK_BARREL,   DK_CRATES,   DK_BONES),     // RM_S       Goblin Warrens
+    KD(DK_CANDLE,   DK_COFFIN,   DK_BONES),     // RM_SW      Bone Crypt
+    KD(DK_BARREL,   DK_CRATES,   DK_BONES),     // RM_WC
+    KD(DK_BARREL_G, DK_BARREL_G, DK_SLIME),     // RM_NW      Slime Sewers
+    KD(DK_CANDLE,   DK_CANDLE,   DK_BONES),     // RM_N       Haunted Chapel
+    KD(DK_ANVIL,    DK_BRAZIER,  DK_BONES),     // RM_NE      Elemental Forge
+    KD(DK_BARREL,   DK_CRATES,   DK_BONES),     // RM_EC
+    KD(DK_CRYSTAL,  DK_CRYSTAL,  DK_RUNE),      // RM_SE      Arcane Observatory
+    KD(DK_HOARD,    DK_BRAZIER,  DK_BONES),     // RM_DEN
+    KD(DK_BARREL_G, DK_BARREL_G, DK_SLIME),     // RM_VAULT
+    KD(DK_CANDLE,   DK_CANDLE,   DK_RUNE),      // RM_SHRINE
+    KD(DK_CRYSTAL,  DK_CRYSTAL,  DK_RUNE),      // RM_LAB
+    KD(DK_BARREL,   DK_CRATES,   DK_BONES),     // RM_MAZE
+    KD(DK_HOARD,    DK_CRATES,   DK_BONES),     // RM_TREASURY (the bones: unlucky thieves)
+    KD(DK_SHELF,    DK_SHELF,    DK_RUNE),      // RM_STUDY
+    KD(DK_CAGE,     DK_COFFIN,   DK_BONES),     // RM_OSSUARY
+    KD(DK_CRATES,   DK_CRATES,   DK_BONES),     // RM_CLOSET
+};
+
 Decor    rc_decor[RC_MAX_DECOR];
 uint16_t rc_nDecor;
 
-static void AddDecor(uint16_t x, uint16_t y, bool block)
+// Map letter ch at (x, y): 'o' blocking prop, '%' floor clutter, '*' rune circle, 'w' statue.
+static void AddDecor(uint16_t x, uint16_t y, char ch)
 {
     Decor   *d;
-    uint16_t th;
+    uint16_t r = rc_RoomAt(TILE_C(x), TILE_C(y)), k;
 
     if(rc_nDecor >= RC_MAX_DECOR) return;
-    d  = &rc_decor[rc_nDecor++];
-    th = rc_kRoom[rc_RoomAt(TILE_C(x), TILE_C(y)) % RM_COUNT].theme;
+    if(r >= RM_COUNT) r = RM_S;
+    k = kRoomDecor[r];
+    k = (ch == '*') ? DK_RUNE : (ch == 'w') ? DK_STATUE : (ch == '%') ? (k >> 8) :
+        (((x ^ y) & 2u) ? ((k >> 4) & 15u) : (k & 15u));
+    d = &rc_decor[rc_nDecor++];
     d->tx = x;  d->ty = y;
-    if(!block)                                  { d->shape = SH_BONES;   d->pal = PT_BONES;    d->scale = 6;  }
-    else if(th == TH_CRYPT || th == TH_CHAPEL)  { d->shape = SH_CANDLE;  d->pal = PT_CANDLE;   d->scale = 13; }
-    else if(th == TH_OBSERV)                    { d->shape = SH_CRYSTAL; d->pal = PT_CRYSTAL;  d->scale = 11; }
-    else if(th == TH_SEWERS)                    { d->shape = SH_BARREL;  d->pal = PT_BARREL_G; d->scale = 10; }
-    else                                        { d->shape = SH_BARREL;  d->pal = PT_BARREL;   d->scale = 10; }
+    d->shape = kDecor[k][0];  d->pal = kDecor[k][1];  d->pal2 = kDecor[k][2];  d->scale = kDecor[k][3];
 }
 
 
@@ -240,6 +284,8 @@ void rc_LoadMap(void)
     uint16_t cnt[RC_NUM_DOORS + 1];
     int32_t  nookX[2][3], nookY[2][3];
     uint16_t nookN[2] = { 0, 0 };
+    int16_t  closet[3];
+    uint16_t nCloset = 0;
 
     rc_spCount = 0;
     rc_nProp   = 0;
@@ -276,8 +322,14 @@ void rc_LoadMap(void)
                 case 'B': t = 3; break;
                 case 'D': t = TILE_METAL_DOOR; break;
                 case '@': rc_px = cx; rc_py = cy; break;
-                case 'o': t = TILE_BLOCK; AddDecor(x, y, true); break;     // solid decoration
-                case '%': AddDecor(x, y, false); break;                    // floor clutter
+                case 'o': case 'w': t = TILE_BLOCK; AddDecor(x, y, ch); break;   // solid decoration
+                case '%': case '*': AddDecor(x, y, ch); break;                    // floor clutter, rune circle
+                case 'T': (void)rc_AddProp(PR_CHEST, CH_GOOD, cx, cy); break;    // Goblin Treasury
+                case 'W': t = TILE_BLOCK; (void)rc_AddProp(PR_LECTERN, 0, cx, cy); break;
+                case 'J': t = TILE_BLOCK; (void)rc_AddProp(PR_PRISONER, 0, cx, cy); break;
+                case 'Q':                                                         // Mimic Closet
+                    if(nCloset < 3u) closet[nCloset++] = rc_AddProp(PR_CHEST, CH_MIMIC, cx, cy);
+                    break;
                 case 'K': (void)rc_AddProp(PR_KEY, keyN++, cx, cy); break;
                 case 'C':
                 {
@@ -304,6 +356,9 @@ void rc_LoadMap(void)
             rc_doorCx[k] = sx[k] / (int32_t)cnt[k];
             rc_doorCy[k] = sy[k] / (int32_t)cnt[k];
         }
+
+    // Mimic Closet: one of its three chests is a good one, the other two bite.
+    if(nCloset == 3u && closet[k = RAND(3)] >= 0) rc_prop[closet[k]].sub = CH_GOOD;
 
     // Corridor nooks: a vendor and a chest in two of the three, decoration in the third.
     for(k = 0; k < 2u; k++)

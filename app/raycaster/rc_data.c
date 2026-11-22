@@ -145,23 +145,28 @@ const RuneDef rc_kRune[RU_COUNT] =
 //*****************************************************************************
 // Rooms (tile rectangles, inclusive). Themes are fixed per chamber (rc.md 4.6).
 //*****************************************************************************
-// x0, y0, x1, y1, theme, name (packed by tools/textpack.py: rc_RoomName)
-#define ROOM(x0, y0, x1, y1, th, n)     { x0, y0, x1, y1, th }
+// x0, y0, x1, y1, theme, name, flavour line (both packed by tools/textpack.py:
+// rc_RoomName / rc_RoomFlavour; the flavour line is a toast on first entry, <= 30 chars)
+#define ROOM(x0, y0, x1, y1, th, n, f)  { x0, y0, x1, y1, th }
 const RoomDef rc_kRoom[RM_COUNT] =
 {
-    ROOM(21, 34, 41, 44, TH_WARRENS,  "Goblin Warrens"    ),  // RM_S (start)
-    ROOM( 1, 34, 19, 44, TH_CRYPT,    "Bone Crypt"        ),  // RM_SW
-    ROOM( 3, 18,  6, 32, TH_BASEMENT, "West Corridor"     ),  // RM_WC
-    ROOM( 1,  8, 19, 16, TH_SEWERS,   "Slime Sewers"      ),  // RM_NW
-    ROOM(21,  8, 41, 16, TH_CHAPEL,   "Haunted Chapel"    ),  // RM_N
-    ROOM(43,  8, 62, 16, TH_FORGE,    "Elemental Forge"   ),  // RM_NE
-    ROOM(54, 18, 57, 32, TH_BASEMENT, "East Corridor"     ),  // RM_EC
-    ROOM(43, 34, 62, 44, TH_OBSERV,   "Arcane Observatory"),  // RM_SE
-    ROOM(23, 18, 37, 32, TH_DRAGON,   "Dragon Den"        ),  // RM_DEN
-    ROOM( 8, 18, 19, 24, TH_SEWERS,   "Slime Vault"       ),  // RM_VAULT
-    ROOM(26,  1, 36,  6, TH_CHAPEL,   "Haunted Shrine"    ),  // RM_SHRINE
-    ROOM(59, 25, 62, 32, TH_OBSERV,   "Astral Laboratory" ),  // RM_LAB
-    ROOM(39, 18, 53, 32, TH_WARRENS,  "Goblin Maze"       ),  // RM_MAZE
+    ROOM(21, 34, 41, 44, TH_WARRENS,  "Goblin Warrens", "Smells like goblin feet."),  // RM_S (start)
+    ROOM( 1, 34, 19, 44, TH_CRYPT,    "Bone Crypt", "The dead sleep lightly here."),  // RM_SW
+    ROOM( 3, 18,  6, 32, TH_BASEMENT, "West Corridor", "A cold draft howls past."),  // RM_WC
+    ROOM( 1,  8, 19, 16, TH_SEWERS,   "Slime Sewers", "Something squelches nearby."),  // RM_NW
+    ROOM(21,  8, 41, 16, TH_CHAPEL,   "Haunted Chapel", "Pews for a forgotten god."),  // RM_N
+    ROOM(43,  8, 62, 16, TH_FORGE,    "Elemental Forge", "The anvils are still warm."),  // RM_NE
+    ROOM(54, 18, 57, 32, TH_BASEMENT, "East Corridor", "Footprints. Lots of them."),  // RM_EC
+    ROOM(43, 34, 62, 44, TH_OBSERV,   "Arcane Observatory", "The stars hum overhead."),  // RM_SE
+    ROOM(23, 18, 37, 32, TH_DRAGON,   "Dragon Den", "It reeks of smoke and gold."),  // RM_DEN
+    ROOM( 8, 18, 19, 24, TH_SEWERS,   "Slime Vault", "Slime-sealed treasure!"),  // RM_VAULT
+    ROOM(26,  1, 36,  6, TH_CHAPEL,   "Haunted Shrine", "A bloody altar waits."),  // RM_SHRINE
+    ROOM(59, 25, 62, 32, TH_OBSERV,   "Astral Laboratory", "Runes crackle in the air."),  // RM_LAB
+    ROOM(39, 18, 53, 32, TH_WARRENS,  "Goblin Maze", "Goblins built this. Badly."),  // RM_MAZE
+    ROOM( 2,  1, 18,  6, TH_FORGE,    "Goblin Treasury", "Goblin gold! Finders keepers."), // RM_TREASURY
+    ROOM(44,  1, 61,  6, TH_OBSERV,   "Wason's Study", "Wason's study. Don't touch."),   // RM_STUDY
+    ROOM( 8, 26, 20, 31, TH_CRYPT,    "Ossuary", "Bones, cages and regrets."),         // RM_OSSUARY
+    ROOM(59, 19, 62, 23, TH_OBSERV,   "Mimic Closet", "Three chests. Hmm..."),         // RM_CLOSET
 };
 
 

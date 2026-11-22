@@ -56,6 +56,7 @@
 
 
 
+
 uint16_t rc_chestKind;
 uint16_t rc_chestGold;
 
@@ -950,28 +951,27 @@ static const uint16_t kTitleWord[9] = { 0, 1, 2, 3, 1, 4, 5, 6, 0 };     // R A 
 
 // The opening letter, from Wason the wizard, word for word as the design asks
 // (his spelling included). Each line must fit the parchment (~35 characters).
-static const char *const kLetter[] =
-{
-    "Dear Ray Caster,",
-    "",
-    "I have more important wizard stuff",
-    "to do but I need this dungeon",
-    "cleared. it may look like one room",
-    "but its all a higher dimensional",
-    "structure linking mutliple",
-    "iterations of the same building to",
-    "a local intertial fram via...",
-    "Who am I kidding? you're to dumb to",
-    "understand this anyway. You Kill",
-    "monster make money. collect item",
-    "you want. no want item? Sell it to",
-    "my vendor clones! above all defeat",
-    "the dragon before im back from my",
-    "errands!",
-    "P.S. I heard that you cant look up",
-    "or down because of the back injury,",
-    "please don't sue."
-};
+// (packed by tools/textpack.py: read line i with rc_Text(TX_LETTER + i))
+#define LETTER_LINE(t)
+LETTER_LINE("Dear Ray Caster,")
+LETTER_LINE("")
+LETTER_LINE("I have more important wizard stuff")
+LETTER_LINE("to do but I need this dungeon")
+LETTER_LINE("cleared. it may look like one room")
+LETTER_LINE("but its all a higher dimensional")
+LETTER_LINE("structure linking mutliple")
+LETTER_LINE("iterations of the same building to")
+LETTER_LINE("a local intertial fram via...")
+LETTER_LINE("Who am I kidding? you're to dumb to")
+LETTER_LINE("understand this anyway. You Kill")
+LETTER_LINE("monster make money. collect item")
+LETTER_LINE("you want. no want item? Sell it to")
+LETTER_LINE("my vendor clones! above all defeat")
+LETTER_LINE("the dragon before im back from my")
+LETTER_LINE("errands!")
+LETTER_LINE("P.S. I heard that you cant look up")
+LETTER_LINE("or down because of the back injury,")
+LETTER_LINE("please don't sue.")
 #define LETTER_LINES   19
 #define LETTER_X       50
 #define LETTER_Y0      16
@@ -980,14 +980,17 @@ static const char *const kLetter[] =
 
 static uint16_t LetterTotal(void)
 {
-    uint16_t i, n = 0, k;
+    static uint16_t total;                          // counted once: the letter never changes
+    uint16_t i, k;
 
+    if(total) return total;
     for(i = 0; i < LETTER_LINES; i++)
     {
-        for(k = 0; kLetter[i][k]; k++) {}
-        n = (uint16_t)(n + k + 1u);                 // + one pause per line
+        const char *t = rc_Text((uint16_t)(TX_LETTER + i));
+        for(k = 0; t[k]; k++) {}
+        total = (uint16_t)(total + k + 1u);         // + one pause per line
     }
-    return n;
+    return total;
 }
 
 
@@ -1086,20 +1089,21 @@ static void DrawTitle(void)
 }
 
 
+// How to Play text (packed by tools/textpack.py: rc_Text(TX_HOWTO + i)); the first five
+// lines sit next to the control icons.
+#define HOWTO_LINE(t)
+HOWTO_LINE("walk and strafe")
+HOWTO_LINE("turn")
+HOWTO_LINE("tap: swap  hold: inventory")
+HOWTO_LINE("fire (+ click: ultimate)")
+HOWTO_LINE("buy, open, trade, keys")
+HOWTO_LINE("")
+HOWTO_LINE("Survive the waves, buy all eight doors,")
+HOWTO_LINE("beat three mini-bosses, then step into")
+HOWTO_LINE("the Dragon Den. Keys open secret doors.")
+
 static void DrawHowTo(void)
 {
-    static const char *const kLine[] =
-    {
-        "walk and strafe",
-        "turn",
-        "tap: swap  hold: inventory",
-        "fire (+ click: ultimate)",
-        "buy, open, trade, keys",
-        "",
-        "Survive the waves, buy all eight doors,",
-        "beat three mini-bosses, then step into",
-        "the Dragon Den. Keys open secret doors."
-    };
     uint16_t i;
 
     Graphics_FillRect(0, 0, SCREEN_W - 1, SCREEN_H - 1, C_BLACK);
@@ -1107,12 +1111,13 @@ static void DrawHowTo(void)
     Graphics_setForegroundColor(&g_sContext, C_GRAY);
     Graphics_drawLine(&g_sContext, 20, 40, SCREEN_W - 21, 40);
     for(i = 0; i < 9; i++)
-        if(kLine[i][0])
-        {
-            uint16_t k;
+    {
+        const char *t = rc_Text((uint16_t)(TX_HOWTO + i));
+        uint16_t    k;
 
-            for(k = 0; kLine[i][k]; k++) {}
-            DrawLeft(kLine[i], k, (i < 5) ? 96 : 24, (int16_t)(60 + 18 * i), (i < 5) ? C_WHITE : C_GRAY, C_BLACK);
+        for(k = 0; t[k]; k++) {}
+        if(k)
+            DrawLeft(t, k, (i < 5) ? 96 : 24, (int16_t)(60 + 18 * i), (i < 5) ? C_WHITE : C_GRAY, C_BLACK);
         }
 
     // the real symbols in one column, one per control (the original buttons)
@@ -1168,11 +1173,13 @@ static void DrawLetterText(uint16_t from, uint16_t to)
 
     for(i = 0; i < LETTER_LINES && start < to; i++)
     {
-        for(k = 0; kLetter[i][k]; k++) {}
+        const char *t = rc_Text((uint16_t)(TX_LETTER + i));
+
+        for(k = 0; t[k]; k++) {}
         if(start + k + 1u > from && k)                  // this line gains characters
         {
             uint16_t n = (uint16_t)(to - start);
-            DrawLeft(kLetter[i], (n < k) ? n : k, LETTER_X, (int16_t)(LETTER_Y0 + LETTER_DY * i), TT_INK, TT_PARCH);
+            DrawLeft(t, (n < k) ? n : k, LETTER_X, (int16_t)(LETTER_Y0 + LETTER_DY * i), TT_INK, TT_PARCH);
         }
         start = (uint16_t)(start + k + 1u);
     }

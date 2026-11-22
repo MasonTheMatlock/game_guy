@@ -390,8 +390,14 @@ static void ProjectSprites(void)
     }
 
     // Floor decorations
-    for(i = 0; i < rc_nDecor; i++)
-        ProjectOne(TILE_C(rc_decor[i].tx), TILE_C(rc_decor[i].ty), rc_decor[i].shape, rc_decor[i].pal, rc_decor[i].scale, 0, 0);
+    for(i = 0; i < rc_nDecor; i++)                  // flames flicker, rune circles pulse slowly
+    {
+        const Decor *d = &rc_decor[i];
+        uint16_t     pal = d->pal;
+
+        if(d->pal2 && (((rc_portalPhase >> ((d->scale > 20u) ? 4 : 2)) + d->tx) & 1u)) pal = d->pal2;
+        ProjectOne(TILE_C(d->tx), TILE_C(d->ty), d->shape, pal, d->scale, 0, 0);
+    }
 
     // Floor marks: flat decals that flash faster as the hit gets close.
     for(i = 0; i < rc_nMark; i++)
@@ -424,6 +430,12 @@ static void ProjectSprites(void)
             case PR_KEY:
                 if(p->used) break;
                 ProjectOne(p->x, p->y, SH_KEY, PT_KEY, 6, (uint16_t)((rc_portalPhase >> 3) & 1u), 0);
+                break;
+            case PR_LECTERN:
+                ProjectOne(p->x, p->y, SH_LECTERN, PT_LECTERN, 12, 0, 0);
+                break;
+            case PR_PRISONER:
+                ProjectOne(p->x, p->y, SH_CAGED, PT_CAGED, 14, 0, 0);
                 break;
             case PR_ALTAR_SHRINE:
             case PR_ALTAR_LAB:

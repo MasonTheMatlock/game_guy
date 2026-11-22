@@ -59,6 +59,7 @@ int16_t  rc_manaShown = -1;
 bool     rc_manaFlashShown;
 uint16_t rc_keys;
 uint16_t rc_keyTaken;
+uint32_t rc_roomSeen;
 uint16_t rc_pSlow;
 uint16_t rc_nullify;
 uint16_t rc_pull;
