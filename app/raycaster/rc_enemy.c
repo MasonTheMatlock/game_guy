@@ -39,6 +39,7 @@
 
 
 
+
 static void BuildFlow(void)
 {
     uint16_t i, head = 0, tail = 0, cell, nb;
@@ -254,7 +255,7 @@ void rc_ShootBolt(const Enemy *e, int16_t angleOff, uint16_t kind, int16_t speed
     o->y    = e->y;
     o->vx   = vx;
     o->vy   = vy;
-    o->z    = (kind == BK_FLAME) ? 4 : 6;
+    o->z    = (e->type == ET_DRAGON) ? 30 : (kind == BK_FLAME) ? 4 : 6;   // the Dragon's leave its mouth
     o->life = life;
     o->aux  = kind;
     // damage in half hearts: arrows, webs, ice and sparks are small hits, the rest big
@@ -352,6 +353,11 @@ void rc_EnemyLook(const Enemy *e, uint16_t *shape, uint16_t *pal)
         default:                                        // bosses: wind-up poses, form colours (rc_boss.c)
             (void)rc_BossLook(e, shape, pal);
             break;
+    }
+    if(e->sum == SUM_ALLY)                              // on the player's side: violet, facing away
+    {
+        *pal = PT_ALLY;
+        if(e->type == ET_SKELETON) *shape = SH_SKEL_BACK;
     }
 }
 

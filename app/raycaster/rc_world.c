@@ -9,6 +9,7 @@
 #pragma FUNCTION_OPTIONS(rc_BuildTables, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(rc_RoomAt, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(MarkerRoom, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(AddDecor, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(rc_AddProp, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(rc_SetTiles, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(RandomChest, "--opt_for_speed=0")
@@ -17,6 +18,7 @@
 #pragma FUNCTION_OPTIONS(MazeOpen, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(rc_BuildMaze, "--opt_for_speed=0")
 // ---- SIZE-OPT END ----
+
 
 
 
@@ -173,6 +175,28 @@ static uint16_t MarkerRoom(char ch)
 }
 
 
+// A floor decoration, themed by the room it stands in. Blocking ones are barrels,
+// candelabra (Crypt, Chapel) or crystals (Observatory); clutter is a pile of bones.
+Decor    rc_decor[RC_MAX_DECOR];
+uint16_t rc_nDecor;
+
+static void AddDecor(uint16_t x, uint16_t y, bool block)
+{
+    Decor   *d;
+    uint16_t th;
+
+    if(rc_nDecor >= RC_MAX_DECOR) return;
+    d  = &rc_decor[rc_nDecor++];
+    th = rc_kRoom[rc_RoomAt(TILE_C(x), TILE_C(y)) % RM_COUNT].theme;
+    d->tx = x;  d->ty = y;
+    if(!block)                                  { d->shape = SH_BONES;   d->pal = PT_BONES;    d->scale = 6;  }
+    else if(th == TH_CRYPT || th == TH_CHAPEL)  { d->shape = SH_CANDLE;  d->pal = PT_CANDLE;   d->scale = 13; }
+    else if(th == TH_OBSERV)                    { d->shape = SH_CRYSTAL; d->pal = PT_CRYSTAL;  d->scale = 11; }
+    else if(th == TH_SEWERS)                    { d->shape = SH_BARREL;  d->pal = PT_BARREL_G; d->scale = 10; }
+    else                                        { d->shape = SH_BARREL;  d->pal = PT_BARREL;   d->scale = 10; }
+}
+
+
 int16_t rc_AddProp(uint16_t kind, uint16_t sub, int32_t x, int32_t y)
 {
     Prop *p;
@@ -219,6 +243,7 @@ void rc_LoadMap(void)
 
     rc_spCount = 0;
     rc_nProp   = 0;
+    rc_nDecor  = 0;
     for(k = 0; k <= RC_NUM_DOORS; k++) { sx[k] = 0; sy[k] = 0; cnt[k] = 0; }
 
     for(y = 0; y < RC_MAP_H; y++)
@@ -251,6 +276,8 @@ void rc_LoadMap(void)
                 case 'B': t = 3; break;
                 case 'D': t = TILE_METAL_DOOR; break;
                 case '@': rc_px = cx; rc_py = cy; break;
+                case 'o': t = TILE_BLOCK; AddDecor(x, y, true); break;     // solid decoration
+                case '%': AddDecor(x, y, false); break;                    // floor clutter
                 case 'K': (void)rc_AddProp(PR_KEY, keyN++, cx, cy); break;
                 case 'C':
                 {
@@ -394,7 +421,7 @@ uint16_t rc_RC_CastRay(int16_t angle, uint16_t *tile, uint16_t *side)
         if((uint16_t)mx >= RC_MAP_W || (uint16_t)my >= RC_MAP_H) { hit = 1; break; }
 
         hit = rc_tile[((uint16_t)my << RC_MAP_SHIFT) + (uint16_t)mx];
-        if(hit) break;
+        if(hit && hit != TILE_BLOCK) break;     // rays pass decorations (they are sprites)
     }
 
     rc_rayCx = mx;

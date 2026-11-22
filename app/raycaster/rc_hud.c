@@ -15,6 +15,8 @@
 
 
 
+
+
 #define C_HEART_EMPTY   0x00402020UL
 #define C_HEART_GOLD    0x00F0C030UL
 
@@ -91,6 +93,11 @@ void rc_DrawHudFrame(void)
         Graphics_FillRect(0, RC_VIEW_Y0, RC_VIEW_X0 - 1, RC_VIEW_Y1, C_BLACK);
     if(RC_VIEW_X0 + RC_VIEW_W <= SCREEN_W - 1)
         Graphics_FillRect(RC_VIEW_X0 + RC_VIEW_W, RC_VIEW_Y0, SCREEN_W - 1, RC_VIEW_Y1, C_BLACK);
+
+    // dark-gold trim framing the 3D view, and a darker inner line
+    Graphics_FillRect(0, RC_VIEW_Y0 - 2, SCREEN_W - 1, RC_VIEW_Y0 - 2, 0x00806020UL);
+    Graphics_FillRect(0, RC_VIEW_Y1 + 2, SCREEN_W - 1, RC_VIEW_Y1 + 2, 0x00806020UL);
+    Graphics_FillRect(0, RC_VIEW_Y1 + 3, SCREEN_W - 1, RC_VIEW_Y1 + 3, 0x00402810UL);
 }
 
 
@@ -150,7 +157,7 @@ static void DrawHint(void)
     else if(rc_denState == DEN_OPEN && rc_dragonKills == 0u)
         rc_DrawText("The Dragon Den is open!", SCREEN_W / 2, 229, C_RED);
     else if(rc_playerRoom < RM_COUNT && rc_wave > 1u)
-        rc_DrawText(rc_kRoom[rc_playerRoom].name, SCREEN_W / 2, 229, C_GRAY);
+        rc_DrawText(rc_RoomName(rc_playerRoom), SCREEN_W / 2, 229, C_GRAY);
     else
     {
         static const UiHint k[] =
@@ -226,8 +233,8 @@ void rc_DrawHud(void)
     {
         uint16_t it = rc_SelItem();
 
-        Graphics_FillRect(0, RC_VIEW_Y1 + 2, 189, 215, C_BLACK);
-        rc_DrawText(rc_kItems[it].name, 85, 201, (it < NUM_STAFFS) ? rc_kStaffs[it].color : C_WHITE);
+        Graphics_FillRect(0, RC_VIEW_Y1 + 4, 189, 215, C_BLACK);     // (keeps the gold trim)
+        rc_DrawText(rc_ItemName(it), 85, 201, (it < NUM_STAFFS) ? rc_kStaffs[it].color : C_WHITE);
         if(it < NUM_STAFFS)
         {
             n = rc_Cat(buf, 0, "MP ", 3);
@@ -260,7 +267,7 @@ void rc_DrawHud(void)
     {
         const Enemy *boss = NULL;
 
-        Graphics_FillRect(190, RC_VIEW_Y1 + 2, SCREEN_W - 1, 215, C_BLACK);
+        Graphics_FillRect(190, RC_VIEW_Y1 + 4, SCREEN_W - 1, 215, C_BLACK);
         for(i = 0; i < RC_MAX_ENEMIES; i++)
         {
             const Enemy *e = &rc_en[i];
@@ -272,7 +279,10 @@ void rc_DrawHud(void)
         {
             int16_t w = (int16_t)(((int32_t)boss->hp * 124L) / (boss->mhp ? boss->mhp : 1));
 
-            rc_DrawSmall(rc_kEnemyName[boss->type], 254, 199, C_RED, C_BLACK);
+            if(boss->type == ET_DRAGON && boss->st == DR_EXPOSED)
+                rc_DrawSmall("WEAK SPOT!", 254, 199, C_GOLD, C_BLACK);
+            else
+                rc_DrawSmall(rc_EnemyName(boss->type), 254, 199, C_RED, C_BLACK);
             Graphics_FillRect(192, 208, 317, 213, C_DKGRAY);
             if(w > 0) Graphics_FillRect(193, 209, (int16_t)(193 + w - 1), 212, C_RED);
         }

@@ -40,6 +40,7 @@
 #pragma FUNCTION_OPTIONS(LetterTotal, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(DrawLeft, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(DrawMenu, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(DrawSplash, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(DrawTitle, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(DrawHowTo, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(DrawParchment, "--opt_for_speed=0")
@@ -50,6 +51,9 @@
 #pragma FUNCTION_OPTIONS(rc_TitleRender, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(rc_UpdateTitle, "--opt_for_speed=0")
 // ---- SIZE-OPT END ----
+
+
+
 
 
 uint16_t rc_chestKind;
@@ -293,7 +297,7 @@ static void DrawCard(uint16_t i)
     {
         case CK_STAT:
             kind = "UPGRADE"; band = COLOR_OLIVE;
-            name = rc_kStat[c->idx].name; desc = rc_kStat[c->idx].desc;
+            name = rc_StatName(c->idx); desc = rc_StatDesc(c->idx);
             n = rc_Cat(foot, 0, "Lv ", 3);
             n += rc_Itoa(foot + n, (uint16_t)(rc_lvStat[c->idx] + 1u));
             n = rc_Cat(foot, n, "/", 1);
@@ -302,8 +306,8 @@ static void DrawCard(uint16_t i)
             break;
         case CK_RUNE:
             kind = rc_kRune[c->idx].cls ? "CLASS RUNE" : "RUNE"; band = COLOR_PURPLE;
-            name = rc_kRune[c->idx].name; desc = rc_kRune[c->idx].desc;
-            if(rc_kRune[c->idx].cls) { rc_Cat(foot, 0, rc_kClassName[rc_kRune[c->idx].cls], 12); footC = C_XP; }
+            name = rc_RuneName(c->idx); desc = rc_RuneDesc(c->idx);
+            if(rc_kRune[c->idx].cls) { rc_Cat(foot, 0, rc_ClassName(rc_kRune[c->idx].cls), 12); footC = C_XP; }
             break;
         case CK_ITEM:
         {
@@ -312,8 +316,8 @@ static void DrawCard(uint16_t i)
 
             kind = (d->kind == K_GEAR || d->kind == K_STAFF) ? kSlot[(d->kind == K_STAFF) ? SL_WPN : d->slot] : "ITEM";
             band = d->cls ? COLOR_PURPLE : COLOR_TEAL;
-            name = d->name; desc = d->desc;
-            if(d->cls) { rc_Cat(foot, 0, rc_kClassName[d->cls], 12); footC = C_XP; }
+            name = rc_ItemName(c->idx); desc = rc_ItemDesc(c->idx);
+            if(d->cls) { rc_Cat(foot, 0, rc_ClassName(d->cls), 12); footC = C_XP; }
             break;
         }
         case CK_GOLD:
@@ -343,13 +347,13 @@ static void DrawCard(uint16_t i)
             static const char *const kSlotName[3] = { "Body", "Helmet", "Accessory" };
             kind = "BIND TO"; band = COLOR_MAROON; name = kSlotName[c->idx];
             desc = (rc_clothMask & (1u << c->idx)) ? "already|bound" :
-                   (rc_eq[c->idx] == I_NONE) ? "empty slot" : rc_kItems[rc_eq[c->idx]].name;
+                   (rc_eq[c->idx] == I_NONE) ? "empty slot" : rc_ItemName(rc_eq[c->idx]);
             if(rc_eq[c->idx] != I_NONE && !(rc_clothMask & (1u << c->idx))) { rc_Cat(foot, 0, "to bag", 6); footC = C_GRAY; }
             break;
         }
         case CK_SLOT:
             kind = "REPLACE"; band = COLOR_MAROON;
-            name = rc_kRune[rc_rune[c->idx]].name; desc = rc_kRune[rc_rune[c->idx]].desc;
+            name = rc_RuneName(rc_rune[c->idx]); desc = rc_RuneDesc(rc_rune[c->idx]);
             break;
         default:
             rc_DrawSmall("none left", cx, (int16_t)(y0 + CARD_H / 2), C_DKGRAY, fill);
@@ -529,7 +533,7 @@ static void RuneDone(uint16_t from)
 
 void rc_OfferRune(uint16_t rune)
 {
-    if(GiveRune(rune)) { rc_Toast("Rune: ", rc_kRune[rune].name); return; }
+    if(GiveRune(rune)) { rc_Toast("Rune: ", rc_RuneName(rune)); return; }
     AskSwap(rune);
 }
 
@@ -846,6 +850,7 @@ void rc_OverRender(void)
     if(rc_mode == MODE_NAME && rc_cardDirty) { DrawName(); rc_cardDirty = 0; }
 }
 
+static uint16_t s_scoresFromTitle;           // the score table was opened from the title menu
 
 static uint16_t NextChar(uint16_t ch, int16_t d)        // A..Z then 0..9
 {
@@ -908,8 +913,13 @@ bool rc_UpdateOverScreens(void)
         return false;
     }
 
-    // MODE_SCORES: the only button is Main Menu
-    return (g_joy.btnPressed || g_dpad.uPressed || g_dpad.dPressed) != 0;
+    // MODE_SCORES: the only button is Main Menu (back to the title if it came from there)
+    if(!(g_joy.btnPressed || g_dpad.uPressed || g_dpad.dPressed || g_dpad.lPressed)) return false;
+    if(!s_scoresFromTitle) return true;
+    s_scoresFromTitle = 0;
+    rc_Sfx(&sfx_menu_back);
+    rc_EnterTitle();
+    return false;
 }
 
 
@@ -921,10 +931,9 @@ bool rc_UpdateOverScreens(void)
 #define TT_INK       0x003A2412UL
 #define TT_SEAL      0x00861414UL
 
-static uint16_t s_ttSel;                     // 0 = START, 1 = HOW TO PLAY
+static uint16_t s_ttSel;                     // 0 = START, 1 = HIGH SCORES, 2 = HOW TO PLAY
 static uint16_t s_ttDirty;                   // 1 = menu needs redrawing
 static uint16_t s_ttChars;                   // letter characters shown so far
-static uint16_t s_ttSub;                     // tick fraction for the typing speed
 
 // 5x7 block letters for the title (one row per entry, bit 4 = leftmost pixel)
 static const uint16_t kGlyph[7][7] =
@@ -939,30 +948,35 @@ static const uint16_t kGlyph[7][7] =
 };
 static const uint16_t kTitleWord[9] = { 0, 1, 2, 3, 1, 4, 5, 6, 0 };     // R A Y C A S T E R
 
-// The opening letter, from Wason the wizard. Each line must fit the parchment (~34 characters).
+// The opening letter, from Wason the wizard, word for word as the design asks
+// (his spelling included). Each line must fit the parchment (~35 characters).
 static const char *const kLetter[] =
 {
     "Dear Ray Caster,",
     "",
     "I have more important wizard stuff",
-    "to do, but I need this dungeon",
-    "cleared. It may look like one room,",
-    "but it's all a higher dimensional",
-    "structure linking multiple",
+    "to do but I need this dungeon",
+    "cleared. it may look like one room",
+    "but its all a higher dimensional",
+    "structure linking mutliple",
     "iterations of the same building to",
-    "a local inertial frame via...",
-    "Who am I kidding? You're too dumb",
-    "to understand this anyway.",
-    "You kill monster, make money.",
-    "Collect item you want. No want",
-    "item? Sell it to my vendor clones!",
-    "Above all, defeat the dragon before",
-    "I'm back from my errands!"
+    "a local intertial fram via...",
+    "Who am I kidding? you're to dumb to",
+    "understand this anyway. You Kill",
+    "monster make money. collect item",
+    "you want. no want item? Sell it to",
+    "my vendor clones! above all defeat",
+    "the dragon before im back from my",
+    "errands!",
+    "P.S. I heard that you cant look up",
+    "or down because of the back injury,",
+    "please don't sue."
 };
-#define LETTER_LINES   16
+#define LETTER_LINES   19
 #define LETTER_X       50
-#define LETTER_Y0      20
-#define LETTER_DY      11
+#define LETTER_Y0      16
+#define LETTER_DY      10
+#define LETTER_CPT     6u            // characters revealed per game tick (180 a second)
 
 static uint16_t LetterTotal(void)
 {
@@ -988,15 +1002,18 @@ static void DrawLeft(const char *s, uint16_t len, int16_t x, int16_t y, uint32_t
 }
 
 
+#define MENU_Y   132                          // the menu panel sits over the lower middle of the picture
+
 static void DrawMenu(void)
 {
     uint16_t i;
-    static const char *const kItem[2] = { "START", "HOW TO PLAY" };
+    static const char *const kItem[3] = { "START", "HIGH SCORES", "HOW TO PLAY" };
     char     buf[20];
     int16_t  n;
 
-    Graphics_FillRect(60, 138, 260, 200, C_BLACK);
-    for(i = 0; i < 2; i++)
+    Graphics_FillRect(84, MENU_Y, 236, MENU_Y + 70, C_GOLD);      // a gold-framed panel
+    Graphics_FillRect(86, MENU_Y + 2, 234, MENU_Y + 68, C_BLACK);
+    for(i = 0; i < 3; i++)
     {
         bool sel = (s_ttSel == i);
 
@@ -1004,39 +1021,58 @@ static void DrawMenu(void)
         if(sel) n = rc_Cat(buf, n, "> ", 2);
         n = rc_Cat(buf, n, kItem[i], 16);
         if(sel) rc_Cat(buf, n, " <", 2);
-        rc_DrawText(buf, SCREEN_W / 2, (int16_t)(152 + 30 * i), sel ? C_GOLD : C_GRAY);
+        rc_DrawText(buf, SCREEN_W / 2, (int16_t)(MENU_Y + 14 + 21 * i), sel ? C_GOLD : C_GRAY);
+    }
+}
+
+
+// The title picture (rc_splash_image.c, 4 bits per pixel) stretched to 320 x 180 at
+// y = 30..209: each picture row becomes a band of screen rows, each run of equal
+// pixels one rectangle.
+#define SPLASH_Y0   30
+#define SPLASH_HS   180
+static void DrawSplash(void)
+{
+    uint16_t y, x, x1, c;
+    int16_t  sy0, sy1;
+
+    for(y = 0; y < RC_SPLASH_H; y++)
+    {
+        const uint16_t *row = &rc_kSplash[(uint32_t)y * (RC_SPLASH_W / 4u)];
+
+        sy0 = (int16_t)(SPLASH_Y0 + (y * SPLASH_HS) / RC_SPLASH_H);
+        sy1 = (int16_t)(SPLASH_Y0 + ((y + 1u) * SPLASH_HS) / RC_SPLASH_H - 1);
+        for(x = 0; x < RC_SPLASH_W; x = x1)
+        {
+            c = (row[x >> 2] >> (12u - 4u * (x & 3u))) & 0xFu;
+            for(x1 = (uint16_t)(x + 1u); x1 < RC_SPLASH_W &&
+                ((row[x1 >> 2] >> (12u - 4u * (x1 & 3u))) & 0xFu) == c; x1++) {}
+            Graphics_FillRect((int16_t)(((uint32_t)x * SCREEN_W) / RC_SPLASH_W), sy0,
+                              (int16_t)(((uint32_t)x1 * SCREEN_W) / RC_SPLASH_W - 1u), sy1, rc_kSplashPal[c]);
+        }
     }
 }
 
 
 static void DrawTitle(void)
 {
-    uint16_t w, r, cx, x0 = 25, y0 = 40;
-    int16_t  bx;
+    uint16_t w, r, cx, x0 = 79, y0 = 5;
 
     Graphics_FillRect(0, 0, SCREEN_W - 1, SCREEN_H - 1, C_BLACK);
+    DrawSplash();
 
-    // rays fanning up from the wand
-    for(bx = 20; bx <= 300; bx += 70)
-    {
-        Graphics_setForegroundColor(&g_sContext, (bx == 160) ? C_CYAN : COLOR_TEAL);
-        Graphics_drawLine(&g_sContext, 160, 236, bx, 110);
-    }
-    Graphics_fillCircle(&g_sContext, 160, 238, 5);
-
-    // block-letter title with a drop shadow
+    // block-letter title with a drop shadow in the black band above the picture
     for(w = 0; w < 9; w++)
         for(r = 0; r < 7; r++)
             for(cx = 0; cx < 5; cx++)
                 if(kGlyph[kTitleWord[w]][r] & (0x10u >> cx))
                 {
-                    int16_t px = (int16_t)(x0 + (w * 6u + cx) * 5u);
-                    int16_t py = (int16_t)(y0 + r * 5u);
+                    int16_t px = (int16_t)(x0 + (w * 6u + cx) * 3u);
+                    int16_t py = (int16_t)(y0 + r * 3u);
 
-                    Graphics_FillRect(px + 3, py + 3, px + 7, py + 7, COLOR_MAROON);
-                    Graphics_FillRect(px, py, px + 4, py + 4, (r < 3) ? C_GOLD : C_RED);
+                    Graphics_FillRect(px + 1, py + 1, px + 3, py + 3, COLOR_MAROON);
+                    Graphics_FillRect(px, py, px + 2, py + 2, (r < 3) ? C_GOLD : COLOR_ORANGE);
                 }
-    rc_DrawSmall("A dungeon of rays and bad decisions", SCREEN_W / 2, 100, C_GRAY, C_BLACK);
 
     DrawMenu();
     {
@@ -1124,37 +1160,35 @@ static void DrawParchment(void)
 }
 
 
-static void DrawLetterText(uint16_t shown)
+// Draws the letter up to character `to`; characters before `from` are already on the
+// parchment, so only the lines that grew are drawn again.
+static void DrawLetterText(uint16_t from, uint16_t to)
 {
-    uint16_t i, k, left = shown;
+    uint16_t i, k, start = 0;
 
-    for(i = 0; i < LETTER_LINES && left > 0; i++)
+    for(i = 0; i < LETTER_LINES && start < to; i++)
     {
         for(k = 0; kLetter[i][k]; k++) {}
-        if(left >= k + 1u)
+        if(start + k + 1u > from && k)                  // this line gains characters
         {
-            if(k) DrawLeft(kLetter[i], k, LETTER_X, (int16_t)(LETTER_Y0 + LETTER_DY * i), TT_INK, TT_PARCH);
-            left = (uint16_t)(left - k - 1u);
+            uint16_t n = (uint16_t)(to - start);
+            DrawLeft(kLetter[i], (n < k) ? n : k, LETTER_X, (int16_t)(LETTER_Y0 + LETTER_DY * i), TT_INK, TT_PARCH);
         }
-        else
-        {
-            if(left) DrawLeft(kLetter[i], left, LETTER_X, (int16_t)(LETTER_Y0 + LETTER_DY * i), TT_INK, TT_PARCH);
-            left = 0;
-        }
+        start = (uint16_t)(start + k + 1u);
     }
 }
 
 
 static void DrawLetterEnd(void)
 {
-    DrawLeft("-Wason the wizard", 17, 150, 205, TT_INK, TT_PARCH);
+    DrawLeft("-Wason the Wizard", 17, 120, 210, TT_INK, TT_PARCH);
     Graphics_setForegroundColor(&g_sContext, TT_SEAL);                // dark red wax seal
-    Graphics_fillCircle(&g_sContext, 92, 210, 15);
+    Graphics_fillCircle(&g_sContext, 252, 206, 15);
     Graphics_setForegroundColor(&g_sContext, COLOR_MAROON);
-    Graphics_fillCircle(&g_sContext, 92, 210, 12);
+    Graphics_fillCircle(&g_sContext, 252, 206, 12);
     Graphics_setForegroundColor(&g_sContext, TT_SEAL);
-    Graphics_fillCircle(&g_sContext, 92, 210, 9);
-    rc_DrawTextEx("W", 92, 210, 0x00B03030UL, TT_SEAL, true);
+    Graphics_fillCircle(&g_sContext, 252, 206, 9);
+    rc_DrawTextEx("W", 252, 206, 0x00B03030UL, TT_SEAL, true);
 }
 
 
@@ -1175,7 +1209,7 @@ void rc_DrawTitleFull(void)
     else
     {
         DrawParchment();
-        DrawLetterText(s_ttChars);
+        DrawLetterText(0, s_ttChars);
         if(s_ttChars >= LetterTotal()) DrawLetterEnd();
     }
 }
@@ -1195,7 +1229,7 @@ void rc_TitleRender(void)
         if(s_ttChars < shownChars) shownChars = 0;        // a new letter
         if(s_ttChars != shownChars)
         {
-            DrawLetterText(s_ttChars);
+            DrawLetterText(shownChars, s_ttChars);
             if(s_ttChars >= LetterTotal() && shownChars < LetterTotal()) DrawLetterEnd();
             shownChars = s_ttChars;
         }
@@ -1215,7 +1249,7 @@ bool rc_UpdateTitle(uint16_t ticks)
     {
         if(g_dpad.uPressed || g_dpad.dPressed || sy != 0)
         {
-            s_ttSel ^= 1u;
+            s_ttSel = (uint16_t)((s_ttSel + ((g_dpad.uPressed || sy < 0) ? 2u : 1u)) % 3u);
             s_ttDirty = 1;
             rc_Sfx(&sfx_menu_move);
         }
@@ -1223,8 +1257,9 @@ bool rc_UpdateTitle(uint16_t ticks)
         {
             rc_Sfx(&sfx_menu_select);
             rc_dirtyFull = true;
-            if(s_ttSel == 0) { rc_mode = MODE_LETTER; s_ttChars = 0; s_ttSub = 0; }
-            else               rc_mode = MODE_HOWTO;
+            if(s_ttSel == 0)      { rc_mode = MODE_LETTER; s_ttChars = 0; }
+            else if(s_ttSel == 1) { rc_mode = MODE_SCORES; rc_scoreRank = 0xFFFFu; s_scoresFromTitle = 1; }
+            else                    rc_mode = MODE_HOWTO;
         }
     }
     else if(rc_mode == MODE_HOWTO)
@@ -1241,8 +1276,8 @@ bool rc_UpdateTitle(uint16_t ticks)
         total = LetterTotal();
         if(s_ttChars < total)
         {
-            s_ttSub = (uint16_t)(s_ttSub + ticks);          // about 45 characters a second
-            while(s_ttSub >= 2u) { s_ttSub = (uint16_t)(s_ttSub - 2u); if(s_ttChars < total) s_ttChars++; }
+            s_ttChars = (uint16_t)(s_ttChars + LETTER_CPT * ticks);
+            if(s_ttChars > total) s_ttChars = total;
             if(go || g_dpad.uPressed) s_ttChars = total;    // skip the typing
         }
         else if(go || g_dpad.uPressed || g_dpad.rPressed)

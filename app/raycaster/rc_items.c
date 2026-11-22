@@ -9,11 +9,15 @@ enum { WP_RAY, WP_PRISM, WP_STORM, WP_SUN, WP_FIRE, WP_FROST, WP_VENOM, WP_ELIXI
        WP_HASTE, WP_TOME, WP_WARP, WP_AEGIS,
        WP_INFERNAL, WP_THUNDER, WP_GRAVE, WP_PENGINE, WP_ELDRITCH, WP_GILDED, WP_MANA };
 
-//   name, desc, kind, slot, class, effect, art, palette, value, price
-#define STAFF(n, d, cls, art, pal, price)       { n, d, K_STAFF, SL_WPN, cls, 0, art, pal, 0, price }
-#define CONS(n, d, art, pal, cd, price)         { n, d, K_CONS, 0, 0, 0, art, pal, (cd) / 10, price }
-#define GEAR(n, d, slot, cls, fx, v, price)     { n, d, K_GEAR, slot, cls, fx, 0, 0, v, price }
-#define RELIC(n, d)                             { n, d, K_RELIC, 0, 0, 0, 0, 0, 0, 150 }
+// Each row starts with the item's name and description. The macros DROP those two
+// strings: tools/textpack.py packs them 2 chars per word into rc_text.c (read them
+// with rc_ItemName(i) / rc_ItemDesc(i)). Re-run textpack.py after editing any text.
+//   kind, slot, class, effect, art, palette, value, price
+#define STAFF(n, d, cls, art, pal, price)       { K_STAFF, SL_WPN, cls, 0, art, pal, 0, price }
+#define CONS(n, d, art, pal, cd, price)         { K_CONS, 0, 0, 0, art, pal, (cd) / 10, price }
+#define GEAR(n, d, slot, cls, fx, v, price)     { K_GEAR, slot, cls, fx, 0, 0, v, price }
+#define RELIC(n, d)                             { K_RELIC, 0, 0, 0, 0, 0, 0, 150 }
+#define CLOTH(n, d)                             { K_CLOTH, 0, 0, 0, 0, 0, 0, 0 }
 
 const ItemDef rc_kItems[I_COUNT] =
 {
@@ -102,11 +106,13 @@ const ItemDef rc_kItems[I_COUNT] =
     RELIC("Blood Heart",    "low health:|more damage"),
 
     // ---- the Mimic Cloth (rc.md 12.4): counts as a class item for every class
-    { "Mimic Cloth", "bound for|good", K_CLOTH, 0, 0, 0, 0, 0, 0, 0 },
+    CLOTH("Mimic Cloth", "bound for|good"),
 };
 
-const char *const rc_kClassName[CL_COUNT] =
-    { "Apprentice", "Pyromancer", "Stormcaller", "Necromancer", "Raycaster", "Warlock", "Midas" };
+// Class names, in CL_* order (packed by tools/textpack.py; read with rc_ClassName(c)).
+#define CLASS_NAME(n)
+CLASS_NAME("Apprentice") CLASS_NAME("Pyromancer") CLASS_NAME("Stormcaller") CLASS_NAME("Necromancer")
+CLASS_NAME("Raycaster")  CLASS_NAME("Warlock")    CLASS_NAME("Midas")
 
 
 //*****************************************************************************

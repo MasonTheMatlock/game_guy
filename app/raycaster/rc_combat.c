@@ -29,6 +29,7 @@
 // ---- SIZE-OPT END ----
 
 
+
 static uint16_t s_charge;               // Infernal Scepter: frames charged (fire held)
 static uint16_t s_chan;                 // Eldritch Focus: frames channelled
 static bool     s_held;                 // fire was held last tick
@@ -112,7 +113,11 @@ void rc_PlayerHit(Enemy *e, uint16_t base, uint16_t elem, uint16_t flags)
     if(rc_ultT && s_ultKind == CL_MIDAS) pct += 50;                         // golden statues crack
 
     d = ((uint32_t)base * (uint32_t)pct + 50u) / 100u;
-    if(elem == EL_FIRE && e->type == ET_DRAGON) d >>= 1;                    // Dragon: fire resistant
+    if(e->type == ET_DRAGON)
+    {
+        if(elem == EL_FIRE) d >>= 1;                                        // fire resistant
+        d = (e->st == DR_EXPOSED) ? d * 2u : (d + 1u) >> 1;                 // weak spot open: x2, scales: half
+    }
     crit = (uint16_t)(RC_CRIT_BASE_PCT + rc_fx[FX_CRIT] + ((elem == EL_ARCANE) ? rc_fx[FX_BCRIT] : 0));
     if(RAND(100) < crit) { d = (d * 3u + 1u) >> 1; rc_AddSpark(e->x, e->y, 8, 6, PT_PUFF_ARCANE, 5); }
     if(d < 1u) d = 1u;
@@ -274,7 +279,7 @@ static void KillEnemy(Enemy *e)
         if(rc_miniAlive) rc_miniAlive--;
         rc_miniKills++;
         BossChest(CH_BOSS, relic, ex, ey);
-        rc_Toast(rc_kEnemyName[e->type], " defeated!");
+        rc_Toast(rc_EnemyName(e->type), " defeated!");
         rc_OnBossDeath(e, ex, ey);                              // Lich Lord's blast, Golem's walls ...
         for(i = 0; i < RC_MAX_ENEMIES; i++)                     // its summons vanish with it
             if(rc_en[i].alive && rc_en[i].sum == SUM_MINION)

@@ -14,6 +14,7 @@
 #pragma FUNCTION_OPTIONS(Interact, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(PickupKeys, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(SetGates, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(DenWaiting, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(GatesClear, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(DeepInDen, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(UpdateDen, "--opt_for_speed=0")
@@ -22,6 +23,7 @@
 #pragma FUNCTION_OPTIONS(OnWaveClear, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(rc_UpdatePlay, "--opt_for_speed=0")
 // ---- SIZE-OPT END ----
+
 
 
 

@@ -31,12 +31,13 @@ const EnemyDef rc_kEnemy[ET_COUNT] =
     {  130,  12, 100, 60, 700,  820,  26,   4, SH_EYEKING_A,    PT_EYEKING,    SH_EYEKING_B,   DMG_BOSS  }, // Beholder
 };
 
-const char *const rc_kEnemyName[ET_COUNT] =
-{
-    "Goblin", "Bat", "Hobgoblin", "Skeleton", "Watcher", "Lich Lord", "Ancient Dragon",
-    "Slime", "Small Slime", "Spider", "Ghost", "Bomber", "Skeleton Archer", "Mimic",
-    "Slime King", "Elemental Golem", "Vampire Lord", "Beholder"
-};
+// Enemy names, in ET_* order (packed by tools/textpack.py; read with rc_EnemyName(t)).
+#define ENEMY_NAME(n)
+ENEMY_NAME("Goblin")     ENEMY_NAME("Bat")          ENEMY_NAME("Hobgoblin")       ENEMY_NAME("Skeleton")
+ENEMY_NAME("Watcher")    ENEMY_NAME("Lich Lord")    ENEMY_NAME("Ancient Dragon")  ENEMY_NAME("Slime")
+ENEMY_NAME("Small Slime") ENEMY_NAME("Spider")      ENEMY_NAME("Ghost")           ENEMY_NAME("Bomber")
+ENEMY_NAME("Skeleton Archer") ENEMY_NAME("Mimic")   ENEMY_NAME("Slime King")      ENEMY_NAME("Elemental Golem")
+ENEMY_NAME("Vampire Lord") ENEMY_NAME("Beholder")
 
 const uint16_t rc_kMini[RC_NUM_MINI] = { ET_EYEKING, ET_SLIMEKING, ET_LICH, ET_GOLEM, ET_VAMPIRE };
 
@@ -89,17 +90,19 @@ const uint16_t rc_kPotScale[3]  = {   22,   24,   18 };
 //*****************************************************************************
 const uint16_t rc_kSoft[STAT_MAX_LV + 1] = { 0, 256, 486, 691, 870, 1024, 1152, 1254, 1331 };
 
+// name, description (both packed by tools/textpack.py: rc_StatName / rc_StatDesc), step
+#define STAT(n, d, step)    { step }
 const StatDef rc_kStat[ST_COUNT] =
 {
-    { "Damage",       "+15% damage",            15 },
-    { "Max Health",   "+1 heart and|heal one",    1 },
-    { "Move Speed",   "+8% walk|speed",            8 },
-    { "Attack Speed", "-10% time|between shots",  10 },
-    { "Max Mana",     "+20 max|mana",             20 },
-    { "Mana Regen",   "+15% mana|regen",          15 },
-    { "Resistance",   "6% chance to|block half|a heart", 6 },
-    { "Critical",     "+5% chance|of a 1.5x|hit",  5 },
-    { "Gold Find",    "+15% gold|from all|sources", 15 },
+    STAT("Damage",       "+15% damage",            15),
+    STAT("Max Health",   "+1 heart and|heal one",    1),
+    STAT("Move Speed",   "+8% walk|speed",            8),
+    STAT("Attack Speed", "-10% time|between shots",  10),
+    STAT("Max Mana",     "+20 max|mana",             20),
+    STAT("Mana Regen",   "+15% mana|regen",          15),
+    STAT("Resistance",   "6% chance to|block half|a heart", 6),
+    STAT("Critical",     "+5% chance|of a 1.5x|hit",  5),
+    STAT("Gold Find",    "+15% gold|from all|sources", 15),
 };
 
 
@@ -108,53 +111,57 @@ const StatDef rc_kStat[ST_COUNT] =
 // 4 Raycaster, 5 Warlock, 6 Midas. Class runes stay out of the offers until a
 // class has been activated (Pass 2), and only work while that class is active.
 //*****************************************************************************
+// name, description (both packed by tools/textpack.py: rc_RuneName / rc_RuneDesc), class
+#define RUNE(n, d, cls)     { cls }
 const RuneDef rc_kRune[RU_COUNT] =
 {
-    { "Haste",        "+12% move|speed",                   0 },
-    { "Force",        "+20% damage",                        0 },
-    { "Swiftness",    "-15% attack|and item|cooldowns",     0 },
-    { "Echoes",       "20% chance|of an extra|beam",        0 },
-    { "Vitality",     "+1 max|heart",                       0 },
-    { "Leech",        "every 5th|kill heals|half a heart",  0 },
-    { "Conservation", "-25% mana|costs",                    0 },
-    { "Fortune",      "+25% gold",                          0 },
-    { "Momentum",     "a kill gives|3s of +30%|speed",      0 },
-    { "Hermit",       "+50% mana|regen",                    0 },
-    { "Cinderwake",   "burning foes|leave fire|on death",   1 },
-    { "Ashen Harvest","burning kill|restores|mana",          1 },
-    { "Arc Conduit",  "lightning|may chain|once more",      2 },
-    { "Static Rsrv",  "lightning|hits charge|the next one", 2 },
-    { "Soul Siphon",  "kills may|restore|health",           3 },
-    { "Bone Legion",  "stronger|longer army|skeletons",     3 },
-    { "Piercing Lt",  "beams pierce|one more",              4 },
-    { "Afterimage",   "hits may|split a|weak beam",         4 },
-    { "Twin Spectrm", "+2 beams",                           4 },
-    { "Astral Rico",  "beams bounce|and seek",              4 },
-    { "Void Hunger",  "more damage|to wounded|foes",        5 },
-    { "Eldritch Rch", "low mana|means more|damage",         5 },
-    { "Gold Arsenal", "damage grows|with carried|gold",     6 },
-    { "Golden Touch", "kills may|drop bonus|gold",          6 },
+    RUNE("Haste",        "+12% move|speed",                   0),
+    RUNE("Force",        "+20% damage",                        0),
+    RUNE("Swiftness",    "-15% attack|and item|cooldowns",     0),
+    RUNE("Echoes",       "20% chance|of an extra|beam",        0),
+    RUNE("Vitality",     "+1 max|heart",                       0),
+    RUNE("Leech",        "every 5th|kill heals|half a heart",  0),
+    RUNE("Conservation", "-25% mana|costs",                    0),
+    RUNE("Fortune",      "+25% gold",                          0),
+    RUNE("Momentum",     "a kill gives|3s of +30%|speed",      0),
+    RUNE("Hermit",       "+50% mana|regen",                    0),
+    RUNE("Cinderwake",   "burning foes|leave fire|on death",   1),
+    RUNE("Ashen Harvest","burning kill|restores|mana",          1),
+    RUNE("Arc Conduit",  "lightning|may chain|once more",      2),
+    RUNE("Static Rsrv",  "lightning|hits charge|the next one", 2),
+    RUNE("Soul Siphon",  "kills may|restore|health",           3),
+    RUNE("Bone Legion",  "stronger|longer army|skeletons",     3),
+    RUNE("Piercing Lt",  "beams pierce|one more",              4),
+    RUNE("Afterimage",   "hits may|split a|weak beam",         4),
+    RUNE("Twin Spectrm", "+2 beams",                           4),
+    RUNE("Astral Rico",  "beams bounce|and seek",              4),
+    RUNE("Void Hunger",  "more damage|to wounded|foes",        5),
+    RUNE("Eldritch Rch", "low mana|means more|damage",         5),
+    RUNE("Gold Arsenal", "damage grows|with carried|gold",     6),
+    RUNE("Golden Touch", "kills may|drop bonus|gold",          6),
 };
 
 
 //*****************************************************************************
 // Rooms (tile rectangles, inclusive). Themes are fixed per chamber (rc.md 4.6).
 //*****************************************************************************
+// x0, y0, x1, y1, theme, name (packed by tools/textpack.py: rc_RoomName)
+#define ROOM(x0, y0, x1, y1, th, n)     { x0, y0, x1, y1, th }
 const RoomDef rc_kRoom[RM_COUNT] =
 {
-    { 21, 34, 41, 44, TH_WARRENS,  "Goblin Warrens"     },  // RM_S (start)
-    {  1, 34, 19, 44, TH_CRYPT,    "Bone Crypt"         },  // RM_SW
-    {  3, 18,  6, 32, TH_BASEMENT, "West Corridor"      },  // RM_WC
-    {  1,  8, 19, 16, TH_SEWERS,   "Slime Sewers"       },  // RM_NW
-    { 21,  8, 41, 16, TH_CHAPEL,   "Haunted Chapel"     },  // RM_N
-    { 43,  8, 62, 16, TH_FORGE,    "Elemental Forge"    },  // RM_NE
-    { 54, 18, 57, 32, TH_BASEMENT, "East Corridor"      },  // RM_EC
-    { 43, 34, 62, 44, TH_OBSERV,   "Arcane Observatory" },  // RM_SE
-    { 23, 18, 37, 32, TH_DRAGON,   "Dragon Den"         },  // RM_DEN
-    {  8, 18, 19, 24, TH_SEWERS,   "Slime Vault"        },  // RM_VAULT
-    { 26,  1, 36,  6, TH_CHAPEL,   "Haunted Shrine"     },  // RM_SHRINE
-    { 59, 25, 62, 32, TH_OBSERV,   "Astral Laboratory"  },  // RM_LAB
-    { 39, 18, 53, 32, TH_WARRENS,  "Goblin Maze"        },  // RM_MAZE
+    ROOM(21, 34, 41, 44, TH_WARRENS,  "Goblin Warrens"    ),  // RM_S (start)
+    ROOM( 1, 34, 19, 44, TH_CRYPT,    "Bone Crypt"        ),  // RM_SW
+    ROOM( 3, 18,  6, 32, TH_BASEMENT, "West Corridor"     ),  // RM_WC
+    ROOM( 1,  8, 19, 16, TH_SEWERS,   "Slime Sewers"      ),  // RM_NW
+    ROOM(21,  8, 41, 16, TH_CHAPEL,   "Haunted Chapel"    ),  // RM_N
+    ROOM(43,  8, 62, 16, TH_FORGE,    "Elemental Forge"   ),  // RM_NE
+    ROOM(54, 18, 57, 32, TH_BASEMENT, "East Corridor"     ),  // RM_EC
+    ROOM(43, 34, 62, 44, TH_OBSERV,   "Arcane Observatory"),  // RM_SE
+    ROOM(23, 18, 37, 32, TH_DRAGON,   "Dragon Den"        ),  // RM_DEN
+    ROOM( 8, 18, 19, 24, TH_SEWERS,   "Slime Vault"       ),  // RM_VAULT
+    ROOM(26,  1, 36,  6, TH_CHAPEL,   "Haunted Shrine"    ),  // RM_SHRINE
+    ROOM(59, 25, 62, 32, TH_OBSERV,   "Astral Laboratory" ),  // RM_LAB
+    ROOM(39, 18, 53, 32, TH_WARRENS,  "Goblin Maze"       ),  // RM_MAZE
 };
 
 

@@ -1,6 +1,24 @@
 // rc_render.c - the 3D view: strip diffing, sprites, wall art, the held item.
 #include "rc_priv.h"
 
+// ---- SIZE-OPT (cold renderer code only: once per frame or only for walls up close).
+// The per-strip hot path (ListPaint, EmitStrip, PaintSlice, WallDecor, rc_RenderView) stays fast.
+#pragma FUNCTION_OPTIONS(InvalidateView, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(MarkRect, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(WpnBuild, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(FxDot, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(DrawFx, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(ProjectDragon, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(ProjectSprites, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(DecalScale, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(DoorSpan, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(ArchCut, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(DoorWood, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(DoorSteel, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(PillarArt, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(SecretArt, "--opt_for_speed=0")
+
+
 
 
 static uint32_t IdColor(uint16_t id)
@@ -273,6 +291,24 @@ static uint16_t DecalScale(int16_t r)           // ring / puddle of radius r (Q1
 }
 
 
+// The Ancient Dragon is four sprites that move together: two wings (the right one is the
+// left wing mirrored) either side of the body, and the head on top. Offsets are along the
+// screen's left-right axis, so the parts always line up whichever way the player looks.
+static void ProjectDragon(const Enemy *e, uint16_t tint)
+{
+    uint16_t head, pal, wing;
+    int16_t  headZ, up;
+    int32_t  sx = ((int32_t)-rc_projS * 1500L) >> 14;      // 1.5 tiles to the screen's right
+    int32_t  sy = ((int32_t) rc_projC * 1500L) >> 14;
+
+    rc_DragonPose(e, &head, &headZ, &pal, &wing, &up);
+    ProjectOne(e->x - sx, e->y - sy, wing, pal, 30, (uint16_t)(9 + up), tint);
+    ProjectOne(e->x + sx, e->y + sy, (uint16_t)(wing | SH_FLIP), pal, 30, (uint16_t)(9 + up), tint);
+    ProjectOne(e->x, e->y, SH_DRAGON, pal, 34, (uint16_t)up, tint);
+    ProjectOne(e->x, e->y, head, pal, 18, (uint16_t)(headZ + up), tint);
+}
+
+
 // Turn every enemy and object into a screen-space sprite.
 static void ProjectSprites(void)
 {
@@ -293,6 +329,7 @@ static void ProjectSprites(void)
         rc_EnemyLook(e, &shape, &pal);
         tint = e->flash ? 1u : (e->freeze && rc_GoldStatues()) ? 4u : e->freeze ? 3u :
                (e->burn && (e->burn & 8u)) ? 2u : 0u;
+        if(e->type == ET_DRAGON) { ProjectDragon(e, tint); continue; }
         ProjectOne(e->x, e->y, shape, pal, d->scale, d->zoff, tint);
     }
 
@@ -352,6 +389,10 @@ static void ProjectSprites(void)
         }
     }
 
+    // Floor decorations
+    for(i = 0; i < rc_nDecor; i++)
+        ProjectOne(TILE_C(rc_decor[i].tx), TILE_C(rc_decor[i].ty), rc_decor[i].shape, rc_decor[i].pal, rc_decor[i].scale, 0, 0);
+
     // Floor marks: flat decals that flash faster as the hit gets close.
     for(i = 0; i < rc_nMark; i++)
     {
@@ -399,13 +440,14 @@ static void ProjectSprites(void)
 // The 16 art rows are scanned here, so a column may hold any number of colour runs.
 static void PaintSlice(uint16_t *nl, uint16_t *nn, const Spr *sp, int16_t xc)
 {
-    const uint16_t *art = rc_kArt[sp->shape];
+    const uint16_t *art = rc_kArt[sp->shape & ~SH_FLIP];
     uint16_t u, y, y1, id, px, sh, wi;
     int16_t  xs = (int16_t)(xc - sp->x0);
 
     if(xs < 0) xs = 0;
     u = (uint16_t)(((int32_t)xs * sp->uStep) >> 8);
     if(u > SPR_N - 1) u = SPR_N - 1;
+    if(sp->shape & SH_FLIP) u = (uint16_t)(SPR_N - 1 - u);         // mirrored art
     wi = (uint16_t)(u >> 2);                            // which word of a row holds this column
     sh = (uint16_t)((u & 3u) << 2);                     // and which nibble of it
 

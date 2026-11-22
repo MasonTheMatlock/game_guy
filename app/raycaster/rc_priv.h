@@ -35,6 +35,7 @@
 
 #include "raycaster.h"
 #include "rc_sound.h"
+#include "rc_text.h"
 #include "../../drivers/memory.h"
 
 #include <math.h>
@@ -185,7 +186,7 @@ enum { RM_S, RM_SW, RM_WC, RM_NW, RM_N, RM_NE, RM_EC, RM_SE,
        RM_DEN, RM_VAULT, RM_SHRINE, RM_LAB, RM_MAZE, RM_COUNT, RM_NONE = 0xFF };
 #define RM_IS_CHAMBER(r) ((r) == RM_S || (r) == RM_SW || (r) == RM_NW || (r) == RM_N || \
                           (r) == RM_NE || (r) == RM_SE)
-typedef struct { uint16_t x0, y0, x1, y1, theme; const char *name; } RoomDef;
+typedef struct { uint16_t x0, y0, x1, y1, theme; } RoomDef;          // name: rc_RoomName(r)
 extern const RoomDef rc_kRoom[RM_COUNT];
 uint16_t rc_RoomAt(int32_t x, int32_t y);
 extern uint16_t rc_playerRoom;
@@ -215,17 +216,21 @@ enum { ET_GOBLIN, ET_BAT, ET_HOBGOB, ET_SKELETON, ET_WATCHER, ET_LICH, ET_DRAGON
                          (t) == ET_GOLEM || (t) == ET_VAMPIRE)
 #define RC_IS_BOSS(t)   (RC_IS_MINI(t) || (t) == ET_DRAGON)
 extern const uint16_t rc_kMini[RC_NUM_MINI];
-extern const char *const rc_kEnemyName[ET_COUNT];
 
 enum { SH_GOBLIN, SH_BAT, SH_SKELETON, SH_LICH, SH_BEHOLDER,
-       SH_FLASK, SH_BOLT, SH_PUFF, SH_DRAGON, SH_DRAGON_ATTACK,
+       SH_FLASK, SH_BOLT, SH_PUFF, SH_DRAGON, SH_DRAGON_HEAD,   // the Dragon's body and head
        SH_HOBGOB, SH_SLIME, SH_SPIDER, SH_GHOST, SH_GHOST_FADE, SH_BOMBER,
        SH_EYEKING_A, SH_EYEKING_B, SH_SLIMEKING_A, SH_SLIMEKING_B,
        SH_GOLEM_A, SH_GOLEM_B, SH_VAMP_A, SH_VAMP_B, SH_LICH_B,
        SH_CHEST, SH_MIMIC, SH_ORB, SH_WEB, SH_PUDDLE, SH_WARN, SH_WAVE,
        SH_ALERT, SH_MERCHANT, SH_ARCHER, SH_KEY, SH_HEART,
        SH_GOLEM_C, SH_GOLEM_D, SH_SPIKE,           // Golem dash / cast poses, ice spikes
+       SH_BARREL, SH_BONES, SH_CRYSTAL, SH_CANDLE,  // floor decorations
+       SH_DRAGON_ROAR, SH_WING_UP, SH_WING_DOWN,   // Dragon: roaring head, left wing frames (mirrored for the right)
+       SH_ICON_STAFF, SH_ICON_BODY, SH_ICON_HELM, SH_ICON_RING, SH_ICON_RUNE,   // inventory icons
+       SH_SKEL_BACK,                               // a summoned skeleton seen from behind (allies face away)
        SH_COUNT };
+#define SH_FLIP   0x8000u                       // OR into a shape: draw it mirrored left-right
 
 enum { PT_GOBLIN, PT_BAT, PT_HOBGOB, PT_SKELETON, PT_BEHOLDER, PT_LICH,
        PT_BEHOLDER_HOT,
@@ -245,7 +250,11 @@ enum { PT_GOBLIN, PT_BAT, PT_HOBGOB, PT_SKELETON, PT_BEHOLDER, PT_LICH,
        PT_ALERT, PT_MERCHANT, PT_ARCHER, PT_KEY, PT_HEART, PT_ALTAR, PT_CHEST_GOOD,
        PT_GOLEM_EARTH, PT_ROCK, PT_SPIKE,
        PT_MARK_EARTH, PT_MARK_BLUE, PT_MARK_WHITE, PT_MARK_GREEN,   // floor marks (telegraphs)
+       PT_BARREL, PT_BARREL_G, PT_BONES, PT_CRYSTAL, PT_CANDLE,     // floor decorations
+       PT_DRAGON_CORE,                                              // Dragon with its weak spot exposed
+       PT_ALLY,                                                     // the player's summons: spectral violet
        PT_COUNT };
+#define DR_EXPOSED  3u                          // Dragon state: landed, weak spot open (2x damage)
 
 typedef struct
 {
@@ -344,7 +353,7 @@ void rc_RecalcFx(void);                       // after ANY change to stats, rune
 
 enum { ST_DMG, ST_HP, ST_MOVE, ST_ASPD, ST_MANA, ST_REGEN, ST_RES, ST_CRIT, ST_GOLD, ST_COUNT };
 #define STAT_MAX_LV     8
-typedef struct { const char *name; const char *desc; uint16_t step; } StatDef;
+typedef struct { uint16_t step; } StatDef;          // text: rc_StatName / rc_StatDesc
 extern const StatDef  rc_kStat[ST_COUNT];
 extern const uint16_t rc_kSoft[STAT_MAX_LV + 1];       // cumulative effect per level, Q8 of one step
 
@@ -358,7 +367,7 @@ enum { RU_HASTE, RU_FORCE, RU_SWIFT, RU_ECHOES, RU_VITAL, RU_LEECH, RU_CONSERVE,
 #define RUNE_SLOTS      4
 #define RUNE_NONE       0xFFFFu
 #define RUNE_PRICE      70
-typedef struct { const char *name; const char *desc; uint16_t cls; } RuneDef;   // cls 0 = general
+typedef struct { uint16_t cls; } RuneDef;           // cls 0 = general; text: rc_RuneName / rc_RuneDesc
 extern const RuneDef rc_kRune[RU_COUNT];
 bool rc_HasRune(uint16_t r);                  // equipped AND (general, or its class is active)
 
@@ -366,7 +375,6 @@ bool rc_HasRune(uint16_t r);                  // equipped AND (general, or its c
 // Classes (rc.md 8)
 //*****************************************************************************
 enum { CL_NONE, CL_PYRO, CL_STORM, CL_NECRO, CL_RAY, CL_WARLOCK, CL_MIDAS, CL_COUNT };
-extern const char *const rc_kClassName[CL_COUNT];
 extern uint16_t rc_class;                     // active class (CL_NONE = Apprentice)
 extern uint16_t rc_classSeen;                 // bit c: class c has been active this run
 extern uint16_t rc_ult;                       // ultimate meter, 0..ULT_FULL
@@ -407,8 +415,7 @@ enum { K_STAFF, K_CONS, K_GEAR, K_RELIC, K_CLOTH };
 enum { SL_BODY, SL_HELM, SL_ACC, SL_WPN, SL_COUNT };
 typedef struct
 {
-    const char *name;
-    const char *desc;           // up to 3 lines of 12 chars, '|' separated
+    // name / description: rc_ItemName(i) / rc_ItemDesc(i) (up to 3 lines of 12 chars, '|' separated)
     uint16_t kind : 3;          // K_*
     uint16_t slot : 2;          // gear: SL_BODY / SL_HELM / SL_ACC
     uint16_t cls  : 3;          // class gear / class staff: CL_*
@@ -452,6 +459,7 @@ extern uint16_t rc_cdStaff;                   // weapon cooldown, frames
 extern uint16_t rc_cdStaffMax;
 extern uint16_t rc_cdCons[NUM_CONS];          // per-consumable cooldowns
 extern uint16_t rc_relicMask;                 // bit r: relic r carried (rc_RecalcFx)
+extern uint16_t rc_relicCnt[5];               // relics carried (Relics tab), per mini-boss relic
 extern uint16_t rc_phylacteryUsed;
 extern uint16_t rc_manaDebt;                  // max mana lost to cursed-chest trades
 extern uint16_t rc_hpBonus;                   // extra half hearts from the Shrine
@@ -508,6 +516,7 @@ extern const uint32_t rc_kTint[5];          // 0 none, 1 hit, 2 burning, 3 froze
 #define TILE_METAL_DOOR 7
 #define TILE_EARTH      6                   // the Earth Golem's temporary seal wall
 #define TILE_KINDS      8
+#define TILE_BLOCK      8                   // a decoration that blocks movement: solid, but rays pass through it
 extern const uint32_t rc_kWallBase[TILE_KINDS];
 extern const uint16_t rc_kShadeMul[4];
 
@@ -724,6 +733,11 @@ typedef struct
     uint16_t alive;
     uint16_t arg;           // boss chest: its relic
 } Prop;
+// Floor decorations (map 'o' blocks movement, '%' is clutter you walk over), themed per room.
+#define RC_MAX_DECOR    32
+typedef struct { uint16_t tx, ty, shape, pal, scale; } Decor;
+extern Decor    rc_decor[RC_MAX_DECOR];
+extern uint16_t rc_nDecor;
 extern Prop     rc_prop[RC_MAX_PROPS];
 extern uint16_t rc_nProp;
 extern int16_t  rc_treasureProp;        // prop index of this wave's treasure chest (-1 none)
@@ -828,6 +842,7 @@ void rc_MarksClear(void);
 bool rc_ThinkBoss(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t dist);
 bool rc_BossLook(const Enemy *e, uint16_t *shape, uint16_t *pal);
 bool rc_Untargetable(const Enemy *e);           // ghost phasing, Slime King split
+void rc_DragonPose(const Enemy *e, uint16_t *head, int16_t *headZ, uint16_t *pal, uint16_t *wing, int16_t *lift);
 void rc_BossTick(void);
 void rc_ResetBosses(void);
 
@@ -844,7 +859,7 @@ void     rc_AimCharge(Enemy *e, int16_t sp, int16_t dx, int16_t dy);
 bool     rc_ChargeStep(Enemy *e);
 void     rc_BehindPlayer(int32_t *bx, int32_t *by);
 
-#define RC_SPR_CAP  (RC_MAX_ENEMIES + RC_MAX_OBJ + RC_MAX_PROPS + RC_MAX_MARKS)
+#define RC_SPR_CAP  (RC_MAX_ENEMIES + RC_MAX_OBJ + RC_MAX_PROPS + RC_MAX_MARKS + RC_MAX_DECOR)
 extern Spr      rc_spr[RC_SPR_CAP];
 extern uint16_t rc_nSpr;
 extern int16_t  rc_projC;
@@ -1045,5 +1060,28 @@ void rc_UpdatePlay(void);
 void rc_LoadScores(void);
 
 extern const App g_raycasterApp;
+
+//*****************************************************************************
+// Packed table text (rc_text.c, generated by tools/textpack.py from the tables in
+// rc_items.c / rc_data.c). rc_Text unpacks string #id into one of 4 rotating RAM
+// buffers, so up to 4 results can be in use at once; copy anything kept longer.
+//*****************************************************************************
+extern const uint16_t rc_kTextPk[];
+const char *rc_Text(uint16_t id);
+#define rc_ItemName(i)   rc_Text((uint16_t)(TX_ITEM + 2u * (i)))
+#define rc_ItemDesc(i)   rc_Text((uint16_t)(TX_ITEM + 2u * (i) + 1u))
+#define rc_StatName(i)   rc_Text((uint16_t)(TX_STAT + 2u * (i)))
+#define rc_StatDesc(i)   rc_Text((uint16_t)(TX_STAT + 2u * (i) + 1u))
+#define rc_RuneName(i)   rc_Text((uint16_t)(TX_RUNE + 2u * (i)))
+#define rc_RuneDesc(i)   rc_Text((uint16_t)(TX_RUNE + 2u * (i) + 1u))
+#define rc_RoomName(i)   rc_Text((uint16_t)(TX_ROOM + (i)))
+#define rc_EnemyName(i)  rc_Text((uint16_t)(TX_ENEMY + (i)))
+#define rc_ClassName(i)  rc_Text((uint16_t)(TX_CLASS + (i)))
+
+// The title-screen picture (rc_splash_image.c, generated by tools/splashpack.py).
+#define RC_SPLASH_W     128
+#define RC_SPLASH_H     72
+extern const uint32_t rc_kSplashPal[16];
+extern const uint16_t rc_kSplash[RC_SPLASH_W * RC_SPLASH_H / 4];
 
 #endif // RC_PRIV_H

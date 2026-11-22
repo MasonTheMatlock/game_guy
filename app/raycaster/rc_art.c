@@ -15,7 +15,7 @@
 static const uint32_t kP_HOBGOB[PAL_N] = { COLOR_TETRIS_GRID, COLOR_BROWN, COLOR_GRAY, COLOR_DARK_GRAY, COLOR_LIGHT_GRAY, COLOR_CRIMSON, COLOR_MAGENTA, COLOR_WHITE };
 static const uint32_t kP_SLIME[PAL_N] = { COLOR_TEAL, COLOR_GREEN, COLOR_TETRIS_GRID, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MINT };
 static const uint32_t kP_SLIME_S[PAL_N] = { COLOR_OLIVE, COLOR_MINT, COLOR_TETRIS_GRID, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_WHITE };
-static const uint32_t kP_SPIDER[PAL_N] = { COLOR_GRAY, COLOR_PURPLE, COLOR_CRIMSON, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_SPIDER[PAL_N] = { 0x00302838UL, 0x00503060UL, COLOR_RED, 0x00905CA8UL, COLOR_WHITE, COLOR_ORANGE, COLOR_MAGENTA, COLOR_MAGENTA };   // legs, body, eyes, sheen, fangs, knee bands
 static const uint32_t kP_GHOST[PAL_N] = { COLOR_SKY_BLUE, COLOR_WHITE, COLOR_NAVY, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 static const uint32_t kP_GHOST_FADE[PAL_N] = { COLOR_TEAL, COLOR_CYAN, COLOR_NAVY, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 static const uint32_t kP_IMP[PAL_N] = { COLOR_MAROON, COLOR_CRIMSON, COLOR_ORANGE, COLOR_BLACK, COLOR_MAGENTA, COLOR_GOLD, COLOR_MAGENTA, COLOR_MAGENTA };
@@ -70,7 +70,14 @@ static const uint32_t kP_MARK_BLUE[PAL_N]  = { COLOR_NAVY, COLOR_BLUE, COLOR_MAG
 static const uint32_t kP_MARK_WHITE[PAL_N] = { COLOR_LIGHT_GRAY, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_SKY_BLUE };
 static const uint32_t kP_MARK_GREEN[PAL_N] = { 0x00104020UL, COLOR_GREEN, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MINT };
 
-static const uint32_t kP_MERCHANT[PAL_N] = { COLOR_DARK_PURPLE, COLOR_VIOLET, COLOR_TEAL, COLOR_KHAKI, COLOR_BLACK, COLOR_GOLD, COLOR_BROWN, COLOR_WHITE };
+// Vendor (a wizard clone): a outline, b robe, c -, d skin, e eyes, f gold, g staff, h beard / orb
+static const uint32_t kP_MERCHANT[PAL_N] = { COLOR_NAVY, 0x002848B0UL, COLOR_MAGENTA, COLOR_KHAKI, COLOR_BLACK, COLOR_GOLD, COLOR_BROWN, COLOR_WHITE };
+// Floor decorations
+static const uint32_t kP_BARREL[PAL_N]   = { 0x003A3A40UL, 0x008A5A2AUL, 0x005A3A1AUL, 0x00C08A4AUL, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_BARREL_G[PAL_N] = { 0x003A3A40UL, 0x004A7A30UL, 0x002A4A1AUL, COLOR_MINT, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_BONES[PAL_N]    = { 0x00E0DCC8UL, 0x00302820UL, COLOR_BLACK, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_CRYSTAL[PAL_N]  = { 0x003A2A7AUL, 0x007A6AE0UL, 0x00C0B8FFUL, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_CANDLE[PAL_N]   = { 0x00303034UL, 0x00E8E0C0UL, COLOR_ORANGE, COLOR_GOLD, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 
 // Sprite art, 16x16, packed 4 bits per pixel (0 = transparent, 1..8 = palette letter a..h), 4 pixels
 // per word, 4 words per row (leftmost pixel in the lowest nibble). The ASCII picture above each
@@ -357,74 +364,74 @@ const uint16_t rc_kArt[SH_COUNT][SPR_N * 4] =
         0x0000, 0x1110, 0x0111, 0x0000,
         0x0000, 0x0000, 0x0000, 0x0000,
     },
-    // kArtDragon
+    // kArtDragonBody
     //   ................
-    //   .......aa.......
-    //   ......abca......
-    //   .....abbbca.....
-    //   ....abbbbbca....
-    //   ...abbbddbbca...
-    //   ..abbbbdcbbbc...
-    //   .abbbbbbbbbbbba.
-    //   .abbbbbbbbbbbba.
-    //   ..abbbbbbbbbba..
-    //   ...abbbbbbba....
+    //   ................
+    //   ................
+    //   .....aaaaaa.....
     //   ....abbbbbba....
-    //   ...aa..bb..aa...
-    //   ..aa...bb...aa..
-    //   ................
+    //   ...abbccccbba...
+    //   ..abbccccccbba..
+    //   ..abccceeccbba..
+    //   ..abcceeeeccba..
+    //   ..abbcceeccbba..
+    //   ..abbbccccbbba..
+    //   ...abbbbbbbba...
+    //   ..aabba..abbaa..
+    //   .abba.....abba..
+    //   .dddd.....dddd..
     //   ................
     {
         0x0000, 0x0000, 0x0000, 0x0000,
-        0x0000, 0x1000, 0x0001, 0x0000,
-        0x0000, 0x2100, 0x0013, 0x0000,
-        0x0000, 0x2210, 0x0132, 0x0000,
-        0x0000, 0x2221, 0x1322, 0x0000,
-        0x1000, 0x4222, 0x3224, 0x0001,
-        0x2100, 0x4222, 0x2223, 0x0003,
-        0x2210, 0x2222, 0x2222, 0x0122,
-        0x2210, 0x2222, 0x2222, 0x0122,
-        0x2100, 0x2222, 0x2222, 0x0012,
-        0x1000, 0x2222, 0x1222, 0x0000,
-        0x0000, 0x2221, 0x1222, 0x0000,
-        0x1000, 0x2001, 0x1002, 0x0001,
-        0x1100, 0x2000, 0x0002, 0x0011,
         0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1110, 0x0111, 0x0000,
+        0x0000, 0x2221, 0x1222, 0x0000,
+        0x1000, 0x3322, 0x2233, 0x0001,
+        0x2100, 0x3332, 0x2333, 0x0012,
+        0x2100, 0x5333, 0x2335, 0x0012,
+        0x2100, 0x5533, 0x3355, 0x0012,
+        0x2100, 0x5332, 0x2335, 0x0012,
+        0x2100, 0x3322, 0x2233, 0x0012,
+        0x1000, 0x2222, 0x2222, 0x0001,
+        0x1100, 0x0122, 0x2210, 0x0011,
+        0x2210, 0x0001, 0x2100, 0x0012,
+        0x4440, 0x0004, 0x4400, 0x0044,
         0x0000, 0x0000, 0x0000, 0x0000,
     },
-    // kArtDragonAttack
-    //   ................
+    // kArtDragonHead
+    //   .d............d.
+    //   .dd..........dd.
+    //   ..dd..aaaa..dd..
+    //   ...daabbbbaad...
+    //   ....abbbbbba....
+    //   ...abfbbbbfba...
+    //   ...abbbbbbbba...
+    //   ...abbbbbbbba...
+    //   ....abbccbba....
+    //   ....abccccba....
+    //   .....acccca.....
+    //   .....abccba.....
+    //   ......abba......
     //   .......aa.......
-    //   ......abca......
-    //   .....abbbca.....
-    //   ....abbbbbca....
-    //   ...abbbddbbca...
-    //   ..abbbbdcbbbc...
-    //   .abbbbbbbbbbbba.
-    //   .abbbbbbbbbbbba.
-    //   ..abbbbbbbbcba..
-    //   ...abbbbbeeea...
-    //   ....abbbbeeea...
-    //   .....abbeeea....
-    //   ......aeee......
-    //   .......ee.......
+    //   ................
     //   ................
     {
-        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0040, 0x0000, 0x0000, 0x0400,
+        0x0440, 0x0000, 0x0000, 0x0440,
+        0x4400, 0x1100, 0x0011, 0x0044,
+        0x4000, 0x2211, 0x1122, 0x0004,
+        0x0000, 0x2221, 0x1222, 0x0000,
+        0x1000, 0x2262, 0x2622, 0x0001,
+        0x1000, 0x2222, 0x2222, 0x0001,
+        0x1000, 0x2222, 0x2222, 0x0001,
+        0x0000, 0x3221, 0x1223, 0x0000,
+        0x0000, 0x3321, 0x1233, 0x0000,
+        0x0000, 0x3310, 0x0133, 0x0000,
+        0x0000, 0x3210, 0x0123, 0x0000,
+        0x0000, 0x2100, 0x0012, 0x0000,
         0x0000, 0x1000, 0x0001, 0x0000,
-        0x0000, 0x2100, 0x0013, 0x0000,
-        0x0000, 0x2210, 0x0132, 0x0000,
-        0x0000, 0x2221, 0x1322, 0x0000,
-        0x1000, 0x4222, 0x3224, 0x0001,
-        0x2100, 0x4222, 0x2223, 0x0003,
-        0x2210, 0x2222, 0x2222, 0x0122,
-        0x2210, 0x2222, 0x2222, 0x0122,
-        0x2100, 0x2222, 0x3222, 0x0012,
-        0x1000, 0x2222, 0x5552, 0x0001,
-        0x0000, 0x2221, 0x5552, 0x0001,
-        0x0000, 0x2210, 0x1555, 0x0000,
-        0x0000, 0x5100, 0x0055, 0x0000,
-        0x0000, 0x5000, 0x0005, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
         0x0000, 0x0000, 0x0000, 0x0000,
     },
     // kArtHobgob
@@ -499,38 +506,38 @@ const uint16_t rc_kArt[SH_COUNT][SPR_N * 4] =
     },
     // kArtSpider
     //   ................
-    //   ................
-    //   .a............a.
-    //   .aa..........aa.
-    //   ..aa...aa...aa..
-    //   ...aa.abba.aa...
-    //   .a..aaabbaaa..a.
-    //   ..aaaabbbbaaaa..
-    //   ...a.abccba.a...
-    //   ..a..abbbbba.a..
-    //   .a....abbba..a..
-    //   .a...aabbbaa..a.
-    //   .a..a..aaa..a.a.
-    //   ....a......a....
-    //   ................
-    //   ................
+    //   ...f........f...
+    //   ...aa......aa...
+    //   ..a.f......f.a..
+    //   ..a.adbbbbda.a..
+    //   ..aabbddddbbaa..
+    //   .a.abbbddbbba.a.
+    //   .aa.abbbbbba.aa.
+    //   a.aa.abccba.aa.a
+    //   a.aa.acbbca.aa.a
+    //   .a.a.aebbea.a.a.
+    //   .aa.a.e..e.a.aa.
+    //   a.a.a......a.a.a
+    //   a.a.a......a.a.a
+    //   .a.a........a.a.
+    //   .a.a........a.a.
     {
         0x0000, 0x0000, 0x0000, 0x0000,
-        0x0000, 0x0000, 0x0000, 0x0000,
-        0x0010, 0x0000, 0x0000, 0x0100,
-        0x0110, 0x0000, 0x0000, 0x0110,
-        0x1100, 0x1000, 0x0001, 0x0011,
-        0x1000, 0x2101, 0x1012, 0x0001,
-        0x0010, 0x2111, 0x1112, 0x0100,
-        0x1100, 0x2211, 0x1122, 0x0011,
-        0x1000, 0x3210, 0x0123, 0x0001,
-        0x0100, 0x2210, 0x1222, 0x0010,
-        0x0010, 0x2100, 0x0122, 0x0010,
-        0x0010, 0x2110, 0x1122, 0x0100,
-        0x0010, 0x1001, 0x0011, 0x0101,
-        0x0000, 0x0001, 0x1000, 0x0000,
-        0x0000, 0x0000, 0x0000, 0x0000,
-        0x0000, 0x0000, 0x0000, 0x0000,
+        0x6000, 0x0000, 0x0000, 0x0006,
+        0x1000, 0x0001, 0x1000, 0x0001,
+        0x0100, 0x0006, 0x6000, 0x0010,
+        0x0100, 0x2241, 0x1422, 0x0010,
+        0x1100, 0x4422, 0x2244, 0x0011,
+        0x1010, 0x4222, 0x2224, 0x0101,
+        0x0110, 0x2221, 0x1222, 0x0110,
+        0x1101, 0x3210, 0x0123, 0x1011,
+        0x1101, 0x2310, 0x0132, 0x1011,
+        0x1010, 0x2510, 0x0152, 0x0101,
+        0x0110, 0x0501, 0x1050, 0x0110,
+        0x0101, 0x0001, 0x1000, 0x1010,
+        0x0101, 0x0001, 0x1000, 0x1010,
+        0x1010, 0x0000, 0x0000, 0x0101,
+        0x1010, 0x0000, 0x0000, 0x0101,
     },
     // kArtGhost
     //   ................
@@ -1233,39 +1240,39 @@ const uint16_t rc_kArt[SH_COUNT][SPR_N * 4] =
         0x0000, 0x0000, 0x0000, 0x0000,
     },
     // kArtMerchant
-    //   ................
-    //   .....aaaaaa.....
-    //   ....abbbbbba....
-    //   ...abbbbbbbba...
-    //   ...abbddddbba...
-    //   ...abdeddeddba..
-    //   ...abdddddddba..
-    //   ...abbdffdbbba..
-    //   ..aaabbbbbbaaa..
-    //   .aggaccccccaggaa
-    //   .agghaccccccgga.
-    //   .aggcccffcccgga.
-    //   .agacccccccccaa.
-    //   ..aaccccccccaa..
-    //   ...acc.aa.cca...
-    //   ...aaa.aa.aaa...
+    //   ........a.......
+    //   .......aba......
+    //   ......abfba.....
+    //   ......abbba.....
+    //   .....abbfbba..h.
+    //   .....abbbbba.hhh
+    //   ...aaffffffaa.h.
+    //   ....adeddeda..g.
+    //   ....ahhhhhha..g.
+    //   ...abhhhhhhba.g.
+    //   ..abbbhhhhbbbagg
+    //   ..abbbbhhbbbba.g
+    //   ..abbfbbbbfbba.g
+    //   ..abbbbbbbbbba.g
+    //   ...abbbbbbbba..g
+    //   ...aaaaaaaaaa..g
     {
-        0x0000, 0x0000, 0x0000, 0x0000,
-        0x0000, 0x1110, 0x0111, 0x0000,
-        0x0000, 0x2221, 0x1222, 0x0000,
-        0x1000, 0x2222, 0x2222, 0x0001,
-        0x1000, 0x4422, 0x2244, 0x0001,
-        0x1000, 0x4542, 0x4454, 0x0012,
-        0x1000, 0x4442, 0x4444, 0x0012,
-        0x1000, 0x6422, 0x2246, 0x0012,
-        0x1100, 0x2221, 0x1222, 0x0011,
-        0x7710, 0x3331, 0x1333, 0x1177,
-        0x7710, 0x3318, 0x3333, 0x0177,
-        0x7710, 0x6333, 0x3336, 0x0177,
-        0x1710, 0x3333, 0x3333, 0x0113,
-        0x1100, 0x3333, 0x3333, 0x0011,
-        0x1000, 0x1033, 0x3301, 0x0001,
-        0x1000, 0x1011, 0x1101, 0x0001,
+        0x0000, 0x0000, 0x0001, 0x0000,
+        0x0000, 0x1000, 0x0012, 0x0000,
+        0x0000, 0x2100, 0x0126, 0x0000,
+        0x0000, 0x2100, 0x0122, 0x0000,
+        0x0000, 0x2210, 0x1226, 0x0800,
+        0x0000, 0x2210, 0x1222, 0x8880,
+        0x1000, 0x6661, 0x1666, 0x0801,
+        0x0000, 0x4541, 0x1454, 0x0700,
+        0x0000, 0x8881, 0x1888, 0x0700,
+        0x1000, 0x8882, 0x2888, 0x0701,
+        0x2100, 0x8822, 0x2288, 0x7712,
+        0x2100, 0x8222, 0x2228, 0x7012,
+        0x2100, 0x2262, 0x2622, 0x7012,
+        0x2100, 0x2222, 0x2222, 0x7012,
+        0x1000, 0x2222, 0x2222, 0x7001,
+        0x1000, 0x1111, 0x1111, 0x7001,
     },
     // kArtArcher
     //   ................
@@ -1477,6 +1484,461 @@ const uint16_t rc_kArt[SH_COUNT][SPR_N * 4] =
         0x3333, 0x3333, 0x3333, 0x3333,
         0x0000, 0x0000, 0x0000, 0x0000,
     },
+    // kArtBarrel
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ....aaaaaaaa....
+    //   ...abbbbbbbba...
+    //   ...abcbbcbbca...
+    //   ...aaaaaaaaaa...
+    //   ...abcbbcbbca...
+    //   ...abcbdcbbca...
+    //   ...abcbbcbbca...
+    //   ...aaaaaaaaaa...
+    //   ...abcbbcbbca...
+    //   ....aaaaaaaa....
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1111, 0x1111, 0x0000,
+        0x1000, 0x2222, 0x2222, 0x0001,
+        0x1000, 0x2232, 0x3223, 0x0001,
+        0x1000, 0x1111, 0x1111, 0x0001,
+        0x1000, 0x2232, 0x3223, 0x0001,
+        0x1000, 0x4232, 0x3223, 0x0001,
+        0x1000, 0x2232, 0x3223, 0x0001,
+        0x1000, 0x1111, 0x1111, 0x0001,
+        0x1000, 0x2232, 0x3223, 0x0001,
+        0x0000, 0x1111, 0x1111, 0x0000,
+    },
+    // kArtBones
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ......aaaa......
+    //   .....aaaaaa.....
+    //   ..a..acaaca..aa.
+    //   .aaa.aaaaaa.aa..
+    //   ..aaaabaab.aa...
+    //   .bbbbbbbbbbbbbb.
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1100, 0x0011, 0x0000,
+        0x0000, 0x1110, 0x0111, 0x0000,
+        0x0100, 0x1310, 0x0131, 0x0110,
+        0x1110, 0x1110, 0x0111, 0x0011,
+        0x1100, 0x1211, 0x1021, 0x0001,
+        0x2220, 0x2222, 0x2222, 0x0222,
+    },
+    // kArtCrystal
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   .......d........
+    //   ......acb.......
+    //   ......acb...d...
+    //   ..d...acb..acb..
+    //   ..cb..abcb.acb..
+    //   .acb.aabcb.abcb.
+    //   .acbbaabcbbabcb.
+    //   .aabbaabcbbabbb.
+    //   ..abbaaabbbabb..
+    //   ..aabbaabbbaab..
+    //   ...aaaaaaaaaa...
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x4000, 0x0000, 0x0000,
+        0x0000, 0x3100, 0x0002, 0x0000,
+        0x0000, 0x3100, 0x0002, 0x0004,
+        0x0400, 0x3100, 0x1002, 0x0023,
+        0x2300, 0x2100, 0x1023, 0x0023,
+        0x2310, 0x2110, 0x1023, 0x0232,
+        0x2310, 0x2112, 0x1223, 0x0232,
+        0x2110, 0x2112, 0x1223, 0x0222,
+        0x2100, 0x1112, 0x1222, 0x0022,
+        0x1100, 0x1122, 0x1222, 0x0021,
+        0x1000, 0x1111, 0x1111, 0x0001,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtCandle
+    //   ................
+    //   ...d...d...d....
+    //   ...c...c...c....
+    //   ...c...c...c....
+    //   ...b...b...b....
+    //   ...b...b...b....
+    //   ..aaa.aaa.aaa...
+    //   ...a...a...a....
+    //   ...aaaaaaaaa....
+    //   .......a........
+    //   .......a........
+    //   .......a........
+    //   .......a........
+    //   ......aaa.......
+    //   .....aaaaa......
+    //   ....aaaaaaa.....
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x4000, 0x4000, 0x4000, 0x0000,
+        0x3000, 0x3000, 0x3000, 0x0000,
+        0x3000, 0x3000, 0x3000, 0x0000,
+        0x2000, 0x2000, 0x2000, 0x0000,
+        0x2000, 0x2000, 0x2000, 0x0000,
+        0x1100, 0x1101, 0x1101, 0x0001,
+        0x1000, 0x1000, 0x1000, 0x0000,
+        0x1000, 0x1111, 0x1111, 0x0000,
+        0x0000, 0x1000, 0x0000, 0x0000,
+        0x0000, 0x1000, 0x0000, 0x0000,
+        0x0000, 0x1000, 0x0000, 0x0000,
+        0x0000, 0x1000, 0x0000, 0x0000,
+        0x0000, 0x1100, 0x0001, 0x0000,
+        0x0000, 0x1110, 0x0011, 0x0000,
+        0x0000, 0x1111, 0x0111, 0x0000,
+    },
+    // kArtDragonRoar
+    //   .d............d.
+    //   .dd..........dd.
+    //   ..dd..aaaa..dd..
+    //   ...daabbbbaad...
+    //   ....abbbbbba....
+    //   ...abfbbbbfba...
+    //   ...abbbbbbbba...
+    //   ...abbbbbbbba...
+    //   ....abbbbbba....
+    //   ....aeeeeeea....
+    //   ....aeggggea....
+    //   .....aeggea.....
+    //   ......aeea......
+    //   .......aa.......
+    //   ................
+    //   ................
+    {
+        0x0040, 0x0000, 0x0000, 0x0400,
+        0x0440, 0x0000, 0x0000, 0x0440,
+        0x4400, 0x1100, 0x0011, 0x0044,
+        0x4000, 0x2211, 0x1122, 0x0004,
+        0x0000, 0x2221, 0x1222, 0x0000,
+        0x1000, 0x2262, 0x2622, 0x0001,
+        0x1000, 0x2222, 0x2222, 0x0001,
+        0x1000, 0x2222, 0x2222, 0x0001,
+        0x0000, 0x2221, 0x1222, 0x0000,
+        0x0000, 0x5551, 0x1555, 0x0000,
+        0x0000, 0x7751, 0x1577, 0x0000,
+        0x0000, 0x7510, 0x0157, 0x0000,
+        0x0000, 0x5100, 0x0015, 0x0000,
+        0x0000, 0x1000, 0x0001, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtWingUp
+    //   a...............
+    //   aa..............
+    //   aba.............
+    //   abba..........a.
+    //   abbba........aa.
+    //   abbbba......aba.
+    //   abcbbba....abba.
+    //   abccbbba..abbba.
+    //   abcccbbbaabbbba.
+    //   abccccbbbbbbbaa.
+    //   abcccccbbbbbaa..
+    //   .abcccccbbbaa...
+    //   ..aabcccbbaa....
+    //   ....aabbaa......
+    //   ......aa........
+    //   ................
+    {
+        0x0001, 0x0000, 0x0000, 0x0000,
+        0x0011, 0x0000, 0x0000, 0x0000,
+        0x0121, 0x0000, 0x0000, 0x0000,
+        0x1221, 0x0000, 0x0000, 0x0100,
+        0x2221, 0x0001, 0x0000, 0x0110,
+        0x2221, 0x0012, 0x0000, 0x0121,
+        0x2321, 0x0122, 0x1000, 0x0122,
+        0x3321, 0x1222, 0x2100, 0x0122,
+        0x3321, 0x2223, 0x2211, 0x0122,
+        0x3321, 0x2233, 0x2222, 0x0112,
+        0x3321, 0x2333, 0x2222, 0x0011,
+        0x3210, 0x3333, 0x1222, 0x0001,
+        0x1100, 0x3332, 0x1122, 0x0000,
+        0x0000, 0x2211, 0x0011, 0x0000,
+        0x0000, 0x1100, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtWingDown
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   aa..............
+    //   abaa............
+    //   abbbaa.........a
+    //   abcbbbaa......aa
+    //   abccbbbbaa...aba
+    //   abcccbbbbbaaabba
+    //   .abccccbbbbbbbba
+    //   ..abcccccbbbbbaa
+    //   ...aabccccbbaa..
+    //   .....aabbbaa....
+    //   .......aaa......
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0011, 0x0000, 0x0000, 0x0000,
+        0x1121, 0x0000, 0x0000, 0x0000,
+        0x2221, 0x0011, 0x0000, 0x1000,
+        0x2321, 0x1122, 0x0000, 0x1100,
+        0x3321, 0x2222, 0x0011, 0x1210,
+        0x3321, 0x2223, 0x1122, 0x1221,
+        0x3210, 0x2333, 0x2222, 0x1222,
+        0x2100, 0x3333, 0x2223, 0x1122,
+        0x1000, 0x3321, 0x2233, 0x0011,
+        0x0000, 0x2110, 0x1122, 0x0000,
+        0x0000, 0x1000, 0x0011, 0x0000,
+    },
+    // kArtIconStaff
+    //   ...........aaa..
+    //   ..........adbba.
+    //   ..........abdba.
+    //   ...........abba.
+    //   ..........aaaa..
+    //   .........acca...
+    //   ........acca....
+    //   .......acca.....
+    //   ......acca......
+    //   .....acca.......
+    //   ....acca........
+    //   ...acca.........
+    //   ..acca..........
+    //   ..aaa...........
+    //   ................
+    //   ................
+    {
+        0x0000, 0x0000, 0x1000, 0x0011,
+        0x0000, 0x0000, 0x4100, 0x0122,
+        0x0000, 0x0000, 0x2100, 0x0124,
+        0x0000, 0x0000, 0x1000, 0x0122,
+        0x0000, 0x0000, 0x1100, 0x0011,
+        0x0000, 0x0000, 0x3310, 0x0001,
+        0x0000, 0x0000, 0x1331, 0x0000,
+        0x0000, 0x1000, 0x0133, 0x0000,
+        0x0000, 0x3100, 0x0013, 0x0000,
+        0x0000, 0x3310, 0x0001, 0x0000,
+        0x0000, 0x1331, 0x0000, 0x0000,
+        0x1000, 0x0133, 0x0000, 0x0000,
+        0x3100, 0x0013, 0x0000, 0x0000,
+        0x1100, 0x0001, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtIconBody
+    //   ................
+    //   ...aaa....aaa...
+    //   ..abba....abba..
+    //   ..abbaaaaaabba..
+    //   .abbbbddddbbbba.
+    //   .abbbbbbbbbbbba.
+    //   .aacbbbbbbbbcaa.
+    //   ..acbbbbbbbbca..
+    //   ..acbbbddbbbca..
+    //   ..acbbbbbbbbca..
+    //   ..acbbbbbbbbca..
+    //   ..acbbbbbbbbca..
+    //   ..acccbbbbccca..
+    //   ..aaaaaaaaaaaa..
+    //   ................
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x1000, 0x0011, 0x1100, 0x0001,
+        0x2100, 0x0012, 0x2100, 0x0012,
+        0x2100, 0x1112, 0x2111, 0x0012,
+        0x2210, 0x4422, 0x2244, 0x0122,
+        0x2210, 0x2222, 0x2222, 0x0122,
+        0x3110, 0x2222, 0x2222, 0x0113,
+        0x3100, 0x2222, 0x2222, 0x0013,
+        0x3100, 0x4222, 0x2224, 0x0013,
+        0x3100, 0x2222, 0x2222, 0x0013,
+        0x3100, 0x2222, 0x2222, 0x0013,
+        0x3100, 0x2222, 0x2222, 0x0013,
+        0x3100, 0x2233, 0x3322, 0x0013,
+        0x1100, 0x1111, 0x1111, 0x0011,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtIconHelm
+    //   ................
+    //   ................
+    //   .....aaaaaa.....
+    //   ....abbbbbba....
+    //   ...abbddbbbba...
+    //   ..abbdbbbbbbba..
+    //   ..abbbbbbbbbba..
+    //   ..abbbbbbbbbba..
+    //   ..abaaaaaaaaba..
+    //   ..aba.aaaa.aba..
+    //   ..abaa.aa.aaba..
+    //   ..acca....acca..
+    //   ..acca....acca..
+    //   ..aaaa....aaaa..
+    //   ................
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1110, 0x0111, 0x0000,
+        0x0000, 0x2221, 0x1222, 0x0000,
+        0x1000, 0x4422, 0x2222, 0x0001,
+        0x2100, 0x2242, 0x2222, 0x0012,
+        0x2100, 0x2222, 0x2222, 0x0012,
+        0x2100, 0x2222, 0x2222, 0x0012,
+        0x2100, 0x1111, 0x1111, 0x0012,
+        0x2100, 0x1101, 0x1011, 0x0012,
+        0x2100, 0x1011, 0x1101, 0x0012,
+        0x3100, 0x0013, 0x3100, 0x0013,
+        0x3100, 0x0013, 0x3100, 0x0013,
+        0x1100, 0x0011, 0x1100, 0x0011,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtIconRing
+    //   ................
+    //   ................
+    //   ......aaaa......
+    //   .....adbbda.....
+    //   ......abba......
+    //   .....aaaaaa.....
+    //   ....acc..cca....
+    //   ...acc....cca...
+    //   ...ac......ca...
+    //   ...ac......ca...
+    //   ...acc....cca...
+    //   ....acc..cca....
+    //   .....aaaaaa.....
+    //   ................
+    //   ................
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1100, 0x0011, 0x0000,
+        0x0000, 0x2410, 0x0142, 0x0000,
+        0x0000, 0x2100, 0x0012, 0x0000,
+        0x0000, 0x1110, 0x0111, 0x0000,
+        0x0000, 0x0331, 0x1330, 0x0000,
+        0x1000, 0x0033, 0x3300, 0x0001,
+        0x1000, 0x0003, 0x3000, 0x0001,
+        0x1000, 0x0003, 0x3000, 0x0001,
+        0x1000, 0x0033, 0x3300, 0x0001,
+        0x0000, 0x0331, 0x1330, 0x0000,
+        0x0000, 0x1110, 0x0111, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtIconRune
+    //   ................
+    //   ................
+    //   ....aaaaaaaa....
+    //   ...acccccccca...
+    //   ...accbbbbcca...
+    //   ...accbccccca...
+    //   ...accbbbbcca...
+    //   ...acccccbcca...
+    //   ...accbbbbcca...
+    //   ...acccccccca...
+    //   ...acccccccca...
+    //   ...acccccccca...
+    //   ....aaaaaaaa....
+    //   ................
+    //   ................
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1111, 0x1111, 0x0000,
+        0x1000, 0x3333, 0x3333, 0x0001,
+        0x1000, 0x2233, 0x3322, 0x0001,
+        0x1000, 0x3233, 0x3333, 0x0001,
+        0x1000, 0x2233, 0x3322, 0x0001,
+        0x1000, 0x3333, 0x3323, 0x0001,
+        0x1000, 0x2233, 0x3322, 0x0001,
+        0x1000, 0x3333, 0x3333, 0x0001,
+        0x1000, 0x3333, 0x3333, 0x0001,
+        0x1000, 0x3333, 0x3333, 0x0001,
+        0x0000, 0x1111, 0x1111, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtSkelBack
+    //   ................
+    //   .....dddddd.....
+    //   ....dddddddd....
+    //   ....dddddddd....
+    //   ....dddadddd....
+    //   .....dddddd.....
+    //   .......aa.......
+    //   .dd.ddaaaadd.dd.
+    //   c.d..dddaaddd.d.
+    //   c.d..ddaaaadd.d.
+    //   c.d..dddaaddd.d.
+    //   ccd..ddaaaadd.d.
+    //   .....dddaaddd...
+    //   .....dd..dd.....
+    //   .....dd..dd.....
+    //   ....ddd..ddd....
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x4440, 0x0444, 0x0000,
+        0x0000, 0x4444, 0x4444, 0x0000,
+        0x0000, 0x4444, 0x4444, 0x0000,
+        0x0000, 0x1444, 0x4444, 0x0000,
+        0x0000, 0x4440, 0x0444, 0x0000,
+        0x0000, 0x1000, 0x0001, 0x0000,
+        0x0440, 0x1144, 0x4411, 0x0440,
+        0x0403, 0x4440, 0x4411, 0x0404,
+        0x0403, 0x1440, 0x4111, 0x0404,
+        0x0403, 0x4440, 0x4411, 0x0404,
+        0x0433, 0x1440, 0x4111, 0x0404,
+        0x0000, 0x4440, 0x4411, 0x0004,
+        0x0000, 0x0440, 0x0440, 0x0000,
+        0x0000, 0x0440, 0x0440, 0x0000,
+        0x0000, 0x0444, 0x4440, 0x0000,
+    },
 };
       // list ends with ch = 0
 
@@ -1484,6 +1946,10 @@ static const uint32_t kPalGoblin[PAL_N] = { COLOR_TETRIS_GRID, COLOR_DARK_GRAY, 
 
 static const uint32_t kPalBat[PAL_N] = { COLOR_GRAY, COLOR_CRIMSON, COLOR_DARK_PURPLE, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 
+// Allies (Necromancer summons, risen foes, Slime Crown slimes): every colour a shade of
+// spectral violet, so red eyes and faces vanish and they read as "on your side".
+static const uint32_t kP_ALLY[PAL_N] = { 0x002A1040UL, 0x00E0A0FFUL, 0x00B090F0UL, 0x008C5CD8UL,
+                                         0x00C8A8FFUL, 0x005A2E90UL, 0x00D0B0FFUL, 0x007040B0UL };
 static const uint32_t kPalSkel[PAL_N] = { COLOR_GRAY, COLOR_CRIMSON, COLOR_SILVER, COLOR_LIGHT_GRAY, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 
 // Lich Lord: a black cloak, b grey folds, c bone, d bright green eyes, e green magic, f staff
@@ -1513,9 +1979,13 @@ static const uint32_t kPalPuffVenom[PAL_N] = { COLOR_DARK_GRAY, COLOR_OLIVE, COL
 static const uint32_t kPalPuffArcane[PAL_N] = { COLOR_GRAY, COLOR_VIOLET, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 
 
-static const uint32_t kPalDragon[PAL_N] = { COLOR_DARK_PURPLE, COLOR_PURPLE, COLOR_CRIMSON, COLOR_GOLD, COLOR_TETRIS_L_ORANGE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+// Ancient Dragon parts: a outline, b scales, c belly / wing membrane, d horns + claws, e chest core, f eyes, g fire
+static const uint32_t kPalDragon[PAL_N] = { 0x002A0A10UL, 0x008A1A20UL, 0x00D08040UL, 0x00E8E0C0UL, 0x00601010UL, COLOR_GOLD, COLOR_ORANGE, COLOR_MAGENTA };
+// exposed weak spot: darker scales, the chest core blazes
+static const uint32_t kPalDragonCore[PAL_N] = { 0x002A0A10UL, 0x005A1018UL, 0x00A06030UL, 0x00E8E0C0UL, 0x00FFF060UL, COLOR_WHITE, COLOR_ORANGE, COLOR_MAGENTA };
 
-static const uint32_t kPalDragonHot[PAL_N] = { COLOR_DARK_PURPLE, COLOR_CRIMSON, COLOR_TETRIS_L_ORANGE, COLOR_WHITE, COLOR_GOLD, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+// breath / fireball wind-up: glowing hot
+static const uint32_t kPalDragonHot[PAL_N] = { 0x002A0A10UL, 0x00B02020UL, 0x00E09050UL, 0x00FFFFFFUL, COLOR_ORANGE, COLOR_WHITE, 0x00FFE040UL, COLOR_MAGENTA };
 
 
 const uint32_t *const rc_kPal[PT_COUNT] =
@@ -1536,7 +2006,8 @@ const uint32_t *const rc_kPal[PT_COUNT] =
     kP_WAVE_FIRE, kP_WAVE_ICE, kP_WAVE_STORM, kP_WAVE_NOVA,
     kP_ALERT,
     kP_MERCHANT, kP_ARCHER, kP_KEY, kP_HEART, kP_ALTAR, kP_CHEST_GOOD,
-    kP_GOLEM_EARTH, kP_ROCK, kP_SPIKE, kP_MARK_EARTH, kP_MARK_BLUE, kP_MARK_WHITE, kP_MARK_GREEN
+    kP_GOLEM_EARTH, kP_ROCK, kP_SPIKE, kP_MARK_EARTH, kP_MARK_BLUE, kP_MARK_WHITE, kP_MARK_GREEN,
+    kP_BARREL, kP_BARREL_G, kP_BONES, kP_CRYSTAL, kP_CANDLE, kPalDragonCore, kP_ALLY
 };
 
 

@@ -28,9 +28,15 @@
 #pragma FUNCTION_OPTIONS(rc_EnterInventory, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(RowCount, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(RowItem, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(GridItem, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(ItemName, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(LeftText, "--opt_for_speed=0")
-#pragma FUNCTION_OPTIONS(DrawRow, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(DrawIcon, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(ItemIcon, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(CellPos, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(CellCount, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(CurCell, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(DrawCell, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(DrawPanel, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(rc_DrawInventoryFull, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(rc_InventoryRender, "--opt_for_speed=0")
@@ -40,6 +46,9 @@
 #pragma FUNCTION_OPTIONS(rc_UpdateInventory, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(rc_ResetInventory, "--opt_for_speed=0")
 // ---- SIZE-OPT END ----
+
+
+
 
 
 //*****************************************************************************
@@ -52,6 +61,7 @@ uint16_t rc_sel = 0xFFFFu;
 uint16_t rc_cdStaff, rc_cdStaffMax;
 uint16_t rc_cdCons[NUM_CONS];
 uint16_t rc_relicMask;
+uint16_t rc_relicCnt[5];                   // relics carried, per mini-boss relic (the Relics tab)
 uint16_t rc_phylacteryUsed;
 uint16_t rc_manaDebt;
 uint16_t rc_hpBonus;
@@ -132,10 +142,9 @@ void rc_RecalcFx(void)
         if(it < I_COUNT && rc_kItems[it].kind == K_GEAR) rc_fx[rc_kItems[it].fx] += (int16_t)rc_kItems[it].val;
     }
 
-    rc_relicMask = 0;                                   // relics work while carried
-    for(i = 0; i < INV_SLOTS; i++)
-        if(rc_inv[i].item >= I_FIRST_RELIC && rc_inv[i].item < I_CLOTH)
-            rc_relicMask |= (uint16_t)(1u << (rc_inv[i].item - I_FIRST_RELIC));
+    rc_relicMask = 0;                                   // relics work while carried (duplicates do not stack)
+    for(i = 0; i < 5u; i++)
+        if(rc_relicCnt[i]) rc_relicMask |= (uint16_t)(1u << i);
 
     hpMax = (int16_t)(HP_START + rc_fx[FX_HP] + (int16_t)rc_hpBonus);
     if(hpMax > HP_CAP) hpMax = HP_CAP;
@@ -195,7 +204,7 @@ void rc_UpdateClass(void)
     rc_hud |= HUD_ULT;
     if(c != CL_NONE)
     {
-        rc_Toast("You are now a ", rc_kClassName[c]);
+        rc_Toast("You are now a ", rc_ClassName(c));
         if(!(rc_classSeen & (1u << c)))                  // first activation: the class staff
         {
             uint16_t old = rc_eq[SL_WPN];
@@ -263,6 +272,13 @@ uint16_t rc_GiveItem(uint16_t item)
         return GIVE_OK;
     }
 
+    if(d->kind == K_RELIC)                              // relics live on their own tab, never in the bag
+    {
+        if(rc_relicCnt[item - I_FIRST_RELIC] < 9u) rc_relicCnt[item - I_FIRST_RELIC]++;
+        rc_RecalcFx();
+        return GIVE_OK;
+    }
+
     if(d->kind == K_GEAR && rc_eq[d->slot] == I_NONE && !(rc_clothMask & (1u << d->slot)))
     {
         rc_eq[d->slot] = item;                          // an empty slot equips it straight away
@@ -310,7 +326,7 @@ static void LootRun(void)
             rc_EnterInventory(INV_SWAP);
             return;
         }
-        rc_Toast("Got: ", rc_kItems[it].name);
+        rc_Toast("Got: ", rc_ItemName(it));
     }
     if(s_lootThen) { s_lootThen = 0; rc_EnterCards(CS_CHEST); }             // the boss chest's pick-1-of-3
     else if(rc_mode == MODE_INV && s_screen == INV_SWAP) BackToPlay();      // the swap screen is done
@@ -436,14 +452,27 @@ static uint16_t StockPrice(uint16_t s)
 
 
 //*****************************************************************************
-// List screens
+// Screens. The inventory is a grid in the style of a block-building game:
+// equipment on the left, a 6 x 2 bag, and tabs for Items / Runes / Relics,
+// every item drawn as a 2x icon. The vendor (buy / sell) and the full-bag swap
+// screen use the same cells, 8 to a row (LIST_COLS), with the details underneath.
 //*****************************************************************************
-#define ROW_Y0      30
-#define ROW_H       12
-#define LIST_X1     172
-#define PANEL_X0    176
+#define CELL        38                  // grid cell pitch (a 32 px icon + border)
+#define LIST_X      8                   // vendor / swap grid
+#define LIST_COLS   8
+#define EQ_X        8                   // equipment column
+#define GRID_X      56                  // bag grid / rune row / relic row
+#define GRID_Y      28
+#define GPANEL_Y    106                 // details panel under the grid
+enum { TAB_ITEMS, TAB_RUNES, TAB_RELICS };
 
-static const char *const kSlotTag[SL_COUNT] = { "Body ", "Head ", "Acc. ", "Wpn  " };
+static uint16_t s_cx, s_cy;             // grid cursor (column 0 = equipment on the Items tab)
+static uint16_t s_lastCell = 0xFFFFu;   // cell drawn as selected last time
+
+// Colour of each class's gear (and runes); index 0 = general gear (steel).
+static const uint32_t kClassRgb[CL_COUNT] =
+    { 0x00A8B0BCUL, 0x00E05020UL, 0x00F0D030UL, 0x0060D060UL, 0x0070A0FFUL, 0x00A050D0UL, 0x00FFC020UL };
+static const uint32_t kRelicRgb[5] = { 0x00D03030UL, 0x0040C040UL, 0x0040FF80UL, 0x00FF8020UL, 0x00B01030UL };
 
 
 void rc_EnterInventory(uint16_t screen)
@@ -452,10 +481,11 @@ void rc_EnterInventory(uint16_t screen)
     {
         s_vendor = (rc_prop[rc_iaIdx].room == RM_EC) ? 1u : 0u;
         Restock(s_vendor);
-        s_tab = 0;
     }
+    s_tab      = 0;
     s_screen   = screen;
     s_row      = 0;
+    s_cx = s_cy = 0;
     s_msg      = M_NONE;
     s_confirm  = 0;
     rc_mode    = MODE_INV;
@@ -468,7 +498,7 @@ static void RowCount(void)
 {
     if(s_screen == INV_BAG)       s_rows = SL_COUNT + INV_SLOTS;
     else if(s_screen == INV_SWAP) s_rows = INV_SLOTS;
-    else                          s_rows = s_tab ? INV_SLOTS : STOCK_LINES;
+    else                          s_rows = s_tab ? (uint16_t)(INV_SLOTS + 5u) : STOCK_LINES;   // sell: bag + relics
 }
 
 
@@ -477,6 +507,11 @@ static uint16_t RowItem(uint16_t r, uint16_t *qty)
 {
     *qty = 0;
     if(s_screen == INV_SHOP && !s_tab) { *qty = s_stockQty[s_vendor][r]; return s_stock[s_vendor][r]; }
+    if(s_screen == INV_SHOP && r >= INV_SLOTS)                              // relic rows of the sell list
+    {
+        *qty = rc_relicCnt[r - INV_SLOTS];
+        return *qty ? (uint16_t)(I_FIRST_RELIC + r - INV_SLOTS) : I_NONE;
+    }
     if(s_screen == INV_BAG)
     {
         if(r < SL_COUNT) return rc_eq[r];
@@ -487,10 +522,20 @@ static uint16_t RowItem(uint16_t r, uint16_t *qty)
 }
 
 
+// The item under the grid cursor (runes come back as RUNE_TAG | rune).
+static uint16_t GridItem(uint16_t *qty)
+{
+    *qty = 0;
+    if(s_tab == TAB_RUNES)  return (rc_rune[s_cx] == RUNE_NONE) ? I_NONE : (uint16_t)(RUNE_TAG | rc_rune[s_cx]);
+    if(s_tab == TAB_RELICS) { *qty = rc_relicCnt[s_cx]; return *qty ? (uint16_t)(I_FIRST_RELIC + s_cx) : I_NONE; }
+    return RowItem(s_row, qty);
+}
+
+
 static const char *ItemName(uint16_t it)
 {
-    if(it & RUNE_TAG) return rc_kRune[it & 0xFFu].name;
-    return (it < I_COUNT) ? rc_kItems[it].name : "-";
+    if(it & RUNE_TAG) return rc_RuneName(it & 0xFFu);
+    return (it < I_COUNT) ? rc_ItemName(it) : "-";
 }
 
 
@@ -508,58 +553,171 @@ static void LeftText(const char *s, int16_t x, int16_t y, uint32_t fg, uint32_t 
 }
 
 
-static void DrawRow(uint16_t r)
+//-----------------------------------------------------------------------------
+// Icons: a 16 x 16 sprite drawn at 2x, one FillRect per vertical colour run.
+//-----------------------------------------------------------------------------
+static void DrawIcon(uint16_t shape, int16_t x, int16_t y, const uint32_t *pal)
 {
-    int16_t  y = (int16_t)(ROW_Y0 + r * ROW_H);
-    bool     sel = (r == s_row);
-    uint32_t bg = sel ? COLOR_CHARCOAL : C_BLACK, fg;
-    uint16_t qty, it = RowItem(r, &qty);
-    char     buf[24];
-    int16_t  n = 0;
+    const uint16_t *art = rc_kArt[shape];
+    uint16_t cx, r, r1, px;
 
-    Graphics_FillRect(0, y, LIST_X1, (int16_t)(y + ROW_H - 1), bg);
-    if(sel) Graphics_FillRect(0, y, 2, (int16_t)(y + ROW_H - 1), C_CYAN);
-    if(s_screen == INV_BAG && r < SL_COUNT) n = rc_Cat(buf, 0, kSlotTag[r], 5);
-    n = rc_Cat(buf, n, ItemName(it), 15);
-    if(qty > 1u) { n = rc_Cat(buf, n, " x", 2); rc_Itoa(buf + n, qty); }
-    fg = (it == I_NONE) ? C_DKGRAY : (it == I_CLOTH) ? C_BAD :
-         (it < I_COUNT && rc_kItems[it].cls) ? C_XP : C_WHITE;
-    if(s_screen == INV_SHOP && !s_tab && qty == 0u) fg = C_DKGRAY;
-    LeftText(buf, 5, (int16_t)(y + 1), fg, bg);
+    for(cx = 0; cx < SPR_N; cx++)
+        for(r = 0; r < SPR_N; r = (uint16_t)(r1 + 1u))
+        {
+            px = (uint16_t)((art[(r << 2) + (cx >> 2)] >> ((cx & 3u) << 2)) & 15u);
+            r1 = r;
+            if(!px) continue;
+            while(r1 + 1u < SPR_N && ((art[((r1 + 1u) << 2) + (cx >> 2)] >> ((cx & 3u) << 2)) & 15u) == px) r1++;
+            Graphics_FillRect((int16_t)(x + 2 * cx), (int16_t)(y + 2 * r), (int16_t)(x + 2 * cx + 1),
+                              (int16_t)(y + 2 * r1 + 1), pal[px - 1u]);
+        }
+}
 
-    if(s_screen == INV_SHOP && it != I_NONE)            // price column
+
+static uint32_t Shade(uint32_t c) { return (c >> 1) & 0x7F7F7FUL; }
+
+// Pick an icon shape and its colours for an item, rune or relic.
+static uint16_t ItemIcon(uint16_t it, uint32_t *p)
+{
+    static const uint16_t kGearIcon[3] = { SH_ICON_BODY, SH_ICON_HELM, SH_ICON_RING };
+    uint32_t main;
+    uint16_t i;
+
+    for(i = 0; i < PAL_N; i++) p[i] = COLOR_MAGENTA;
+    p[0] = 0x00101010UL; p[3] = COLOR_WHITE;                // a outline, d highlight
+    if(it & RUNE_TAG)                                       // rune stone: glyph in the class colour
     {
-        uint16_t p = s_tab ? rc_SellValue(it) : StockPrice(it);
-        n = rc_Itoa(buf, p);
-        rc_Cat(buf, n, "g", 1);
-        LeftText(buf, 140, (int16_t)(y + 1), (s_tab || rc_gold >= p) ? C_GOLD : C_BAD, bg);
+        p[1] = rc_kRune[it & 0xFFu].cls ? kClassRgb[rc_kRune[it & 0xFFu].cls] : COLOR_VIOLET;
+        p[2] = 0x00707078UL;
+        return SH_ICON_RUNE;
+    }
+    switch(rc_kItems[it].kind)
+    {
+        case K_STAFF: p[1] = rc_kStaffs[it].color; p[2] = 0x007A5030UL; return SH_ICON_STAFF;
+        case K_CONS:                                         // flask: a liquid, b glass rim, c glass, d cork
+            p[0] = rc_kWpnPal[rc_kItems[it].pal][8]; p[1] = 0x00101010UL; p[2] = COLOR_LIGHT_GRAY; p[3] = COLOR_BROWN;
+            return SH_FLASK;
+        case K_RELIC:                                        // glowing orb
+            main = kRelicRgb[it - I_FIRST_RELIC];
+            p[0] = Shade(main); p[1] = main; p[2] = main | 0x00404040UL;
+            return SH_ORB;
+        case K_CLOTH:
+            for(i = 0; i < PAL_N; i++) p[i] = rc_kPal[PT_MIMIC][i];
+            return SH_MIMIC;
+        default:                                             // gear: class colour (steel if general)
+            main = kClassRgb[rc_kItems[it].cls];
+            p[1] = main; p[2] = Shade(main); p[3] = 0x00FFE080UL;
+            return kGearIcon[rc_kItems[it].slot];
     }
 }
 
 
+// Cell number c on the current tab: its screen position and contents.
+static void CellPos(uint16_t c, int16_t *x, int16_t *y)
+{
+    if(s_screen != INV_BAG)
+    {
+        *x = (int16_t)(LIST_X + CELL * (c % LIST_COLS));
+        *y = (int16_t)(GRID_Y + CELL * (c / LIST_COLS));
+        return;
+    }
+    if(s_tab == TAB_ITEMS && c < SL_COUNT) { *x = EQ_X; *y = (int16_t)(GRID_Y + CELL * c); return; }
+    if(s_tab == TAB_ITEMS) c = (uint16_t)(c - SL_COUNT);
+    *x = (int16_t)(GRID_X + CELL * (c % 6u));
+    *y = (int16_t)(GRID_Y + CELL * (c / 6u));
+}
+
+
+static uint16_t CellCount(void)
+{
+    if(s_screen != INV_BAG) return s_rows;
+    return (s_tab == TAB_ITEMS) ? (uint16_t)(SL_COUNT + INV_SLOTS) : (s_tab == TAB_RUNES) ? RUNE_SLOTS : 5u;
+}
+
+
+static uint16_t CurCell(void)
+{
+    if(s_screen != INV_BAG) return s_row;
+    if(s_tab != TAB_ITEMS) return s_cx;
+    return (s_cx == 0u) ? s_cy : (uint16_t)(SL_COUNT + s_cy * 6u + s_cx - 1u);
+}
+
+
+static void DrawCell(uint16_t c)
+{
+    int16_t  x, y;
+    uint16_t it, qty = 0, sh;
+    uint32_t pal[PAL_N];
+    bool     sel = (c == CurCell());
+    char     buf[6];
+
+    CellPos(c, &x, &y);
+    Graphics_FillRect(x, y, (int16_t)(x + 35), (int16_t)(y + 35), sel ? C_CYAN : COLOR_CHARCOAL);
+    Graphics_FillRect((int16_t)(x + 2), (int16_t)(y + 2), (int16_t)(x + 33), (int16_t)(y + 33), sel ? 0x00303848UL : 0x00181C22UL);
+
+    if(s_screen != INV_BAG)                 { it = RowItem(c, &qty); if(s_screen == INV_SHOP && !s_tab) qty = qty ? 0u : 0xFFFFu; }
+    else if(s_tab == TAB_ITEMS && c < SL_COUNT) it = rc_eq[c];
+    else if(s_tab == TAB_ITEMS)            { it = rc_inv[c - SL_COUNT].item; qty = rc_inv[c - SL_COUNT].cnt; }
+    else if(s_tab == TAB_RUNES)            it = (rc_rune[c] == RUNE_NONE) ? I_NONE : (uint16_t)(RUNE_TAG | rc_rune[c]);
+    else                        { qty = rc_relicCnt[c]; it = qty ? (uint16_t)(I_FIRST_RELIC + c) : I_NONE; }
+
+    if(qty == 0xFFFFu)                                          // vendor line sold out
+    {
+        rc_DrawSmall("SOLD", (int16_t)(x + 18), (int16_t)(y + 18), C_DKGRAY, sel ? 0x00303848UL : 0x00181C22UL);
+        return;
+    }
+    if(it == I_NONE)
+    {
+        if(s_screen == INV_BAG && s_tab == TAB_ITEMS && c < SL_COUNT)                  // empty equipment slot: a dim outline of what goes there
+        {
+            static const uint16_t kSlotIcon[SL_COUNT] = { SH_ICON_BODY, SH_ICON_HELM, SH_ICON_RING, SH_ICON_STAFF };
+            uint16_t i;
+            for(i = 0; i < PAL_N; i++) pal[i] = 0x00282C34UL;
+            DrawIcon(kSlotIcon[c], (int16_t)(x + 2), (int16_t)(y + 2), pal);
+        }
+        return;
+    }
+    sh = ItemIcon(it, pal);
+    DrawIcon(sh, (int16_t)(x + 2), (int16_t)(y + 2), pal);
+    if(qty > 1u) { rc_Itoa(buf, qty); LeftText(buf, (int16_t)(x + 26), (int16_t)(y + 22), C_WHITE, 0x00181C22UL); }
+    if(s_screen == INV_SHOP && !s_tab && rc_gold < StockPrice(it))
+        Graphics_FillRect((int16_t)(x + 2), (int16_t)(y + 31), (int16_t)(x + 33), (int16_t)(y + 33), C_BAD);   // can't afford
+    if(s_screen == INV_BAG && s_tab == TAB_ITEMS && c < SL_COUNT && (rc_clothMask & (1u << c)))
+        Graphics_FillRect((int16_t)(x + 2), (int16_t)(y + 31), (int16_t)(x + 33), (int16_t)(y + 33), C_BAD);   // bound forever
+}
+
+
+// Details of the selected thing: name, description, class, value, and any message.
 static void DrawPanel(void)
 {
-    uint16_t qty, it = RowItem(s_row, &qty), i;
-    int16_t  y = 32, n;
+    bool     bag = (s_screen == INV_BAG);
+    uint16_t qty, it = bag ? GridItem(&qty) : RowItem(s_row, &qty);
+    int16_t  px = bag ? GRID_X : LIST_X, n,
+             y  = bag ? GPANEL_Y : (int16_t)(GRID_Y + CELL * ((s_rows + LIST_COLS - 1u) / LIST_COLS) + 4);
     char     buf[28];
 
-    Graphics_FillRect(PANEL_X0, 26, SCREEN_W - 1, 222, C_BLACK);
-    LeftText(rc_kClassName[rc_class], PANEL_X0, 30, rc_class ? C_XP : C_GRAY, C_BLACK);
-    y = 50;
+    Graphics_FillRect(px, (int16_t)(y - 2), SCREEN_W - 1, 224, C_BLACK);
+    if(bag)
+    {
+        n = rc_Cat(buf, 0, "Class: ", 7);
+        rc_Cat(buf, n, rc_ClassName(rc_class), 12);
+        LeftText(buf, px, y, rc_class ? C_XP : C_GRAY, C_BLACK);
+        y = (int16_t)(y + 18);
+    }
     if(it != I_NONE)
     {
-        const char *d = (it & RUNE_TAG) ? rc_kRune[it & 0xFFu].desc : rc_kItems[it].desc;
-        char line[16];
+        const char *d = (it & RUNE_TAG) ? rc_RuneDesc(it & 0xFFu) : rc_ItemDesc(it);
+        char     line[16];
         uint16_t k, m = 0;
 
-        LeftText(ItemName(it), PANEL_X0, y, C_WHITE, C_BLACK);
+        LeftText(ItemName(it), px, y, C_WHITE, C_BLACK);
         y = (int16_t)(y + 15);
-        for(k = 0; ; k++)                               // description lines
+        for(k = 0; ; k++)                                   // description lines
         {
             if(d[k] == '|' || d[k] == 0)
             {
                 line[m] = 0;
-                LeftText(line, PANEL_X0, y, C_GRAY, C_BLACK);
+                LeftText(line, px, y, C_GRAY, C_BLACK);
                 y = (int16_t)(y + 13);
                 m = 0;
                 if(!d[k]) break;
@@ -568,27 +726,27 @@ static void DrawPanel(void)
         }
         if(!(it & RUNE_TAG) && rc_kItems[it].cls)
         {
-            n = rc_Cat(buf, 0, rc_kClassName[rc_kItems[it].cls], 12);
-            LeftText(buf, PANEL_X0, y, C_XP, C_BLACK);
+            LeftText(rc_ClassName(rc_kItems[it].cls), px, y, C_XP, C_BLACK);
             y = (int16_t)(y + 13);
         }
-        if(!(it & RUNE_TAG) && s_screen != INV_SHOP)
+        if(s_screen == INV_SHOP && !s_tab)                  // the vendor's price
+        {
+            uint16_t pr = StockPrice(it);
+            n = rc_Cat(buf, 0, "Price ", 6);
+            n += rc_Itoa(buf + n, pr);
+            rc_Cat(buf, n, "g", 1);
+            LeftText(buf, px, y, (rc_gold >= pr) ? C_GOLD : C_BAD, C_BLACK);
+        }
+        else if(!(it & RUNE_TAG))
         {
             n = rc_Cat(buf, 0, "Sells for ", 10);
             n += rc_Itoa(buf + n, rc_SellValue(it));
             rc_Cat(buf, n, "g", 1);
-            LeftText(buf, PANEL_X0, y, C_GOLD, C_BLACK);
+            LeftText(buf, px, y, C_GOLD, C_BLACK);
         }
     }
-
-    // the four rune slots
-    LeftText("Runes", PANEL_X0, 150, C_GRAY, C_BLACK);
-    for(i = 0; i < RUNE_SLOTS; i++)
-        LeftText((rc_rune[i] == RUNE_NONE) ? "-" : rc_kRune[rc_rune[i]].name, PANEL_X0,
-                 (int16_t)(164 + 13 * i), rc_HasRune(rc_rune[i]) ? C_XP : C_DKGRAY, C_BLACK);
-
-    Graphics_FillRect(PANEL_X0, 214, SCREEN_W - 1, 222, C_BLACK);
-    if(s_msg) LeftText(kMsg[s_msg], PANEL_X0, 212, (s_msg == M_BOUGHT || s_msg == M_SOLD || s_msg == M_EQUIP) ? C_GREEN : C_BAD, C_BLACK);
+    if(s_msg) LeftText(kMsg[s_msg], 210, 210,
+                       (s_msg == M_BOUGHT || s_msg == M_SOLD || s_msg == M_EQUIP) ? C_GREEN : C_BAD, C_BLACK);
 }
 
 
@@ -599,49 +757,55 @@ void rc_DrawInventoryFull(void)
 
     Graphics_FillRect(0, 0, SCREEN_W - 1, SCREEN_H - 1, C_BLACK);
     RowCount();
-    if(s_screen == INV_BAG)       rc_DrawText("INVENTORY", 90, 13, C_GOLD);
-    else if(s_screen == INV_SWAP)
+    if(s_screen == INV_BAG)                             // tabs
     {
-        n = rc_Cat(buf, 0, "Bag full: ", 10);
-        rc_Cat(buf, n, rc_kItems[s_newItem].name, 16);
-        rc_DrawText(buf, 120, 13, C_BAD);
-    }
-    else rc_DrawText(s_tab ? "VENDOR - SELL" : "VENDOR - BUY", 90, 13, C_GOLD);
-
-    n = rc_Cat(buf, 0, "G ", 2);
-    rc_Itoa(buf + n, rc_gold);
-    rc_DrawSmall(buf, 285, 13, C_GOLD, C_BLACK);
-
-    if(s_screen == INV_BAG)
-    {
-        static const UiHint k[] = { { UI_ICON_STICK, "Pick" }, { UI_ICON_STICK_CLICK, "Use" },
+        static const char *const kTab[3] = { "ITEMS", "RUNES", "RELICS" };
+        static const UiHint k[] = { { UI_ICON_L, "" }, { UI_ICON_R, "Tab" }, { UI_ICON_STICK_CLICK, "Use" },
                                     { UI_ICON_D, "Drop" }, { UI_ICON_U, "Close" } };
+        uint16_t t;
+
+        for(t = 0; t < 3u; t++)
+        {
+            int16_t x0 = (int16_t)(8 + 78 * t);
+            Graphics_FillRect(x0, 4, (int16_t)(x0 + 72), 22, (t == s_tab) ? C_GOLD : COLOR_CHARCOAL);
+            rc_DrawTextEx(kTab[t], (int16_t)(x0 + 36), 13, (t == s_tab) ? C_BLACK : C_GRAY,
+                          (t == s_tab) ? C_GOLD : COLOR_CHARCOAL, true);
+        }
         Ui_DrawHints(k, UI_ARRAY_LEN(k), 231, C_BLACK);
     }
     else if(s_screen == INV_SWAP)
     {
         static const UiHint k[] = { { UI_ICON_STICK_CLICK, "Replace" }, { UI_ICON_U, "Throw new away" } };
+        n = rc_Cat(buf, 0, "Bag full: ", 10);
+        rc_Cat(buf, n, rc_ItemName(s_newItem), 16);
+        rc_DrawText(buf, 120, 13, C_BAD);
         Ui_DrawHints(k, UI_ARRAY_LEN(k), 231, C_BLACK);
     }
     else
     {
         static const UiHint k[] = { { UI_ICON_L, "" }, { UI_ICON_R, "Buy/Sell" },
                                     { UI_ICON_STICK_CLICK, "Trade" }, { UI_ICON_U, "Leave" } };
+        rc_DrawText(s_tab ? "VENDOR - SELL" : "VENDOR - BUY", 90, 13, C_GOLD);
         Ui_DrawHints(k, UI_ARRAY_LEN(k), 231, C_BLACK);
     }
-    s_dirty = 2;                                        // 2 = every row, 1 = selection rows only
+
+    n = rc_Cat(buf, 0, "G ", 2);
+    rc_Itoa(buf + n, rc_gold);
+    rc_DrawSmall(buf, 290, 13, C_GOLD, C_BLACK);
+    s_lastCell = 0xFFFFu;
+    s_dirty = 2;                                        // 2 = everything, 1 = the selection changed
 }
 
 
 void rc_InventoryRender(void)
 {
-    static uint16_t lastRow;
     uint16_t r;
 
     if(!s_dirty) return;
-    if(s_dirty == 2u) { for(r = 0; r < s_rows; r++) DrawRow(r); }
-    else              { DrawRow(lastRow); DrawRow(s_row); }
-    lastRow = s_row;
+    RowCount();
+    if(s_dirty == 2u || s_lastCell == 0xFFFFu) { for(r = 0; r < CellCount(); r++) DrawCell(r); }
+    else { DrawCell(s_lastCell); DrawCell(CurCell()); }
+    s_lastCell = CurCell();
     DrawPanel();
     s_dirty = 0;
 }
@@ -694,14 +858,14 @@ static void ShopAction(void)
     uint16_t qty, it = RowItem(s_row, &qty);
 
     if(it == I_NONE) return;
-    if(s_tab)                                           // sell from the bag (worn gear can't be sold)
+    if(s_tab)                                           // sell from the bag or the relics (worn gear can't be sold)
     {
         uint16_t b = s_row, v = rc_SellValue(it);
 
         if(rc_kItems[it].kind == K_CLOTH) { s_msg = M_NOSELL; return; }
-        rc_GainGold(0);
         rc_gold = (uint16_t)(rc_gold + v);
-        if(--rc_inv[b].cnt == 0u) ClearSlot(b);
+        if(b >= INV_SLOTS) rc_relicCnt[b - INV_SLOTS]--;
+        else if(--rc_inv[b].cnt == 0u) ClearSlot(b);
         rc_RecalcFx();
         s_msg = M_SOLD;
         rc_Sfx(&sfx_coin);
@@ -737,7 +901,7 @@ static void SwapAction(bool throwNew)
         rc_inv[s_row].cnt  = 1;
         if(rc_sel == s_row) rc_sel = 0xFFFFu;
         rc_RecalcFx();
-        rc_Toast("Got: ", rc_kItems[s_newItem].name);
+        rc_Toast("Got: ", rc_ItemName(s_newItem));
     }
     s_newItem = I_NONE;
     rc_Sfx(&sfx_menu_select);
@@ -751,7 +915,6 @@ void rc_UpdateInventory(void)
     int16_t  sy = rc_StickEdge(g_joy.dy, &rc_stY);
     uint16_t old = s_row;
 
-    (void)rc_StickEdge(g_joy.dx, &rc_stX);
     RowCount();
 
     if(g_dpad.uPressed)                                 // Up: close / leave / throw the new item away
@@ -761,18 +924,47 @@ void rc_UpdateInventory(void)
         else BackToPlay();
         return;
     }
-    if(s_screen == INV_SHOP && (g_dpad.lPressed || g_dpad.rPressed))
+    if(g_dpad.lPressed || g_dpad.rPressed)              // L / R: the vendor's Buy / Sell, the bag's tabs
     {
-        s_tab ^= 1u;
+        if(s_screen == INV_SHOP) s_tab ^= 1u;
+        else if(s_screen == INV_BAG) s_tab = (uint16_t)((s_tab + (g_dpad.rPressed ? 1u : 2u)) % 3u);
+        else return;
         s_row = 0;
+        s_cx = s_cy = 0;
         s_msg = M_NONE;
         rc_dirtyFull = true;
         return;
     }
 
-    if(sy > 0 || g_dpad.dPressed * (s_screen != INV_BAG)) s_row = (uint16_t)((s_row + 1u) % s_rows);
-    else if(sy < 0) s_row = (uint16_t)((s_row + s_rows - 1u) % s_rows);
-    if(s_row != old) { s_confirm = 0; s_msg = M_NONE; if(!s_dirty) s_dirty = 1; rc_Sfx(&sfx_menu_move); }
+    if(s_screen == INV_BAG)                             // grid cursor: equipment column, then a 6 x 2 bag
+    {
+        int16_t sx = rc_StickEdge(g_joy.dx, &rc_stX);
+        uint16_t maxX = (s_tab == TAB_ITEMS) ? 6u : (uint16_t)(CellCount() - 1u);
+        uint16_t ocx = s_cx, ocy = s_cy;
+
+        if(sx > 0 && s_cx < maxX) s_cx++;
+        if(sx < 0 && s_cx > 0u)   s_cx--;
+        if(s_tab == TAB_ITEMS)
+        {
+            uint16_t maxY = s_cx ? 1u : 3u;
+            if(sy > 0 && s_cy < maxY) s_cy++;
+            if(sy < 0 && s_cy > 0u)   s_cy--;
+            if(s_cy > maxY) s_cy = maxY;
+            s_row = (s_cx == 0u) ? s_cy : (uint16_t)(SL_COUNT + s_cy * 6u + s_cx - 1u);
+        }
+        if(s_cx != ocx || s_cy != ocy) { s_confirm = 0; s_msg = M_NONE; if(!s_dirty) s_dirty = 1; rc_Sfx(&sfx_menu_move); }
+        if(s_tab != TAB_ITEMS) return;                  // runes and relics: look only
+    }
+    else
+    {
+        int16_t sx = rc_StickEdge(g_joy.dx, &rc_stX);
+
+        if(sx > 0 || g_dpad.dPressed) s_row = (uint16_t)((s_row + 1u) % s_rows);
+        else if(sx < 0) s_row = (uint16_t)((s_row + s_rows - 1u) % s_rows);
+        else if(sy > 0 && s_row + LIST_COLS < s_rows) s_row = (uint16_t)(s_row + LIST_COLS);
+        else if(sy < 0 && s_row >= LIST_COLS)         s_row = (uint16_t)(s_row - LIST_COLS);
+        if(s_row != old) { s_confirm = 0; s_msg = M_NONE; if(!s_dirty) s_dirty = 1; rc_Sfx(&sfx_menu_move); }
+    }
 
     if(s_screen == INV_BAG && g_dpad.dPressed && s_row >= SL_COUNT)     // Down twice: drop the item
     {
@@ -791,7 +983,7 @@ void rc_UpdateInventory(void)
         if(s_screen == INV_BAG)       BagAction();
         else if(s_screen == INV_SHOP) ShopAction();
         else                          { SwapAction(false); return; }
-        if(rc_mode == MODE_INV) { rc_dirtyFull = (s_screen == INV_SHOP); s_dirty = 2; }
+        if(rc_mode == MODE_INV) { rc_dirtyFull = (s_screen == INV_SHOP); s_dirty = 2; }     // (gold changed)
     }
 }
 
@@ -806,6 +998,7 @@ void rc_ResetInventory(void)
     for(i = 0; i < INV_SLOTS; i++) { rc_inv[i].item = I_NONE; rc_inv[i].cnt = 0; }
     for(i = 0; i < SL_COUNT; i++) rc_eq[i] = I_NONE;
     for(i = 0; i < NUM_CONS; i++) rc_cdCons[i] = 0;
+    for(i = 0; i < 5u; i++) rc_relicCnt[i] = 0;
     rc_eq[SL_WPN] = I_RAYWAND;
     rc_clothMask = 0;
     rc_sel = 0xFFFFu;

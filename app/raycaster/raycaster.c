@@ -20,6 +20,8 @@
 
 
 
+
+
 //*****************************************************************************
 // App callbacks
 //*****************************************************************************
@@ -70,38 +72,47 @@ static uint16_t TicksOwed(void)
 }
 
 
-// ---- MP3 theme: buzzer song until wave 2, then track 10 loops ----------------
-#define RC_THEME_TRACK   10      // plays /MP3/0010.mp3
-#define RC_THEME_SEC     120     // EDIT: length of 0010.mp3 in seconds (round up 1-2 s)
-#define RC_THEME_FPS     400     // EDIT: frames per second (a guess); see note below
-#define RC_THEME_ROUND   2       // wave at which the MP3 takes over
+// ---- The dungeon music ---------------------------------------------------------
+// Wave 1 plays the buzzer theme; from RC_THEME_ROUND on, /MP3/0010.mp3 on the MP3
+// module's SD card takes over and repeats. The module's own "loop" command (0x08)
+// counts files in card order instead of using /MP3/0010.mp3, so it is NOT used:
+// we play the file by name and restart it when it ends. "It ended" is seen two ways,
+// because some DFPlayer clones never send the "track done" message:
+//   1. the module's track-done message (MP3_trackFinished), or
+//   2. every RC_THEME_CHECK frames we ask the module "are you playing?" (query 0x42)
+//      and restart if the answer is "stopped".
+#define RC_THEME_TRACK   10      // /MP3/0010.mp3
+#define RC_THEME_ROUND   2       // the wave the MP3 takes over (1 = from the start)
+#define RC_THEME_CHECK   90      // frames between "are you playing?" queries (3 s)
+#define MP3_Q_STATUS     0x42    // DFPlayer status query; reply low byte 0 = stopped
 
-static bool     s_rcThemeOn;     // true once the MP3 has taken over
-static uint32_t s_rcThemeTimer;  // frames left in the current play of the track
+static bool     s_rcThemeOn;     // the MP3 track has taken over
+static uint16_t s_rcThemeChk;    // frames to the next status query
 
 static void RcTheme_Start(void)
 {
+    Buzzer_Stop();               // the buzzer theme (and any sfx) yields to the MP3
     MP3_playTrack(RC_THEME_TRACK);
-    s_rcThemeTimer = (uint32_t)RC_THEME_SEC * RC_THEME_FPS;
+    s_rcThemeOn  = true;
+    s_rcThemeChk = RC_THEME_CHECK;
 }
 
-// Once per frame. Switches to the MP3 at round 2, then loops it.
+// Once per frame: hand over to the MP3 at RC_THEME_ROUND, then keep it looping.
 static void RcTheme_Update(void)
 {
     if(!s_rcThemeOn)
     {
-        if(rc_wave >= RC_THEME_ROUND && rc_mode == MODE_PLAY)
-        {
-            s_rcThemeOn = true;
-            Buzzer_Stop();                     // stop the buzzer song (and any sfx)
-            RcTheme_Start();
-        }
+        if(rc_wave >= RC_THEME_ROUND && rc_mode == MODE_PLAY) RcTheme_Start();
         return;
     }
-
-    MP3_poll();                                // reads the module's "track done" message
-    if(s_rcThemeTimer > 0) s_rcThemeTimer--;
-    if(MP3_trackFinished() || s_rcThemeTimer == 0) RcTheme_Start();
+    MP3_poll();                                             // read the module's messages
+    if(MP3_trackFinished()) { RcTheme_Start(); return; }
+    if(--s_rcThemeChk) return;
+    s_rcThemeChk = RC_THEME_CHECK;
+    if(MP3_getLastCmd() == MP3_Q_STATUS && (MP3_getLastParam() & 0xFFu) == 0u)
+        RcTheme_Start();                                    // last answer: "stopped"
+    else
+        MP3_sendCommand(MP3_Q_STATUS, 0, 0);                // ask again; answer next check
 }
 
 
@@ -119,7 +130,7 @@ static void RC_Init(void)
     rc_LoadScores();
     rc_StartLevel();
 
-    s_rcThemeOn = false;                       // new run: buzzer song first
+    s_rcThemeOn = false;                       // new run: buzzer theme first
     MP3_stop();
     rc_EnterTitle();                           // title screen first; the music starts when you enter
 }
@@ -143,7 +154,7 @@ static AppStatus RC_Update(void)
                 rc_timer     = 75;
                 rc_banner    = BAN_LEVEL;
                 rc_dirtyFull = true;
-                Buzzer_PlaySong(&song_corridor_run, 1);      // the dungeon theme begins
+                Buzzer_PlaySong(&song_corridor_run, 1);      // the dungeon theme (MP3 from RC_THEME_ROUND)
             }
             break;
 
@@ -294,7 +305,7 @@ static void RC_Redraw(void)
     if(rc_mode != MODE_OVER && rc_mode != MODE_NAME && rc_mode != MODE_SCORES &&
        rc_mode != MODE_TITLE && rc_mode != MODE_HOWTO && rc_mode != MODE_LETTER)
     {
-        if(s_rcThemeOn) RcTheme_Start();                    // Settings interrupted the MP3
+        if(s_rcThemeOn) RcTheme_Start();                    // the pause menu interrupted the music
         else            Buzzer_PlaySong(&song_corridor_run, 1);
     }
 }

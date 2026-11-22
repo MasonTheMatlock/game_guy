@@ -22,7 +22,10 @@
 #pragma FUNCTION_OPTIONS(ThinkSlimeKing, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(ThinkLich, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(ThinkVampire, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(DragonAimDash, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(ThinkDragon, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(DragonAloft, "--opt_for_speed=0")
+#pragma FUNCTION_OPTIONS(rc_DragonPose, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(rc_ThinkBoss, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(rc_BossLook, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(rc_Untargetable, "--opt_for_speed=0")
@@ -30,6 +33,8 @@
 #pragma FUNCTION_OPTIONS(rc_OnBossDeath, "--opt_for_speed=0")
 #pragma FUNCTION_OPTIONS(rc_ResetBosses, "--opt_for_speed=0")
 // ---- SIZE-OPT END ----
+
+
 
 //*****************************************************************************
 // Floor marks: tiles painted on the floor (drawn as flat decals by rc_render.c).
@@ -531,19 +536,68 @@ static bool ThinkVampire(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t d
 // The Ancient Dragon (rc.md 15). Three phases (2/3, 1/3 health) add attacks and
 // speed. Every melee attack is marked on the floor first.
 //*****************************************************************************
-enum { DA_BREATH, DA_CLAW, DA_FIREBALL, DA_GUST, DA_TAIL, DA_INFERNO };
+// Attacks. Phase 1 picks from the first five, phase 2 adds the tail sweep, phase 3 the inferno.
+enum { DA_BREATH, DA_CLAW, DA_FIREBALL, DA_CHARGE, DA_SLAM, DA_TAIL, DA_INFERNO };
+#define DRAGON_COMBO     3u                     // attacks before it tires and lands
+#define DRAGON_EXPOSE    120u                   // frames the weak spot stays open (4 s, less when enraged)
+#define DR_DASH          4u                     // state: charging along its lane
+#define DASH_SPEED       50                     // rc_AimCharge speed: 200 Q10 a frame (6 tiles a second)
+#define DASH_FRAMES      40u
+#define SLAM_UP          50u                    // sky slam: frames from take-off to landing
+#define SLAM_MARK        22u                    //   the landing ring appears this many frames before
+#define SLAM_R           1500                   //   landing radius (1.5 tiles)
 
+// Aim a charge at the player and burn its lane into the floor (the telegraph is honest:
+// the dash follows exactly this line).
+static void DragonAimDash(Enemy *e, int16_t dx, int16_t dy, uint16_t warn)
+{
+    rc_AimCharge(e, DASH_SPEED, dx, dy);
+    rc_MarkLine(e->x, e->y, e->x + (int32_t)e->tx * DASH_FRAMES, e->y + (int32_t)e->ty * DASH_FRAMES,
+                PT_PUDDLE_FIRE, (uint16_t)(warn + DASH_FRAMES));
+    e->st  = 1;
+    e->tm  = warn;
+    e->aux2 = DA_CHARGE;
+    rc_Sfx(&sfx_game_over);                             // the roar before the run
+}
+
+// Fight loop: a combo of telegraphed attacks (scales: half damage), then it lands
+// exhausted with its chest core blazing (weak spot: double damage, rc_PlayerHit),
+// then it roars back up. A charge that slams into a wall or pillar stuns it and
+// exposes the core at once. Each phase (2/3, 1/3 health) adds an attack, speeds it
+// up, and opens with a roar.
+//   e->cnt: phase (high byte), attacks in this combo (low byte)
+//   e->aux: the current charge has hit the player (bit 0), extra charges done (bits 1+)
+//   e->tx/ty: dash velocity, or the sky slam's landing spot (Q10 >> 4)
 static bool ThinkDragon(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t dist)
 {
     uint16_t p = rc_Phase(e), k;
 
+    if(p > (e->cnt >> 8) && e->st != DR_DASH && e->st != 1u)  // a new phase: roar, enrage
+    {
+        e->cnt = (uint16_t)((e->cnt & 0xFFu) | (p << 8));
+        rc_Toast(p == 2u ? "The Dragon is furious!" : "The Dragon is enraged!", NULL);
+        rc_Sfx(&sfx_game_over);
+        e->st = 2;
+        e->tm = 45;
+    }
     if(p) sp = (int16_t)(sp + (sp >> 2));
+
     switch(e->st)
     {
         case 0:
             if(dist > 2400) rc_Chase(e, sp, 0, dx, dy, dist);
             if(e->tm) { e->tm--; break; }
-            e->aux2 = RAND(4u + p);                     // phase 2 adds the tail sweep, phase 3 the inferno
+            if((e->cnt & 0xFFu) >= DRAGON_COMBO)        // tired: land, expose the weak spot
+            {
+                e->cnt &= 0xFF00u;
+                e->st = DR_EXPOSED;
+                e->tm = (uint16_t)(DRAGON_EXPOSE - 20u * p);
+                rc_Toast("WEAK SPOT! Hit the glowing core!", NULL);
+                rc_Sfx(&sfx_powerup);
+                break;
+            }
+            e->aux2 = RAND(5u + p);
+            if(dist > 4500 && RAND(2)) e->aux2 = DA_CHARGE + RAND(2);   // far away: it comes to you
             e->st = 1;
             switch(e->aux2)
             {
@@ -551,6 +605,14 @@ static bool ThinkDragon(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t di
                     rc_MarkLine(e->x, e->y, e->x + ((int32_t)dx * 2400L) / (dist ? dist : 1),
                                 e->y + ((int32_t)dy * 2400L) / (dist ? dist : 1), PT_PUDDLE_FIRE, 24);
                     e->tm = 24; break;
+                case DA_CHARGE:
+                    e->aux = 0;
+                    DragonAimDash(e, dx, dy, (uint16_t)(36u - 6u * p));
+                    break;
+                case DA_SLAM:                           // takes to the sky (rc_DragonPose lifts it)
+                    e->tm = SLAM_UP;
+                    rc_SfxSoft(&sfx_powerup);
+                    break;
                 case DA_TAIL:                           // a ring around it
                     for(k = 0; k < RC_ANGLES; k += 64u)
                         rc_MarkTile((int16_t)((e->x + (((int32_t)COS(k) * 2048L) >> 14)) >> 10),
@@ -560,15 +622,23 @@ static bool ThinkDragon(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t di
                     rc_MakeWarn(rc_px, rc_py, 900, 40, AR_FIRE, 150);
                     rc_MakeWarn(rc_px + 1500L, rc_py - 700L, 900, 40, AR_FIRE, 150);
                     rc_MakeWarn(rc_px - 1300L, rc_py + 900L, 900, 40, AR_FIRE, 150);
+                    rc_MakeWarn(rc_px + 600L, rc_py + 1600L, 900, 50, AR_FIRE, 150);
                     e->tm = 40; break;
-                default: e->tm = 30; break;             // breath / fireball / gust: the pose warns
+                default: e->tm = 30; break;             // breath / fireball: the pose warns
             }
             break;
+
         case 1:
+            if(e->aux2 == DA_SLAM && e->tm == SLAM_MARK)            // high above: mark where it lands
+            {
+                e->tx = (int16_t)(rc_px >> 4);
+                e->ty = (int16_t)(rc_py >> 4);
+                rc_MakeWarn(rc_px, rc_py, SLAM_R, SLAM_MARK, AR_FIRE, 90);
+            }
             if(--e->tm) break;
             switch(e->aux2)
             {
-                case DA_BREATH:
+                case DA_BREATH:                         // a fan of flame from the mouth
                     for(k = 0; k < (p ? 5u : 3u); k++) rc_ShootBolt(e, (int16_t)((int16_t)k * 20 - (p ? 40 : 20)), BK_FLAME, 68, 115);
                     break;
                 case DA_CLAW:
@@ -577,28 +647,96 @@ static bool ThinkDragon(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t di
                 case DA_FIREBALL:
                     rc_ShootBolt(e, -25, BK_FIREBALL, 50, 140);
                     rc_ShootBolt(e,  25, BK_FIREBALL, 50, 140);
+                    if(p == 2u) rc_ShootBolt(e, 0, BK_FIREBALL, 60, 140);
                     break;
-                case DA_GUST:
-                    if(dist < 2800 && dist > 0)
-                    {
-                        rc_PlayerPush((int16_t)(((int32_t)dx * -650L) / dist), (int16_t)(((int32_t)dy * -650L) / dist));
-                        rc_HurtPlayer(DMG_BOSS);
-                    }
+                case DA_CHARGE:                         // the run itself
+                    e->st = DR_DASH;
+                    e->tm = DASH_FRAMES;
+                    e->aux &= ~1u;
+                    return false;
+                case DA_SLAM:                           // lands: a crushing blow and a fire shockwave
+                {
+                    int32_t lx = (int32_t)e->tx << 4, ly = (int32_t)e->ty << 4;
+
+                    if(!Blocked(lx, ly, 230)) { e->x = lx; e->y = ly; }
+                    if(DistP(rc_px, rc_py, e->x, e->y) < SLAM_R) rc_HurtPlayer(DMG_BOSS_HEAVY);
+                    rc_MakeWave(e->x, e->y, 70, 4200, WV_FIRE);
+                    rc_AddSpark(e->x, e->y, 0, 70, PT_PUFF_FIRE, 16);
                     break;
+                }
                 case DA_TAIL:
                     if(dist < 2700) rc_HurtPlayer(DMG_BOSS_HEAVY);
                     break;
                 default: break;
             }
             rc_SfxSoft(&sfx_laser);
+            e->cnt++;                                   // one more attack in this combo
             e->st = 2;
             e->tm = 30;
             break;
+
+        case DR_DASH:
+            if(!rc_ChargeStep(e))                       // slammed into a wall or pillar: stunned
+            {
+                rc_Sfx(&sfx_explosion);
+                rc_AddSpark(e->x, e->y, 4, 60, PT_ROCK, 14);
+                rc_Toast("It crashed! Hit the core!", NULL);
+                e->cnt &= 0xFF00u;
+                e->st = DR_EXPOSED;
+                e->tm = (uint16_t)(DRAGON_EXPOSE + 30u - 20u * p);
+                break;
+            }
+            if(!(e->aux & 1u) && dist < 1100)           // trampled
+            {
+                e->aux |= 1u;
+                rc_HurtPlayer(DMG_BOSS_HEAVY);
+                rc_PlayerPush((int16_t)(e->tx * 3), (int16_t)(e->ty * 3));
+            }
+            if(--e->tm) break;
+            if((e->aux >> 1) < p)                       // enraged: turns and charges again
+            {
+                e->aux = (uint16_t)((e->aux + 2u) & ~1u);
+                DragonAimDash(e, dx, dy, 18);
+                break;
+            }
+            e->cnt++;
+            e->st = 2;
+            e->tm = 30;
+            break;
+
+        case DR_EXPOSED:                                // landed and panting: no attacks
+            if(--e->tm == 0u) { e->st = 2; e->tm = 30; rc_Sfx(&sfx_game_over); }   // roars back up
+            break;
+
         default:
-            if(--e->tm == 0u) { e->st = 0; e->tm = (uint16_t)(55u - 12u * p + RAND(30)); }
+            if(--e->tm == 0u) { e->st = 0; e->tm = (uint16_t)(45u - 10u * p + RAND(25)); }
             break;
     }
     return false;                                       // the Dragon hurts with its attacks, not its touch
+}
+
+
+// High in the sky during a sky slam (beams pass beneath it).
+static bool DragonAloft(const Enemy *e)
+{
+    return e->st == 1u && e->aux2 == DA_SLAM && e->tm < SLAM_UP - 12u;
+}
+
+
+// How the Dragon's parts look right now (rc_render.c draws body, two wings, head).
+// lift raises the whole Dragon (the sky slam flies it off the top of the view).
+void rc_DragonPose(const Enemy *e, uint16_t *head, int16_t *headZ, uint16_t *pal, uint16_t *wing, int16_t *lift)
+{
+    bool windup = (e->st == 1u), roar = (e->st == 2u && e->tm > 30u), dash = (e->st == DR_DASH);
+    bool slam = windup && e->aux2 == DA_SLAM;
+
+    *pal   = (e->st == DR_EXPOSED) ? PT_DRAGON_CORE :
+             (dash || (windup && (e->aux2 == DA_BREATH || e->aux2 == DA_FIREBALL))) ? PT_DRAGON_HOT : PT_DRAGON;
+    *head  = (windup || roar || dash) ? SH_DRAGON_ROAR : SH_DRAGON_HEAD;
+    *headZ = (e->st == DR_EXPOSED) ? 14 : dash ? 20 : 27;      // exposed: the head hangs low; dash: head down
+    *wing  = (e->st == DR_EXPOSED) ? SH_WING_DOWN : dash ? SH_WING_UP :
+             (((rc_portalPhase >> ((windup || slam) ? 1 : 3)) & 1u) ? SH_WING_UP : SH_WING_DOWN);
+    *lift  = !slam ? 0 : (e->tm > SLAM_MARK) ? (int16_t)(3u * (SLAM_UP - e->tm)) : 90;
 }
 
 
@@ -642,10 +780,6 @@ bool rc_BossLook(const Enemy *e, uint16_t *shape, uint16_t *pal)
         case ET_LICH:
             if(e->st == 1u || e->st == 2u) *shape = SH_LICH_B;
             return true;
-        case ET_DRAGON:
-            if(e->st == 1u && e->aux2 == DA_BREATH) *pal = PT_DRAGON_HOT;
-            if(e->st == 1u && (e->aux2 == DA_GUST || e->aux2 == DA_TAIL || e->aux2 == DA_CLAW)) *shape = SH_DRAGON_ATTACK;
-            return true;
         default:
             return false;
     }
@@ -654,7 +788,8 @@ bool rc_BossLook(const Enemy *e, uint16_t *shape, uint16_t *pal)
 
 bool rc_Untargetable(const Enemy *e)
 {
-    return (e->type == ET_GHOST && e->st == 1u) || (e->type == ET_SLIMEKING && e->st == SK_HIDDEN);
+    return (e->type == ET_GHOST && e->st == 1u) || (e->type == ET_SLIMEKING && e->st == SK_HIDDEN) ||
+           (e->type == ET_DRAGON && DragonAloft(e));
 }
 
 
