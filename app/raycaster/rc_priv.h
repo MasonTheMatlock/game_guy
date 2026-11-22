@@ -106,6 +106,7 @@ extern const Song song_corridor_run;
 #define MODE_LETTER     7
 #define MODE_NAME       8               // high-score name entry
 #define MODE_SCORES     9               // high-score table, "Main Menu"
+#define MODE_INV        10              // inventory / vendor / full-bag swap list (game paused)
 
 #define BAN_LEVEL       1
 #define BAN_CLEAR       2
@@ -118,7 +119,8 @@ extern const Song song_corridor_run;
 #define HUD_STAFF       0x10
 #define HUD_XP          0x20
 #define HUD_HINT        0x40
-#define HUD_ALL         0x7F
+#define HUD_ULT         0x80            // ultimate meter column
+#define HUD_ALL         0xFF
 #define HUD_TOPR        (HUD_GOLD | HUD_LEVEL | HUD_XP)
 
 #define RC_WALL_DECOR   1
@@ -222,6 +224,7 @@ enum { SH_GOBLIN, SH_BAT, SH_SKELETON, SH_LICH, SH_BEHOLDER,
        SH_GOLEM_A, SH_GOLEM_B, SH_VAMP_A, SH_VAMP_B, SH_LICH_B,
        SH_CHEST, SH_MIMIC, SH_ORB, SH_WEB, SH_PUDDLE, SH_WARN, SH_WAVE,
        SH_ALERT, SH_MERCHANT, SH_ARCHER, SH_KEY, SH_HEART,
+       SH_GOLEM_C, SH_GOLEM_D, SH_SPIKE,           // Golem dash / cast poses, ice spikes
        SH_COUNT };
 
 enum { PT_GOBLIN, PT_BAT, PT_HOBGOB, PT_SKELETON, PT_BEHOLDER, PT_LICH,
@@ -240,6 +243,8 @@ enum { PT_GOBLIN, PT_BAT, PT_HOBGOB, PT_SKELETON, PT_BEHOLDER, PT_LICH,
        PT_WEB, PT_PUDDLE_SLIME, PT_PUDDLE_FIRE, PT_PUDDLE_WEB, PT_PUDDLE_BLAST,
        PT_WARN, PT_WAVE_SLIME, PT_WAVE_FIRE, PT_WAVE_ICE, PT_WAVE_STORM, PT_WAVE_NOVA,
        PT_ALERT, PT_MERCHANT, PT_ARCHER, PT_KEY, PT_HEART, PT_ALTAR, PT_CHEST_GOOD,
+       PT_GOLEM_EARTH, PT_ROCK, PT_SPIKE,
+       PT_MARK_EARTH, PT_MARK_BLUE, PT_MARK_WHITE, PT_MARK_GREEN,   // floor marks (telegraphs)
        PT_COUNT };
 
 typedef struct
@@ -275,10 +280,15 @@ typedef struct
     uint16_t tm;
     uint16_t an;
     uint16_t cnt;
-    uint16_t sum;           // 1 = summoned minion: small reward, dies with its master
+    uint16_t sum;           // SUM_*: hostile, hostile summon (dies with its master), or friendly ally
+    uint16_t burnStk;       // burn stacks (0..5): stacks x damage every second
+    uint16_t life;          // allies: frames left before they crumble
     int16_t  tx, ty;        // charge velocity / bat swoop angle
     uint16_t alive;
 } Enemy;
+
+enum { SUM_NONE, SUM_MINION, SUM_ALLY };       // Enemy.sum: hostile / a boss's summon / on the player's side
+enum { AK_SUMMON, AK_RISEN, AK_ARMY, AK_SLIME }; // an ally's kind (kept in Enemy.st)
 
 //*****************************************************************************
 // Waves: unlock order, themes (rc.md 3.5, 13.2)
@@ -291,45 +301,47 @@ extern const WaveTheme rc_kThemes[NUM_THEMES];
 extern const WaveTheme rc_kOpening[10];                 // waves 1..10 (treasure waves: n = 0)
 
 //*****************************************************************************
-// Equipment (placeholder gear until the Pass 2 catalog: rc.md section 20).
-// Slots 0..3 are staffs, 4..11 magic items. D-pad Down cycles, D-pad Up uses.
+// Progression effects. EVERY bonus in the game (stat levels, runes, equipped
+// gear, carried relics, blessings) is summed into one table rc_fx[] by
+// rc_RecalcFx(); game code only ever reads rc_fx[FX_x]. The first nine entries
+// line up with the nine direct stats (rc.md 6.2).
 //*****************************************************************************
-#define NUM_STAFF   4
-#define NUM_ITEM    8
-#define NUM_SLOT    (NUM_STAFF + NUM_ITEM)
-
-typedef struct
+enum
 {
-    const char *name;
-    uint16_t    dmg;
-    uint16_t    cooldown;
-    uint16_t    beams;
-    uint16_t    spread;
-    uint16_t    pierce;
-    uint32_t    color;
-} Staff;
-extern const Staff rc_kStaff[NUM_STAFF];
-extern const uint16_t rc_kStaffCost[NUM_STAFF];
-extern const uint16_t rc_kStaffMana[NUM_STAFF];
-extern const Song *const rc_kStaffSfx[NUM_STAFF];
+    FX_DMG, FX_HP, FX_MOVE, FX_ASPD, FX_MANA, FX_REGEN, FX_RES, FX_CRIT, FX_GOLD,   // = ST_* order
+    FX_ULT,         // % faster ultimate charge
+    FX_COST,        // % cheaper mana costs
+    FX_CHESTGOLD,   // % more gold from chests and bosses
+    FX_FIRE,        // % fire damage                    (Pyromancer gear)
+    FX_BURNDUR,     // % longer burns
+    FX_BURNDMG,     // + burn damage per tick per stack
+    FX_IGNITE,      // % chance any hit ignites
+    FX_LIGHT,       // % lightning damage               (Stormcaller gear)
+    FX_LSPD,        // % faster lightning staffs
+    FX_STUN,        // % chance a lightning hit stuns
+    FX_CHAIN,       // + chain targets
+    FX_SUMDMG,      // % summon damage                  (Necromancer gear)
+    FX_SUMHP,       // % summon health
+    FX_SUMDUR,      // % summon duration
+    FX_SUMCNT,      // + summons at once
+    FX_COVEN,       // % more Vampiric Covenant healing
+    FX_REZ,         // + % resurrection chance
+    FX_BEAM,        // % arcane beam damage             (Raycaster gear)
+    FX_BCRIT,       // + % arcane beam crit chance
+    FX_BCOST,       // % cheaper arcane beams
+    FX_FRACT,       // % stronger Reality Fracture beams
+    FX_WBEAM,       // % eldritch beam damage           (Warlock gear)
+    FX_CONV,        // + mana per Blood Pact conversion
+    FX_CONVCOST,    // Blood Pact costs this many half hearts less
+    FX_LSTEAL,      // % more health from damage dealt
+    FX_SINGRAD,     // % bigger Singularity
+    FX_GILDDMG,     // % damage per 100 gold carried    (Midas gear)
+    FX_GOLDPROC,    // % chance a hit makes bonus gold
+    FX_COUNT
+};
+extern int16_t  rc_fx[FX_COUNT];
+void rc_RecalcFx(void);                       // after ANY change to stats, runes, gear, relics
 
-enum { IT_FIRE, IT_FROST, IT_VENOM, IT_ELIXIR, IT_HASTE, IT_TOME, IT_WARP, IT_AEGIS };
-typedef struct { const char *name; uint16_t cooldown; uint32_t color; } ItemDef;
-extern const ItemDef rc_kItem[NUM_ITEM];
-extern const uint16_t rc_kItemCost[NUM_ITEM];
-extern const uint16_t rc_kItemMana[NUM_ITEM];
-extern const char *const rc_kItemDesc[NUM_ITEM];
-extern const char *const rc_kStaffDesc[NUM_STAFF];
-
-enum { PK_FIRE, PK_FROST, PK_VENOM, PK_ARCANE };
-extern const int16_t  rc_kPotRadius[3];
-extern const uint16_t rc_kPotDmg[3];
-extern const uint16_t rc_kPotLife[3];
-extern const uint16_t rc_kPotScale[3];
-
-//*****************************************************************************
-// Progression: nine direct stats (soft-capped levels) and runes (rc.md 6, 9)
-//*****************************************************************************
 enum { ST_DMG, ST_HP, ST_MOVE, ST_ASPD, ST_MANA, ST_REGEN, ST_RES, ST_CRIT, ST_GOLD, ST_COUNT };
 #define STAT_MAX_LV     8
 typedef struct { const char *name; const char *desc; uint16_t step; } StatDef;
@@ -338,18 +350,127 @@ extern const uint16_t rc_kSoft[STAT_MAX_LV + 1];       // cumulative effect per 
 
 enum { RU_HASTE, RU_FORCE, RU_SWIFT, RU_ECHOES, RU_VITAL, RU_LEECH, RU_CONSERVE,
        RU_FORTUNE, RU_MOMENTUM, RU_HERMIT,
-       // class runes: only offered once a class has been activated (Pass 2)
+       // class runes: offered once any class has been active; work only while it is
        RU_CINDERWAKE, RU_ASHEN, RU_ARC, RU_STATIC, RU_SIPHON, RU_LEGION,
        RU_PIERCE, RU_AFTERIMAGE, RU_TWIN, RU_RICOCHET, RU_VOID, RU_REACH,
        RU_GARSENAL, RU_GTOUCH, RU_COUNT };
 #define RU_GENERAL      10
 #define RUNE_SLOTS      4
 #define RUNE_NONE       0xFFFFu
+#define RUNE_PRICE      70
 typedef struct { const char *name; const char *desc; uint16_t cls; } RuneDef;   // cls 0 = general
 extern const RuneDef rc_kRune[RU_COUNT];
+bool rc_HasRune(uint16_t r);                  // equipped AND (general, or its class is active)
 
-uint16_t rc_StatPct(uint16_t st);            // total % bonus of a stat (soft-capped)
-bool     rc_HasRune(uint16_t r);
+//*****************************************************************************
+// Classes (rc.md 8)
+//*****************************************************************************
+enum { CL_NONE, CL_PYRO, CL_STORM, CL_NECRO, CL_RAY, CL_WARLOCK, CL_MIDAS, CL_COUNT };
+extern const char *const rc_kClassName[CL_COUNT];
+extern uint16_t rc_class;                     // active class (CL_NONE = Apprentice)
+extern uint16_t rc_classSeen;                 // bit c: class c has been active this run
+extern uint16_t rc_ult;                       // ultimate meter, 0..ULT_FULL
+extern uint16_t rc_ultT;                      // frames of the running ultimate
+#define ULT_FULL        240                   // damage dealt to fill the meter
+
+//*****************************************************************************
+// Items (rc.md 7). One catalog for staffs, consumables, gear, relics and the
+// Mimic Cloth. Gear gives ONE effect: rc_fx[fx] += val.
+//*****************************************************************************
+enum
+{
+    // staffs (the Weapon slot)
+    I_RAYWAND, I_PRISM, I_STORMROD, I_SUNFIRE,
+    I_INFERNAL, I_THUNDER, I_GRAVE, I_PENGINE, I_ELDRITCH, I_GILDED,
+    // consumables (stack to 3, at most 3 types carried)
+    I_FIRE, I_FROST, I_VENOM, I_ELIXIR, I_HASTE, I_AEGIS, I_TOME, I_WARP, I_MANAPOT,
+    // general gear: body, helmet, accessory
+    I_CHESTPLATE, I_CAPE, I_ROBES, I_BERSERK,
+    I_LUCKYHELM, I_HUNTERHOOD, I_SCHOLAR, I_SWIFTCAP,
+    I_SPARKS, I_VIGOR, I_FLOW, I_COIN,
+    // class gear: per class body A, body B, helmet A, helmet B, accessory A, accessory B
+    I_CLASS0,
+    I_MIDAS0 = I_CLASS0 + 30,                // Midas: body, helmet, accessory only
+    // mini-boss relics (passive while carried)
+    I_EYE = I_MIDAS0 + 3, I_SLIMECROWN, I_PHYLACTERY, I_PRIMAL, I_BLOODHEART,
+    I_CLOTH,                                  // Mimic Cloth (only ever bound, never carried)
+    I_COUNT,
+    I_NONE = 0xFF
+};
+#define I_FIRST_CONS    I_FIRE
+#define I_FIRST_GEAR    I_CHESTPLATE
+#define I_FIRST_RELIC   I_EYE
+#define NUM_STAFFS      (I_FIRST_CONS)
+#define NUM_CONS        (I_FIRST_GEAR - I_FIRST_CONS)
+
+enum { K_STAFF, K_CONS, K_GEAR, K_RELIC, K_CLOTH };
+enum { SL_BODY, SL_HELM, SL_ACC, SL_WPN, SL_COUNT };
+typedef struct
+{
+    const char *name;
+    const char *desc;           // up to 3 lines of 12 chars, '|' separated
+    uint16_t kind : 3;          // K_*
+    uint16_t slot : 2;          // gear: SL_BODY / SL_HELM / SL_ACC
+    uint16_t cls  : 3;          // class gear / class staff: CL_*
+    uint16_t fx   : 8;          // gear effect: FX_*
+    uint16_t art  : 4;          // held art (staffs, consumables): rc_kWpnArt index
+    uint16_t pal  : 5;          //                                 rc_kWpnPal index
+    uint16_t val  : 7;          // gear: effect amount; consumable: cooldown / 10 frames
+    uint16_t price;             // shop price (sells for 10%, rounded up)
+} ItemDef;
+extern const ItemDef rc_kItems[I_COUNT];
+
+// Staff behaviour (rc.md 7.5.3): all ten are one beam routine driven by this table.
+enum { EL_ARCANE, EL_FIRE, EL_LIGHT, EL_SPECTRAL, EL_ELDRITCH, EL_GOLD };
+enum { SM_NORMAL, SM_CHARGE, SM_CHANNEL };
+typedef struct
+{
+    uint16_t dmg, cooldown, beams, spread, pierce, chain, elem, mode, mana;
+    uint32_t color;
+    const Song *sfx;
+} StaffDef;
+extern const StaffDef rc_kStaffs[NUM_STAFFS];
+
+enum { PK_FIRE, PK_FROST, PK_VENOM, PK_ARCANE };
+extern const int16_t  rc_kPotRadius[3];
+extern const uint16_t rc_kPotDmg[3];
+extern const uint16_t rc_kPotLife[3];
+extern const uint16_t rc_kPotScale[3];
+
+//*****************************************************************************
+// Inventory (rc.md 7.1): 12 slots, 4 equipment slots, Mimic Cloth bindings.
+//*****************************************************************************
+#define INV_SLOTS       12
+#define CONS_STACK      3
+#define CONS_TYPES      3
+typedef struct { uint16_t item, cnt; } InvSlot;
+extern InvSlot  rc_inv[INV_SLOTS];
+extern uint16_t rc_eq[SL_COUNT];              // equipped item per slot (I_NONE = empty)
+extern uint16_t rc_clothMask;                 // bit s: Mimic Cloth bound to slot s (forever)
+extern uint16_t rc_sel;                       // the Up cycle: 0xFFFF = the weapon, else an inventory slot (consumable)
+extern uint16_t rc_cdStaff;                   // weapon cooldown, frames
+extern uint16_t rc_cdStaffMax;
+extern uint16_t rc_cdCons[NUM_CONS];          // per-consumable cooldowns
+extern uint16_t rc_relicMask;                 // bit r: relic r carried (rc_RecalcFx)
+extern uint16_t rc_phylacteryUsed;
+extern uint16_t rc_manaDebt;                  // max mana lost to cursed-chest trades
+extern uint16_t rc_hpBonus;                   // extra half hearts from the Shrine
+
+uint16_t rc_GiveItem(uint16_t item);          // GIVE_* result
+enum { GIVE_OK, GIVE_EQUIPPED, GIVE_FULL, GIVE_NOROOM };
+bool     rc_Owns(uint16_t item);              // in the bag or equipped
+uint16_t rc_SellValue(uint16_t item);
+void     rc_CycleSelection(void);
+uint16_t rc_SelItem(void);                    // the item the Up cycle points at
+void     rc_UseSelected(void);                // Down: fire the staff / use the consumable
+void     rc_UpdateClass(void);                // after any gear change
+void     rc_EnterInventory(uint16_t screen);  // INV_BAG / INV_SHOP / INV_SWAP
+void     rc_UpdateInventory(void);
+void     rc_DrawInventoryFull(void);
+void     rc_InventoryRender(void);
+void     rc_QueueLoot(uint16_t item);         // gear won from a chest: equip / bag / swap screen
+bool     rc_LootPending(void);
+enum { INV_BAG, INV_SHOP, INV_SWAP };
 
 //*****************************************************************************
 // Map (64 x 48)
@@ -361,16 +482,23 @@ bool     rc_HasRune(uint16_t r);
 //   G maze good chest (placed by the generator)      M maze block (generated)
 //   a..f spawn markers (chambers S, SW, NW, N, NE, SE)   g Den marker
 //*****************************************************************************
-extern const char *const rc_kMap[RC_MAP_H];
+extern const uint16_t rc_kMapPk[RC_MAP_H * RC_MAP_W / 2];     // rc_map.c (generated, 2 chars per word)
+
+// Map character at tile (x, y). Even x is the high byte of its word.
+static __inline char rc_MapCh(uint16_t x, uint16_t y)
+{
+    uint16_t w = rc_kMapPk[(y << (RC_MAP_SHIFT - 1)) + (x >> 1)];
+    return (char)((x & 1u) ? (w & 0xFFu) : (w >> 8));
+}
 
 //*****************************************************************************
 // Sprite art
 //*****************************************************************************
 #define SPR_N       16
 extern const uint16_t rc_kArt[SH_COUNT][SPR_N * 4];
-typedef struct { char ch; uint32_t rgb; } PalEnt;
-extern const PalEnt *const rc_kPal[PT_COUNT];
-extern const uint32_t rc_kTint[4];
+// A sprite palette: the colours of letters a..h (COLOR_MAGENTA = unused letter).
+extern const uint32_t *const rc_kPal[PT_COUNT];
+extern const uint32_t rc_kTint[5];          // 0 none, 1 hit, 2 burning, 3 frozen, 4 gold statue
 
 // Wall tiles: 0 floor, 1 stone, 2 pillar, 3 brick, 4 door, 5 portal, 6 portal pulse,
 // 7 metal (Den gate, Golem seal)
@@ -378,6 +506,7 @@ extern const uint32_t rc_kTint[4];
 #define TILE_DOOR       4
 #define TILE_PORTAL     5
 #define TILE_METAL_DOOR 7
+#define TILE_EARTH      6                   // the Earth Golem's temporary seal wall
 #define TILE_KINDS      8
 extern const uint32_t rc_kWallBase[TILE_KINDS];
 extern const uint16_t rc_kShadeMul[4];
@@ -393,12 +522,17 @@ extern const uint16_t rc_kShadeMul[4];
 #define WPN_Y0       (RC_VIEW_H - WPN_H * WPN_SCALE)
 #define WPN_XOFF     20
 #define WPN_ART_ROWS 10
-extern const char rc_kWpnArm[161];
-extern const char *const rc_kWpnArt[NUM_SLOT];
-#define WPAL(K,C,D,W,X,G,H,F,Y,R) \
-    { {'k',K},{'s',COLOR_KHAKI},{'q',COLOR_GRAY},{'c',C},{'d',D},\
-      {'w',W},{'x',X},{'g',G},{'h',H},{'f',F},{'y',Y},{'r',R},{0,0} }
-extern const PalEnt *const rc_kWpnPal[NUM_SLOT];
+// Held art is packed 4 bits per cell (rc_art.c, tools/wpnpack.py): 5 words per 20-cell row.
+// Cell codes: 0 '.' transparent, 1 k outline, 2 s glove, 3 q glove shade, 4 c sleeve,
+// 5 d sleeve shade, 6 w body, 7 x body shade, 8 g gem, 9 h highlight, 10 f flash, 11 y / 12 r accents.
+#define WPN_SYMS  13
+#define WPN_ARTS  12
+#define WPN_PALS  19
+extern const uint16_t rc_kWpnArm[40];
+extern const uint16_t *const rc_kWpnArt[WPN_ARTS];
+// A held-art palette: one colour per cell code (the glove is always khaki / grey).
+#define WPAL(K,C,D,W,X,G,H,F,Y,R) { 0, K, COLOR_KHAKI, COLOR_GRAY, C, D, W, X, G, H, F, Y, R }
+extern const uint32_t *const rc_kWpnPal[WPN_PALS];
 
 //*****************************************************************************
 // Tables (built once, in RAM)
@@ -484,13 +618,10 @@ extern uint16_t rc_kills;
 extern uint16_t rc_lvStat[ST_COUNT];
 extern uint16_t rc_rune[RUNE_SLOTS];
 extern uint16_t rc_classSeen;           // a class has been active this run (unlocks class runes)
-extern uint16_t rc_staffOwned;
-extern uint16_t rc_itemOwned;
-extern uint16_t rc_equip;
-extern uint16_t rc_cd[NUM_SLOT];
-extern uint16_t rc_cdMax[NUM_SLOT];
-extern uint16_t rc_haste;
-extern uint16_t rc_aegis;
+extern uint16_t rc_haste;               // Haste Brew frames
+extern uint16_t rc_aegis;               // Aegis Charm: 1 = the next hit is blocked
+extern uint16_t rc_silence;             // Beholder spell-disable: no staff / consumables
+extern uint16_t rc_confuse;             // Beholder confusion: movement reversed
 extern uint16_t rc_momentum;            // Momentum rune: speed boost frames
 extern uint16_t rc_leechCnt;
 extern uint16_t rc_xp;
@@ -564,15 +695,25 @@ typedef struct
 } Obj;
 
 enum { OB_FLASK, OB_BOLT, OB_CLOUD, OB_SPARK, OB_MANA,
-       OB_WARN, OB_AREA, OB_WAVE, OB_HEART };
-enum { BK_LASER, BK_FLAME, BK_ORB, BK_DRAIN, BK_WEB, BK_ICE, BK_FIRE, BK_SPARK, BK_ARROW, BK_COUNT };
-enum { AR_SLIME, AR_FIRE, AR_BLAST, AR_WEB, AR_ARCANE };
+       OB_WARN, OB_AREA, OB_WAVE, OB_HEART,
+       OB_SING };                               // Eldritch Singularity: pulls and hurts enemies
+enum { BK_LASER, BK_FLAME, BK_ORB, BK_DRAIN, BK_WEB, BK_ICE, BK_FIRE, BK_SPARK, BK_ARROW,
+       BK_ROCK,                                 // Earth Golem rock
+       BK_DEATH,                                // Lich Lord green death bolt
+       BK_GLOB,                                 // Slime King glob: leaves an acid puddle where it lands
+       BK_FIREBALL,                             // Dragon / Fire Golem: leaves burning ground where it lands
+       BK_COUNT };
+enum { AR_SLIME, AR_FIRE, AR_BLAST, AR_WEB, AR_ARCANE,
+       AR_PFIRE,                                // the player's burning ground: hurts ENEMIES only
+       AR_NOVA };                               // Lich Lord death blast (a warning ring, then one explosion)
 enum { WV_SLIME, WV_FIRE, WV_ICE, WV_STORM, WV_NOVA };
 extern Obj      rc_obj[RC_MAX_OBJ];
 
 // Props: static things in the world (one per map marker, plus the treasure-wave chest)
 enum { PR_CHEST, PR_VENDOR, PR_KEY, PR_ALTAR_SHRINE, PR_ALTAR_LAB, PR_DECOR };
-enum { CH_REGULAR, CH_MIMIC, CH_CURSED, CH_GOOD };
+enum { CH_REGULAR, CH_MIMIC, CH_CURSED, CH_GOOD, CH_BOSS, CH_DRAGON };
+extern uint16_t rc_chestKind;               // the chest being opened (CH_*)
+extern uint16_t rc_chestGold;               // gold offered by its gold card
 typedef struct
 {
     int32_t  x, y;
@@ -581,6 +722,7 @@ typedef struct
     uint16_t used;          // opened / taken
     uint16_t room;
     uint16_t alive;
+    uint16_t arg;           // boss chest: its relic
 } Prop;
 extern Prop     rc_prop[RC_MAX_PROPS];
 extern uint16_t rc_nProp;
@@ -591,6 +733,7 @@ enum { IA_NONE, IA_DOOR, IA_SECRET, IA_EXIT, IA_CHEST, IA_VENDOR, IA_SHRINE, IA_
 extern uint16_t rc_iaKind;
 extern uint16_t rc_iaIdx;               // door number / prop index / tile cell
 extern uint16_t rc_iaShown;
+extern uint16_t rc_nearSecret;             // standing next to a closed secret door
 
 // Flow / screens
 extern uint16_t rc_mode;
@@ -639,8 +782,11 @@ extern uint16_t g_rcTrunc;
 //*****************************************************************************
 // Card screen (level-up, vendor, shrine blessing, lab rune altar, rune swap)
 //*****************************************************************************
-enum { CS_LEVEL, CS_VENDOR, CS_SHRINE, CS_LAB, CS_SWAP };
-enum { CK_NONE, CK_STAT, CK_RUNE, CK_STAFF, CK_ITEM, CK_BLESS_HP, CK_BLESS_GOLD, CK_SLOT };
+enum { CS_LEVEL, CS_SHRINE, CS_LAB, CS_SWAP, CS_CHEST, CS_CURSED, CS_BIND };
+enum { CK_NONE, CK_STAT, CK_RUNE, CK_ITEM, CK_GOLD, CK_SLOT,
+       CK_SHRINE_GOLD, CK_SHRINE_HEART,                 // Haunted Shrine trades
+       CK_CLOTH, CK_POWER, CK_REJECT,                   // cursed chest choices
+       CK_BIND };                                       // Mimic Cloth: which slot (idx = SL_*)
 typedef struct { uint16_t kind, idx, sold; } Card;
 #define CARDS_MAX   4
 extern Card     rc_card[CARDS_MAX];
@@ -668,7 +814,37 @@ typedef struct
     uint16_t uStep;
     uint16_t shape, type, flash;
 } Spr;
-#define RC_SPR_CAP  (RC_MAX_ENEMIES + RC_MAX_OBJ + RC_MAX_PROPS)
+// Floor marks (rc_boss.c): tiles painted on the floor to telegraph boss attacks.
+#define RC_MAX_MARKS  48
+#define MK_STEADY     1u                        // lit without flashing (lava, spikes)
+#define MK_SPIKE      2u                        // drawn as ice spikes
+#define MK_WALL       4u                        // marks a doorway about to be sealed
+typedef struct { uint16_t tx, ty, pal, life, flags; } Mark;
+extern Mark     rc_mark[RC_MAX_MARKS];
+extern uint16_t rc_nMark;
+void rc_MarkTile(int16_t tx, int16_t ty, uint16_t pal, uint16_t life, uint16_t flags);
+void rc_MarkLine(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint16_t pal, uint16_t life);
+void rc_MarksClear(void);
+bool rc_ThinkBoss(Enemy *e, int16_t sp, int16_t dx, int16_t dy, int16_t dist);
+bool rc_BossLook(const Enemy *e, uint16_t *shape, uint16_t *pal);
+bool rc_Untargetable(const Enemy *e);           // ghost phasing, Slime King split
+void rc_BossTick(void);
+void rc_ResetBosses(void);
+
+// Movement / attack helpers shared by the enemy and boss AI (rc_enemy.c)
+void     rc_Slide(Enemy *e, int16_t mx, int16_t my);
+void     rc_MoveAlong(Enemy *e, int16_t vx, int16_t vy, int16_t sp);
+void     rc_Chase(Enemy *e, int16_t sp, int16_t side, int16_t dx, int16_t dy, int16_t dist);
+void     rc_KeepRange(Enemy *e, int16_t sp, int16_t neer, int16_t faar, int16_t sgn, int16_t dx, int16_t dy, int16_t dist);
+int16_t  rc_SgnOf(const Enemy *e);
+uint16_t rc_SummonCount(uint16_t type);
+void     rc_SummonAround(const Enemy *m, uint16_t type, uint16_t n);
+uint16_t rc_Phase(const Enemy *e);
+void     rc_AimCharge(Enemy *e, int16_t sp, int16_t dx, int16_t dy);
+bool     rc_ChargeStep(Enemy *e);
+void     rc_BehindPlayer(int32_t *bx, int32_t *by);
+
+#define RC_SPR_CAP  (RC_MAX_ENEMIES + RC_MAX_OBJ + RC_MAX_PROPS + RC_MAX_MARKS)
 extern Spr      rc_spr[RC_SPR_CAP];
 extern uint16_t rc_nSpr;
 extern int16_t  rc_projC;
@@ -728,17 +904,13 @@ void rc_SetTiles(char ch, uint16_t tile);        // every map cell with this cha
 // Game: flow, player, enemies
 #define RC_BOLT_SPEED   80
 uint16_t rc_XpNeed(void);
-const char *rc_SlotName(uint16_t slot);
-uint32_t rc_SlotColor(uint16_t slot);
-uint16_t rc_SlotMana(uint16_t slot);
-void rc_CycleEquip(void);
+uint16_t rc_StaffMana(void);            // mana per attack of the equipped staff (after discounts)
 void rc_HurtPlayer(uint16_t units);
 void rc_HealPlayer(uint16_t units);
 void rc_GainGold(uint16_t base);
 void rc_GainXp(uint16_t amt);
 void rc_DamageEnemyEx(Enemy *e, uint16_t dmg, int16_t c, int16_t s, bool quiet);
 void rc_UpdateObjects(void);
-void rc_UseEquipped(void);
 void rc_TrySpawn(void);
 void rc_RefreshTheme(void);
 uint16_t rc_BeholderCadence(void);
@@ -770,6 +942,26 @@ int16_t  rc_AddProp(uint16_t kind, uint16_t sub, int32_t x, int32_t y);
 extern char     rc_toast[32];
 extern uint16_t rc_toastT;
 void rc_Toast(const char *a, const char *b);
+
+// Combat (rc_combat.c)
+#define HF_QUIET    1u                          // PlayerHit flags: no hit sound
+#define HF_DOT      2u                          //                  damage over time: no on-hit effects
+void     rc_PlayerHit(Enemy *e, uint16_t base, uint16_t elem, uint16_t flags);
+void     rc_IgniteEnemy(Enemy *e, uint16_t stacks);
+Enemy   *rc_SpawnAlly(uint16_t type, int32_t x, int32_t y, uint16_t life, uint16_t kind);
+uint16_t rc_CountAllies(uint16_t kind);         // 0xFFFF = all kinds
+void     rc_Shatter(Obj *o);
+void     rc_FireInput(bool held);
+void     rc_TryUltimate(void);
+void     rc_ClassTick(void);
+bool     rc_GoldStatues(void);
+void     rc_ResetCombat(void);
+uint16_t rc_RandomChestItem(bool classOnly);
+void     rc_OnBossDeath(const Enemy *e, int32_t x, int32_t y);  // rc_boss.c
+void     rc_GiveBossPackage(uint16_t relic, uint16_t general, uint16_t clsItem);
+void     rc_SpendSelected(void);
+void     rc_ResetInventory(void);
+void     rc_OfferRune(uint16_t rune);           // equip a rune, or ask which one to replace
 
 extern uint16_t rc_pSlow;
 extern uint16_t rc_nullify;
@@ -806,6 +998,8 @@ void rc_DrawHud(void);
 void rc_DrawCdStrip(void);
 #define MANA_X0   1
 #define MANA_X1   8
+#define ULT_X0    311                        // ultimate meter: the free column right of the view
+#define ULT_X1    318
 void rc_DrawManaBar(void);
 
 // Strip run lists
@@ -844,7 +1038,7 @@ void rc_EnterCards(uint16_t screen);
 void rc_UpdateCards(void);
 void rc_ResetRun(void);
 void rc_StartLevel(void);
-void rc_EnterOver(void);
+void rc_EnterOver(bool mimic);              // mimic = the third Mimic Cloth ending
 bool rc_UpdateOverScreens(void);           // true = leave to the main menu
 void rc_OverRender(void);
 void rc_UpdatePlay(void);

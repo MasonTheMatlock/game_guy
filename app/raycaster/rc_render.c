@@ -259,7 +259,11 @@ static const uint16_t kBoltLook[BK_COUNT][3] =
     { SH_ORB,  PT_ORB_ICE,    5 },      // BK_ICE    (Beholder ice eye)
     { SH_ORB,  PT_ORB_FIRE,   5 },      // BK_FIRE   (Beholder fire eye)
     { SH_ORB,  PT_ORB_BOLT,   4 },      // BK_SPARK  (Beholder lightning eye)
-    { SH_BOLT, PT_SKELETON,   3 }       // BK_ARROW  (Skeleton Archer)
+    { SH_BOLT, PT_SKELETON,   3 },      // BK_ARROW  (Skeleton Archer)
+    { SH_ORB,  PT_ROCK,       6 },      // BK_ROCK   (Earth Golem)
+    { SH_ORB,  PT_ORB_GREEN,  5 },      // BK_DEATH  (Lich Lord)
+    { SH_ORB,  PT_SLIME,      5 },      // BK_GLOB   (Slime King)
+    { SH_ORB,  PT_ORB_FIRE,   8 }       // BK_FIREBALL (Dragon, Fire Golem)
 };
 
 static uint16_t DecalScale(int16_t r)           // ring / puddle of radius r (Q10) -> sprite scale
@@ -284,10 +288,11 @@ static void ProjectSprites(void)
         const EnemyDef *d;
         uint16_t        shape, pal, tint;
 
-        if(!e->alive) continue;
+        if(!e->alive || (e->type == ET_SLIMEKING && rc_Untargetable(e))) continue;     // split king is hidden
         d = &rc_kEnemy[e->type];
         rc_EnemyLook(e, &shape, &pal);
-        tint = e->flash ? 1u : e->freeze ? 3u : (e->burn && (e->burn & 8u)) ? 2u : 0u;
+        tint = e->flash ? 1u : (e->freeze && rc_GoldStatues()) ? 4u : e->freeze ? 3u :
+               (e->burn && (e->burn & 8u)) ? 2u : 0u;
         ProjectOne(e->x, e->y, shape, pal, d->scale, d->zoff, tint);
     }
 
@@ -330,6 +335,10 @@ static void ProjectSprites(void)
                 ProjectOne(o->x, o->y, SH_WAVE, PT_WAVE_SLIME + o->aux, DecalScale(o->r), 0, 0);
                 break;
 
+            case OB_SING:                               // Eldritch Singularity: a pulsing dark orb
+                ProjectOne(o->x, o->y, SH_ORB, PT_WAVE_NOVA, (uint16_t)(14 + ((o->age >> 2) & 3u)), 6, 0);
+                break;
+
             case OB_HEART:
                 if(o->life - o->age < 90u && (o->age & 4u)) break;
                 ProjectOne(o->x, o->y, SH_HEART, PT_HEART, 6, (uint16_t)(o->z + 1), 0);
@@ -341,6 +350,17 @@ static void ProjectSprites(void)
                            (uint16_t)o->z, 0);
                 break;
         }
+    }
+
+    // Floor marks: flat decals that flash faster as the hit gets close.
+    for(i = 0; i < rc_nMark; i++)
+    {
+        const Mark *m = &rc_mark[i];
+        uint16_t    half = (m->life > 20u) ? 4u : 2u;
+
+        if(!(m->flags & MK_STEADY) && ((m->life / half) & 1u)) continue;
+        if(m->flags & MK_SPIKE) ProjectOne(TILE_C(m->tx), TILE_C(m->ty), SH_SPIKE, m->pal, 10, 0, 0);
+        else                    ProjectOne(TILE_C(m->tx), TILE_C(m->ty), SH_PUDDLE, m->pal, 30, 0, 0);
     }
 
     // Props: chests, vendors, keys and altars (a Mimic chest looks like a regular one).
@@ -434,22 +454,22 @@ static void MarkRect(int16_t x0, int16_t y0, int16_t x1, int16_t y1)
 //*****************************************************************************
 // Held item: build once per equip, painted into the strip lists
 //*****************************************************************************
-static char WpnCell(const char *art, uint16_t x, uint16_t y)
+// Cell code (0..12) of held-art cell (x, y): rows 0..9 are the item, 10..17 the shared hand.
+static uint16_t WpnCell(const uint16_t *art, uint16_t x, uint16_t y)
 {
-    if(y < WPN_ART_ROWS) return art[y * WPN_W + x];
-    return rc_kWpnArm[(y - WPN_ART_ROWS) * WPN_W + x];
+    const uint16_t *row = (y < WPN_ART_ROWS) ? &art[y * 5u] : &rc_kWpnArm[(y - WPN_ART_ROWS) * 5u];
+    return (uint16_t)((row[x >> 2] >> ((x & 3u) << 2)) & 15u);
 }
 
 
-static void WpnBuild(uint16_t slot)
+// Build the held art of item `it` (a staff or consumable): its art rows and its palette.
+static void WpnBuild(uint16_t it)
 {
-    uint16_t k, y, y1, n, i;
-    char     ch;
-    const char *art = rc_kWpnArt[slot];
+    uint16_t k, y, y1, n, i, ch;
+    const uint16_t *art = rc_kWpnArt[rc_kItems[it].art];
+    const uint32_t *pal = rc_kWpnPal[rc_kItems[it].pal];
 
-    for(i = 0; i < 26; i++) rc_wPal[i] = COLOR_MAGENTA;
-    for(i = 0; rc_kWpnPal[slot][i].ch; i++)
-        rc_wPal[rc_kWpnPal[slot][i].ch - 'a'] = rc_kWpnPal[slot][i].rgb;
+    for(i = 0; i < WPN_SYMS; i++) rc_wPal[i] = pal[i];
 
     for(k = 0; k < WPN_W; k++)                          // vertical runs per art column
     {
@@ -458,18 +478,18 @@ static void WpnBuild(uint16_t slot)
         while(y < WPN_H)
         {
             ch = WpnCell(art, k, y);
-            if(ch == '.') { y++; continue; }
+            if(ch == 0u) { y++; continue; }               // transparent
 
             y1 = y;
             while(y1 + 1 < WPN_H && WpnCell(art, k, y1 + 1) == ch) y1++;
 
             if(n < WPN_MAXRUNS)
-                rc_wRun[k][n++] = (uint16_t)(y | (y1 << 5) | ((uint16_t)(ch - 'a') << 10));
+                rc_wRun[k][n++] = (uint16_t)(y | (y1 << 5) | (ch << 10));
             y = y1 + 1;
         }
         rc_wRunN[k] = n;
     }
-    rc_wLoaded = slot;
+    rc_wLoaded = it;
 }
 
 
@@ -666,17 +686,17 @@ static void DoorSpan(uint16_t side, uint16_t u, uint16_t *loc, uint16_t *span)
     *loc  = (uint16_t)(u & 1023u);
     *span = 1024u;
     if((uint16_t)cx >= RC_MAP_W || (uint16_t)cy >= RC_MAP_H) return;
-    ch = rc_kMap[cy][cx];
+    ch = rc_MapCh(cx, cy);
 
     if(side == 1u)                                          // a y-face: the door runs along x
     {
-        for(p = (int16_t)(cx - 1); p >= 0 && rc_kMap[cy][p] == ch; p--) k++;
-        for(p = (int16_t)(cx + 1); p < RC_MAP_W && rc_kMap[cy][p] == ch; p++) a++;
+        for(p = (int16_t)(cx - 1); p >= 0 && rc_MapCh(p, cy) == ch; p--) k++;
+        for(p = (int16_t)(cx + 1); p < RC_MAP_W && rc_MapCh(p, cy) == ch; p++) a++;
     }
     else                                                    // an x-face: the door runs along y
     {
-        for(p = (int16_t)(cy - 1); p >= 0 && rc_kMap[p][cx] == ch; p--) k++;
-        for(p = (int16_t)(cy + 1); p < RC_MAP_H && rc_kMap[p][cx] == ch; p++) a++;
+        for(p = (int16_t)(cy - 1); p >= 0 && rc_MapCh(cx, p) == ch; p--) k++;
+        for(p = (int16_t)(cy + 1); p < RC_MAP_H && rc_MapCh(cx, p) == ch; p++) a++;
     }
     *loc  = (uint16_t)(k * 1024u + (u & 1023u));
     *span = (uint16_t)((k + 1u + a) * 1024u);
@@ -684,6 +704,24 @@ static void DoorSpan(uint16_t side, uint16_t u, uint16_t *loc, uint16_t *span)
 
 
 #if RC_WALL_ART
+// Secret doors (map 's') wear a narrow dark banner with a small brass padlock: subtle,
+// only drawn up close, and centred on the tile face so it reads from either side.
+static void SecretArt(uint16_t *nl, uint16_t *nn, int16_t top, uint16_t lineH,
+                      uint16_t u, uint16_t shade, uint16_t side)
+{
+    uint16_t uu  = (uint16_t)(u & 1023u);
+    uint16_t dx  = (uu >= 512u) ? (uint16_t)(uu - 512u) : (uint16_t)(512u - uu);
+    uint16_t ink = (uint16_t)(ID_THEME0 + shade * 2u + side);          // the theme's mortar: a dark cloth
+
+    if(shade > RC_ART_MAX_SHADE || lineH < 40u || dx >= 150u) return;
+    LPT(FR(18), FR(70) - 1, ink);                                       // banner
+    if(dx < 46u)  LPT(FR(34), FR(41) - 1, ID_STEEL_DK);                 // shackle
+    if(dx >= 26u && dx < 46u) LPT(FR(41), FR(44) - 1, ID_STEEL_DK);
+    if(dx < 56u)  LPT(FR(44), FR(58) - 1, ID_BRASS);                    // lock body
+    if(dx < 10u)  LPT(FR(48), FR(54) - 1, ID_DOOR_FRAME);               // keyhole
+}
+
+
 static void PillarArt(uint16_t *nl, uint16_t *nn, int16_t top, uint16_t lineH,
                       uint16_t u, uint16_t shade, uint16_t side)
 {
@@ -861,9 +899,9 @@ void rc_RenderView(void)
         rc_invalidate = false;
     }
 
-    if(rc_wLoaded != rc_equip)
+    if(rc_wLoaded != rc_SelItem())
     {
-        WpnBuild(rc_equip);          // new art AND palette: repaint the strips behind the hand
+        WpnBuild(rc_SelItem());          // new art AND palette: repaint the strips behind the hand
         for(c = WPN_C0; c <= WPN_C1; c++)
             for(h = 0; h < 1; h++)
             {
@@ -942,6 +980,11 @@ void rc_RenderView(void)
 
                 WallUV((int16_t)(rc_ang + rc_colOff[c]), dist, side, &wu, &wv);
                 WallDecor(nl, &nn, top, lineH, wu, wv, shade, side);
+#if RC_WALL_ART
+                if((uint16_t)rc_rayCx < RC_MAP_W && (uint16_t)rc_rayCy < RC_MAP_H &&
+                   rc_MapCh((uint16_t)rc_rayCx, (uint16_t)rc_rayCy) == 's')
+                    SecretArt(nl, &nn, top, lineH, wu, shade, side);
+#endif
             }
 #if RC_WALL_ART
             else if(isDoor && shade <= RC_ART_MAX_SHADE && lineH >= 40u)

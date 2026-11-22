@@ -12,54 +12,65 @@
 
 
 
-static const PalEnt kP_HOBGOB[] = { {'a',COLOR_TETRIS_GRID},{'b',COLOR_BROWN},{'c',COLOR_GRAY},{'d',COLOR_DARK_GRAY},{'e',COLOR_LIGHT_GRAY},{'f',COLOR_CRIMSON},{'h',COLOR_WHITE},{0,0} };
-static const PalEnt kP_SLIME[] = { {'a',COLOR_TEAL},{'b',COLOR_GREEN},{'c',COLOR_TETRIS_GRID},{'h',COLOR_MINT},{0,0} };
-static const PalEnt kP_SLIME_S[] = { {'a',COLOR_OLIVE},{'b',COLOR_MINT},{'c',COLOR_TETRIS_GRID},{'h',COLOR_WHITE},{0,0} };
-static const PalEnt kP_SPIDER[] = { {'a',COLOR_GRAY},{'b',COLOR_PURPLE},{'c',COLOR_CRIMSON},{0,0} };
-static const PalEnt kP_GHOST[] = { {'a',COLOR_SKY_BLUE},{'b',COLOR_WHITE},{'c',COLOR_NAVY},{0,0} };
-static const PalEnt kP_GHOST_FADE[] = { {'a',COLOR_TEAL},{'b',COLOR_CYAN},{'c',COLOR_NAVY},{0,0} };
-static const PalEnt kP_IMP[] = { {'a',COLOR_MAROON},{'b',COLOR_CRIMSON},{'c',COLOR_ORANGE},{'d',COLOR_BLACK},{'f',COLOR_GOLD},{0,0} };
-static const PalEnt kP_IMP_LIT[] = { {'a',COLOR_MAROON},{'b',COLOR_TETRIS_L_ORANGE},{'c',COLOR_GOLD},{'d',COLOR_BLACK},{'f',COLOR_WHITE},{0,0} };
-static const PalEnt kP_EYEKING[] = { {'a',COLOR_BLACK},{'b',COLOR_TETRIS_GRID},{'c',COLOR_MAROON},{'d',COLOR_CRIMSON},{'e',COLOR_WHITE},{'f',COLOR_BROWN},{'g',COLOR_WHITE},{'h',COLOR_CRIMSON},{0,0} };
-static const PalEnt kP_EYEKING_FIRE[] = { {'a',COLOR_BLACK},{'b',COLOR_TETRIS_GRID},{'c',COLOR_MAROON},{'d',COLOR_TETRIS_L_ORANGE},{'e',COLOR_WHITE},{'f',COLOR_BROWN},{'g',COLOR_WHITE},{'h',COLOR_CRIMSON},{0,0} };
-static const PalEnt kP_EYEKING_ICE[] = { {'a',COLOR_BLACK},{'b',COLOR_TETRIS_GRID},{'c',COLOR_MAROON},{'d',COLOR_SKY_BLUE},{'e',COLOR_WHITE},{'f',COLOR_BROWN},{'g',COLOR_WHITE},{'h',COLOR_CRIMSON},{0,0} };
-static const PalEnt kP_EYEKING_BOLT[] = { {'a',COLOR_BLACK},{'b',COLOR_TETRIS_GRID},{'c',COLOR_MAROON},{'d',COLOR_GOLD},{'e',COLOR_WHITE},{'f',COLOR_BROWN},{'g',COLOR_WHITE},{'h',COLOR_CRIMSON},{0,0} };
-static const PalEnt kP_EYEKING_GRAV[] = { {'a',COLOR_BLACK},{'b',COLOR_TETRIS_GRID},{'c',COLOR_MAROON},{'d',COLOR_VIOLET},{'e',COLOR_WHITE},{'f',COLOR_BROWN},{'g',COLOR_WHITE},{'h',COLOR_CRIMSON},{0,0} };
-static const PalEnt kP_EYEKING_NULL[] = { {'a',COLOR_BLACK},{'b',COLOR_TETRIS_GRID},{'c',COLOR_MAROON},{'d',COLOR_GRAY},{'e',COLOR_WHITE},{'f',COLOR_BROWN},{'g',COLOR_WHITE},{'h',COLOR_CRIMSON},{0,0} };
-static const PalEnt kP_SLIMEKING[] = { {'a',COLOR_TEAL},{'b',COLOR_GREEN},{'c',COLOR_TETRIS_GRID},{'g',COLOR_GOLD},{'h',COLOR_MINT},{0,0} };
-static const PalEnt kP_GOLEM_FIRE[] = { {'a',COLOR_DARK_GRAY},{'b',COLOR_GRAY},{'c',COLOR_TETRIS_L_ORANGE},{'d',COLOR_TETRIS_GRID},{'e',COLOR_GOLD},{0,0} };
-static const PalEnt kP_GOLEM_ICE[] = { {'a',COLOR_DARK_GRAY},{'b',COLOR_GRAY},{'c',COLOR_SKY_BLUE},{'d',COLOR_TETRIS_GRID},{'e',COLOR_WHITE},{0,0} };
-static const PalEnt kP_GOLEM_STORM[] = { {'a',COLOR_DARK_GRAY},{'b',COLOR_GRAY},{'c',COLOR_GOLD},{'d',COLOR_TETRIS_GRID},{'e',COLOR_WHITE},{0,0} };
-static const PalEnt kP_VAMP[] = { {'a',COLOR_TETRIS_GRID},{'b',COLOR_LIGHT_GRAY},{'c',COLOR_MAROON},{'d',COLOR_CRIMSON},{'e',COLOR_BLACK},{'f',COLOR_CRIMSON},{0,0} };
-static const PalEnt kP_CHEST[] = { {'a',COLOR_BLACK},{'b',COLOR_BROWN},{'c',COLOR_KHAKI},{'d',COLOR_GOLD},{0,0} };
-static const PalEnt kP_CHEST_CURSED[] = { {'a',COLOR_BLACK},{'b',COLOR_DARK_PURPLE},{'c',COLOR_CRIMSON},{'d',COLOR_VIOLET},{0,0} };
-static const PalEnt kP_MIMIC[] = { {'a',COLOR_BLACK},{'b',COLOR_BROWN},{'c',COLOR_CRIMSON},{'d',COLOR_GOLD},{'e',COLOR_WHITE},{0,0} };
-static const PalEnt kP_ORB_PURPLE[] = { {'a',COLOR_DARK_PURPLE},{'b',COLOR_VIOLET},{'c',COLOR_PINK},{'d',COLOR_WHITE},{0,0} };
-static const PalEnt kP_ORB_GREEN[] = { {'a',COLOR_TEAL},{'b',COLOR_GREEN},{'c',COLOR_MINT},{'d',COLOR_WHITE},{0,0} };
-static const PalEnt kP_ORB_BLOOD[] = { {'a',COLOR_MAROON},{'b',COLOR_CRIMSON},{'c',COLOR_CORAL},{'d',COLOR_WHITE},{0,0} };
-static const PalEnt kP_ORB_FIRE[] = { {'a',COLOR_MAROON},{'b',COLOR_TETRIS_L_ORANGE},{'c',COLOR_GOLD},{'d',COLOR_WHITE},{0,0} };
-static const PalEnt kP_ORB_ICE[] = { {'a',COLOR_TEAL},{'b',COLOR_SKY_BLUE},{'c',COLOR_WHITE},{'d',COLOR_WHITE},{0,0} };
-static const PalEnt kP_ORB_BOLT[] = { {'a',COLOR_ORANGE},{'b',COLOR_GOLD},{'c',COLOR_KHAKI},{'d',COLOR_WHITE},{0,0} };
-static const PalEnt kP_WEB[] = { {'a',COLOR_LIGHT_GRAY},{'b',COLOR_WHITE},{0,0} };
-static const PalEnt kP_PUDDLE_SLIME[] = { {'a',COLOR_OLIVE},{'b',COLOR_GREEN},{'h',COLOR_MINT},{0,0} };
-static const PalEnt kP_PUDDLE_FIRE[] = { {'a',COLOR_MAROON},{'b',COLOR_TETRIS_L_ORANGE},{'h',COLOR_GOLD},{0,0} };
-static const PalEnt kP_PUDDLE_WEB[] = { {'a',COLOR_GRAY},{'b',COLOR_LIGHT_GRAY},{'h',COLOR_WHITE},{0,0} };
-static const PalEnt kP_PUDDLE_BLAST[] = { {'a',COLOR_BROWN},{'b',COLOR_TETRIS_L_ORANGE},{'h',COLOR_KHAKI},{0,0} };
-static const PalEnt kP_WARN[] = { {'a',COLOR_CRIMSON},{0,0} };
-static const PalEnt kP_WAVE_SLIME[] = { {'a',COLOR_OLIVE},{'b',COLOR_GREEN},{0,0} };
-static const PalEnt kP_WAVE_FIRE[] = { {'a',COLOR_MAROON},{'b',COLOR_TETRIS_L_ORANGE},{0,0} };
-static const PalEnt kP_WAVE_ICE[] = { {'a',COLOR_TEAL},{'b',COLOR_SKY_BLUE},{0,0} };
-static const PalEnt kP_WAVE_STORM[] = { {'a',COLOR_ORANGE},{'b',COLOR_GOLD},{0,0} };
-static const PalEnt kP_WAVE_NOVA[] = { {'a',COLOR_DARK_PURPLE},{'b',COLOR_VIOLET},{'h',COLOR_PINK},{0,0} };
-static const PalEnt kP_ALERT[] = { {'a',COLOR_CRIMSON},{'b',COLOR_GOLD},{0,0} };
+static const uint32_t kP_HOBGOB[PAL_N] = { COLOR_TETRIS_GRID, COLOR_BROWN, COLOR_GRAY, COLOR_DARK_GRAY, COLOR_LIGHT_GRAY, COLOR_CRIMSON, COLOR_MAGENTA, COLOR_WHITE };
+static const uint32_t kP_SLIME[PAL_N] = { COLOR_TEAL, COLOR_GREEN, COLOR_TETRIS_GRID, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MINT };
+static const uint32_t kP_SLIME_S[PAL_N] = { COLOR_OLIVE, COLOR_MINT, COLOR_TETRIS_GRID, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_WHITE };
+static const uint32_t kP_SPIDER[PAL_N] = { COLOR_GRAY, COLOR_PURPLE, COLOR_CRIMSON, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_GHOST[PAL_N] = { COLOR_SKY_BLUE, COLOR_WHITE, COLOR_NAVY, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_GHOST_FADE[PAL_N] = { COLOR_TEAL, COLOR_CYAN, COLOR_NAVY, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_IMP[PAL_N] = { COLOR_MAROON, COLOR_CRIMSON, COLOR_ORANGE, COLOR_BLACK, COLOR_MAGENTA, COLOR_GOLD, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_IMP_LIT[PAL_N] = { COLOR_MAROON, COLOR_TETRIS_L_ORANGE, COLOR_GOLD, COLOR_BLACK, COLOR_MAGENTA, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_EYEKING[PAL_N] = { COLOR_BLACK, COLOR_TETRIS_GRID, COLOR_MAROON, COLOR_CRIMSON, COLOR_WHITE, COLOR_BROWN, COLOR_WHITE, COLOR_CRIMSON };
+static const uint32_t kP_EYEKING_FIRE[PAL_N] = { COLOR_BLACK, COLOR_TETRIS_GRID, COLOR_MAROON, COLOR_TETRIS_L_ORANGE, COLOR_WHITE, COLOR_BROWN, COLOR_WHITE, COLOR_CRIMSON };
+static const uint32_t kP_EYEKING_ICE[PAL_N] = { COLOR_BLACK, COLOR_TETRIS_GRID, COLOR_MAROON, COLOR_SKY_BLUE, COLOR_WHITE, COLOR_BROWN, COLOR_WHITE, COLOR_CRIMSON };
+static const uint32_t kP_EYEKING_BOLT[PAL_N] = { COLOR_BLACK, COLOR_TETRIS_GRID, COLOR_MAROON, COLOR_GOLD, COLOR_WHITE, COLOR_BROWN, COLOR_WHITE, COLOR_CRIMSON };
+static const uint32_t kP_EYEKING_GRAV[PAL_N] = { COLOR_BLACK, COLOR_TETRIS_GRID, COLOR_MAROON, COLOR_VIOLET, COLOR_WHITE, COLOR_BROWN, COLOR_WHITE, COLOR_CRIMSON };
+static const uint32_t kP_EYEKING_NULL[PAL_N] = { COLOR_BLACK, COLOR_TETRIS_GRID, COLOR_MAROON, COLOR_GRAY, COLOR_WHITE, COLOR_BROWN, COLOR_WHITE, COLOR_CRIMSON };
+static const uint32_t kP_SLIMEKING[PAL_N] = { COLOR_TEAL, COLOR_GREEN, COLOR_TETRIS_GRID, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_GOLD, COLOR_MINT };
+static const uint32_t kP_GOLEM_FIRE[PAL_N] = { COLOR_MAROON, 0x00B0401CUL, COLOR_TETRIS_L_ORANGE, COLOR_TETRIS_GRID, COLOR_GOLD, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_GOLEM_ICE[PAL_N] = { COLOR_TEAL, 0x0060B0C8UL, COLOR_WHITE, COLOR_TETRIS_GRID, COLOR_SKY_BLUE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_GOLEM_STORM[PAL_N] = { 0x006A5A10UL, COLOR_GOLD, COLOR_WHITE, COLOR_TETRIS_GRID, COLOR_KHAKI, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_VAMP[PAL_N] = { COLOR_TETRIS_GRID, COLOR_LIGHT_GRAY, COLOR_MAROON, COLOR_CRIMSON, COLOR_BLACK, COLOR_CRIMSON, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_CHEST[PAL_N] = { COLOR_BLACK, COLOR_BROWN, COLOR_KHAKI, COLOR_GOLD, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_CHEST_CURSED[PAL_N] = { COLOR_BLACK, COLOR_DARK_PURPLE, COLOR_CRIMSON, COLOR_VIOLET, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_MIMIC[PAL_N] = { COLOR_BLACK, COLOR_BROWN, COLOR_CRIMSON, COLOR_GOLD, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_ORB_PURPLE[PAL_N] = { COLOR_DARK_PURPLE, COLOR_VIOLET, COLOR_PINK, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_ORB_GREEN[PAL_N] = { COLOR_TEAL, COLOR_GREEN, COLOR_MINT, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_ORB_BLOOD[PAL_N] = { COLOR_MAROON, COLOR_CRIMSON, COLOR_CORAL, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_ORB_FIRE[PAL_N] = { COLOR_MAROON, COLOR_TETRIS_L_ORANGE, COLOR_GOLD, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_ORB_ICE[PAL_N] = { COLOR_TEAL, COLOR_SKY_BLUE, COLOR_WHITE, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_ORB_BOLT[PAL_N] = { COLOR_ORANGE, COLOR_GOLD, COLOR_KHAKI, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_WEB[PAL_N] = { COLOR_LIGHT_GRAY, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_PUDDLE_SLIME[PAL_N] = { COLOR_OLIVE, COLOR_GREEN, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MINT };
+static const uint32_t kP_PUDDLE_FIRE[PAL_N] = { COLOR_MAROON, COLOR_TETRIS_L_ORANGE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_GOLD };
+static const uint32_t kP_PUDDLE_WEB[PAL_N] = { COLOR_GRAY, COLOR_LIGHT_GRAY, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_WHITE };
+static const uint32_t kP_PUDDLE_BLAST[PAL_N] = { COLOR_BROWN, COLOR_TETRIS_L_ORANGE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_KHAKI };
+static const uint32_t kP_WARN[PAL_N] = { COLOR_CRIMSON, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_WAVE_SLIME[PAL_N] = { COLOR_OLIVE, COLOR_GREEN, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MINT };
+static const uint32_t kP_WAVE_FIRE[PAL_N] = { COLOR_MAROON, COLOR_TETRIS_L_ORANGE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_GOLD };
+static const uint32_t kP_WAVE_ICE[PAL_N] = { COLOR_TEAL, COLOR_SKY_BLUE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_WHITE };
+static const uint32_t kP_WAVE_STORM[PAL_N] = { COLOR_ORANGE, COLOR_GOLD, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_WHITE };
+static const uint32_t kP_WAVE_NOVA[PAL_N] = { COLOR_DARK_PURPLE, COLOR_VIOLET, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_PINK };
+static const uint32_t kP_ALERT[PAL_N] = { COLOR_CRIMSON, COLOR_GOLD, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 
-static const PalEnt kP_ARCHER[] = { {'a',COLOR_GRAY},{'b',COLOR_CRIMSON},{'c',COLOR_BROWN},{'d',COLOR_LIGHT_GRAY},{'e',COLOR_WHITE},{0,0} };
-static const PalEnt kP_KEY[] = { {'a',COLOR_GOLD},{'b',COLOR_BROWN},{'c',COLOR_WHITE},{0,0} };
-static const PalEnt kP_HEART[] = { {'a',COLOR_CRIMSON},{'b',COLOR_PINK},{'c',COLOR_MAROON},{0,0} };
-static const PalEnt kP_ALTAR[] = { {'a',COLOR_DARK_PURPLE},{'b',COLOR_GOLD},{'c',COLOR_KHAKI},{'d',COLOR_WHITE},{0,0} };
-static const PalEnt kP_CHEST_GOOD[] = { {'a',COLOR_BLACK},{'b',COLOR_TEAL},{'c',COLOR_GOLD},{'d',COLOR_WHITE},{0,0} };
+static const uint32_t kP_ARCHER[PAL_N] = { COLOR_GRAY, COLOR_CRIMSON, COLOR_BROWN, COLOR_LIGHT_GRAY, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_KEY[PAL_N] = { COLOR_GOLD, COLOR_BROWN, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_HEART[PAL_N] = { COLOR_CRIMSON, COLOR_PINK, COLOR_MAROON, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_ALTAR[PAL_N] = { COLOR_DARK_PURPLE, COLOR_GOLD, COLOR_KHAKI, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_CHEST_GOOD[PAL_N] = { COLOR_BLACK, COLOR_TEAL, COLOR_GOLD, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 
-static const PalEnt kP_MERCHANT[] = { {'a',COLOR_DARK_PURPLE},{'b',COLOR_VIOLET},{'c',COLOR_TEAL},{'d',COLOR_KHAKI},{'e',COLOR_BLACK},{'f',COLOR_GOLD},{'g',COLOR_BROWN},{'h',COLOR_WHITE},{0,0} };
+// Elemental Golem forms (rc.md 14.6): body and glow in the form's colour.
+//                                        a dark body   b body        c core / glow  d outline          e eyes / hands
+static const uint32_t kP_GOLEM_EARTH[PAL_N] = { 0x004A3420UL, 0x008A6440UL, 0x00C07A30UL, COLOR_TETRIS_GRID, COLOR_KHAKI, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+// Earth rocks, ice spikes, and floor marks (letters a, b, h of the puddle shape)
+static const uint32_t kP_ROCK[PAL_N]       = { 0x004A3420UL, 0x008A6440UL, COLOR_GRAY, COLOR_LIGHT_GRAY, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_SPIKE[PAL_N]      = { COLOR_WHITE, COLOR_SKY_BLUE, COLOR_TEAL, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
+static const uint32_t kP_MARK_EARTH[PAL_N] = { 0x005A3A18UL, 0x009A6A30UL, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, 0x00C08A40UL };
+static const uint32_t kP_MARK_BLUE[PAL_N]  = { COLOR_NAVY, COLOR_BLUE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_SKY_BLUE };
+static const uint32_t kP_MARK_WHITE[PAL_N] = { COLOR_LIGHT_GRAY, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_SKY_BLUE };
+static const uint32_t kP_MARK_GREEN[PAL_N] = { 0x00104020UL, COLOR_GREEN, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MINT };
+
+static const uint32_t kP_MERCHANT[PAL_N] = { COLOR_DARK_PURPLE, COLOR_VIOLET, COLOR_TEAL, COLOR_KHAKI, COLOR_BLACK, COLOR_GOLD, COLOR_BROWN, COLOR_WHITE };
 
 // Sprite art, 16x16, packed 4 bits per pixel (0 = transparent, 1..8 = palette letter a..h), 4 pixels
 // per word, 4 words per row (leftmost pixel in the lowest nibble). The ASCII picture above each
@@ -1361,69 +1372,153 @@ const uint16_t rc_kArt[SH_COUNT][SPR_N * 4] =
         0x0000, 0x0000, 0x0000, 0x0000,
         0x0000, 0x0000, 0x0000, 0x0000,
     },
+    // kArtGolemC
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ....dddddddd....
+    //   ...daaaaaaaad...
+    //   ...dabeebbead...
+    //   .dddaabbbbaaddd.
+    //   daabdaaccaadbaad
+    //   dabbdabccbadbbad
+    //   .dddaabbbbaaddd.
+    //   ...daaaaaaaad...
+    //   ..dbbbd..dbbbd..
+    //   .daad......daad.
+    //   .dddd......dddd.
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x4444, 0x4444, 0x0000,
+        0x4000, 0x1111, 0x1111, 0x0004,
+        0x4000, 0x5521, 0x1522, 0x0004,
+        0x4440, 0x2211, 0x1122, 0x0444,
+        0x2114, 0x3114, 0x4113, 0x4112,
+        0x2214, 0x3214, 0x4123, 0x4122,
+        0x4440, 0x2211, 0x1122, 0x0444,
+        0x4000, 0x1111, 0x1111, 0x0004,
+        0x2400, 0x0422, 0x2240, 0x0042,
+        0x1140, 0x0004, 0x4000, 0x0411,
+        0x4440, 0x0004, 0x4000, 0x0444,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtGolemD
+    //   ................
+    //   ....dddddddd....
+    //   ...daaaaaaaad...
+    //   ...dabeebbead...
+    //   ...dabbbbbbad...
+    //   dddddaabbaaddddd
+    //   eaaaaaaccaaaaaae
+    //   eabbbdaccadbbbae
+    //   dddddaabbaaddddd
+    //   .....daaaad.....
+    //   .....dbbbbd.....
+    //   ....dbbddbbd....
+    //   ....dbbddbbd....
+    //   ....daad.daad...
+    //   ....dddd.dddd...
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x4444, 0x4444, 0x0000,
+        0x4000, 0x1111, 0x1111, 0x0004,
+        0x4000, 0x5521, 0x1522, 0x0004,
+        0x4000, 0x2221, 0x1222, 0x0004,
+        0x4444, 0x2114, 0x4112, 0x4444,
+        0x1115, 0x3111, 0x1113, 0x5111,
+        0x2215, 0x3142, 0x2413, 0x5122,
+        0x4444, 0x2114, 0x4112, 0x4444,
+        0x0000, 0x1140, 0x0411, 0x0000,
+        0x0000, 0x2240, 0x0422, 0x0000,
+        0x0000, 0x4224, 0x4224, 0x0000,
+        0x0000, 0x4224, 0x4224, 0x0000,
+        0x0000, 0x4114, 0x1140, 0x0004,
+        0x0000, 0x4444, 0x4440, 0x0004,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
+    // kArtIceSpike
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   ................
+    //   .......a........
+    //   .......a........
+    //   ...a..aba...a...
+    //   ...a..aba..aa...
+    //   ..aba.aba..ab...
+    //   ..abb.abba.aba..
+    //   .abbbaabbaabba..
+    //   .abbbbabbbabbba.
+    //   cccccccccccccccc
+    //   ................
+    {
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x0000, 0x0000, 0x0000,
+        0x0000, 0x1000, 0x0000, 0x0000,
+        0x0000, 0x1000, 0x0000, 0x0000,
+        0x1000, 0x2100, 0x0001, 0x0001,
+        0x1000, 0x2100, 0x1001, 0x0001,
+        0x2100, 0x2101, 0x1001, 0x0002,
+        0x2100, 0x2102, 0x1012, 0x0012,
+        0x2210, 0x2112, 0x2112, 0x0012,
+        0x2210, 0x2122, 0x2122, 0x0122,
+        0x3333, 0x3333, 0x3333, 0x3333,
+        0x0000, 0x0000, 0x0000, 0x0000,
+    },
 };
       // list ends with ch = 0
 
-static const PalEnt kPalGoblin[] =
-    { {'d',COLOR_OLIVE},{'b',COLOR_DARK_GRAY},{'c',COLOR_GOLD},{'h',COLOR_WHITE},{'f',COLOR_TETRIS_GRID},
-      {'e',COLOR_DARK_GRAY},{'a',COLOR_TETRIS_GRID},{'g',COLOR_LIGHT_GRAY},{0,0} };
+static const uint32_t kPalGoblin[PAL_N] = { COLOR_TETRIS_GRID, COLOR_DARK_GRAY, COLOR_GOLD, COLOR_OLIVE, COLOR_DARK_GRAY, COLOR_TETRIS_GRID, COLOR_LIGHT_GRAY, COLOR_WHITE };
 
-static const PalEnt kPalBat[]    =
-    { {'a',COLOR_GRAY},{'b',COLOR_CRIMSON},{'c',COLOR_DARK_PURPLE},{'d',COLOR_WHITE},{0,0} };
+static const uint32_t kPalBat[PAL_N] = { COLOR_GRAY, COLOR_CRIMSON, COLOR_DARK_PURPLE, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 
-static const PalEnt kPalSkel[]   =
-    { {'d',COLOR_LIGHT_GRAY},{'a',COLOR_GRAY},{'b',COLOR_CRIMSON},{'c',COLOR_SILVER},{0,0} };
+static const uint32_t kPalSkel[PAL_N] = { COLOR_GRAY, COLOR_CRIMSON, COLOR_SILVER, COLOR_LIGHT_GRAY, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 
-static const PalEnt kPalLich[]   =                     // Lich Lord
-    { {'a',0x00141018UL},{'b',0x003A3644UL},{'c',0x00E6E0CCUL},{'d',0x0040FF60UL},
-      {'e',0x0020C040UL},{'f',COLOR_GRAY},{0,0} };
+// Lich Lord: a black cloak, b grey folds, c bone, d bright green eyes, e green magic, f staff
+static const uint32_t kPalLich[PAL_N] = { 0x00141018UL, 0x003A3644UL, 0x00E6E0CCUL, 0x0040FF60UL,
+                                          0x0020C040UL, COLOR_GRAY, COLOR_MAGENTA, COLOR_MAGENTA };
 
-static const PalEnt kPalBeholder[] =
-    { {'c',COLOR_PURPLE},{'f',COLOR_DARK_PURPLE},{'g',COLOR_WHITE},{'d',COLOR_CRIMSON},{'a',COLOR_BLACK},
-      {'h',COLOR_GOLD},{'e',COLOR_WHITE},{'b',COLOR_TETRIS_GRID},{0,0} };
+static const uint32_t kPalBeholder[PAL_N] = { COLOR_BLACK, COLOR_TETRIS_GRID, COLOR_PURPLE, COLOR_CRIMSON, COLOR_WHITE, COLOR_DARK_PURPLE, COLOR_WHITE, COLOR_GOLD };
 
-static const PalEnt kPalBeholderHot[] =
-    { {'c',COLOR_GRAY},{'f',COLOR_DARK_PURPLE},{'g',COLOR_PINK},{'d',COLOR_KHAKI},{'a',COLOR_CRIMSON},
-      {'h',COLOR_CRIMSON},{'e',COLOR_WHITE},{'b',COLOR_TETRIS_GRID},{0,0} };
+static const uint32_t kPalBeholderHot[PAL_N] = { COLOR_CRIMSON, COLOR_TETRIS_GRID, COLOR_GRAY, COLOR_KHAKI, COLOR_WHITE, COLOR_DARK_PURPLE, COLOR_PINK, COLOR_CRIMSON };
 
-static const PalEnt kPalFlaskFire[] =
-    { {'a',COLOR_TETRIS_L_ORANGE},{'c',COLOR_LIGHT_GRAY},{'d',COLOR_OLIVE},{'b',COLOR_TETRIS_GRID},{0,0} };
+static const uint32_t kPalFlaskFire[PAL_N] = { COLOR_TETRIS_L_ORANGE, COLOR_TETRIS_GRID, COLOR_LIGHT_GRAY, COLOR_OLIVE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 
-static const PalEnt kPalFlaskFrost[] =
-    { {'a',COLOR_SKY_BLUE},{'c',COLOR_LIGHT_GRAY},{'d',COLOR_OLIVE},{'b',COLOR_TETRIS_GRID},{0,0} };
+static const uint32_t kPalFlaskFrost[PAL_N] = { COLOR_SKY_BLUE, COLOR_TETRIS_GRID, COLOR_LIGHT_GRAY, COLOR_OLIVE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 
-static const PalEnt kPalFlaskVenom[] =
-    { {'a',COLOR_GREEN},{'c',COLOR_LIGHT_GRAY},{'d',COLOR_OLIVE},{'b',COLOR_TETRIS_GRID},{0,0} };
+static const uint32_t kPalFlaskVenom[PAL_N] = { COLOR_GREEN, COLOR_TETRIS_GRID, COLOR_LIGHT_GRAY, COLOR_OLIVE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 
-static const PalEnt kPalFlaskMana[] =
-    { {'a',COLOR_BLUE},{'c',COLOR_WHITE},{'d',COLOR_GOLD},{'b',COLOR_NAVY},{0,0} };
+static const uint32_t kPalFlaskMana[PAL_N] = { COLOR_BLUE, COLOR_NAVY, COLOR_WHITE, COLOR_GOLD, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 
-static const PalEnt kPalBolt[]   =
-    { {'a',COLOR_CRIMSON},{'b',COLOR_WHITE},{0,0} };
+static const uint32_t kPalBolt[PAL_N] = { COLOR_CRIMSON, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 
-static const PalEnt kPalPuffFire[] =
-    { {'a',COLOR_BROWN},{'b',COLOR_TETRIS_L_ORANGE},{'c',COLOR_KHAKI},{0,0} };
+static const uint32_t kPalPuffFire[PAL_N] = { COLOR_BROWN, COLOR_TETRIS_L_ORANGE, COLOR_KHAKI, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 
-static const PalEnt kPalPuffFrost[] =
-    { {'a',COLOR_TEAL},{'b',COLOR_SKY_BLUE},{'c',COLOR_WHITE},{0,0} };
+static const uint32_t kPalPuffFrost[PAL_N] = { COLOR_TEAL, COLOR_SKY_BLUE, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 
-static const PalEnt kPalPuffVenom[] =
-    { {'a',COLOR_DARK_GRAY},{'b',COLOR_OLIVE},{'c',COLOR_MINT},{0,0} };
+static const uint32_t kPalPuffVenom[PAL_N] = { COLOR_DARK_GRAY, COLOR_OLIVE, COLOR_MINT, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 
-static const PalEnt kPalPuffArcane[] =
-    { {'a',COLOR_GRAY},{'b',COLOR_VIOLET},{'c',COLOR_WHITE},{0,0} };
+static const uint32_t kPalPuffArcane[PAL_N] = { COLOR_GRAY, COLOR_VIOLET, COLOR_WHITE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 
 
-static const PalEnt kPalDragon[] =
-    { {'a',COLOR_DARK_PURPLE},{'b',COLOR_PURPLE},{'c',COLOR_CRIMSON},{'d',COLOR_GOLD},
-      {'e',COLOR_TETRIS_L_ORANGE},{0,0} };
+static const uint32_t kPalDragon[PAL_N] = { COLOR_DARK_PURPLE, COLOR_PURPLE, COLOR_CRIMSON, COLOR_GOLD, COLOR_TETRIS_L_ORANGE, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 
-static const PalEnt kPalDragonHot[] =
-    { {'a',COLOR_DARK_PURPLE},{'b',COLOR_CRIMSON},{'c',COLOR_TETRIS_L_ORANGE},{'d',COLOR_WHITE},
-      {'e',COLOR_GOLD},{0,0} };
+static const uint32_t kPalDragonHot[PAL_N] = { COLOR_DARK_PURPLE, COLOR_CRIMSON, COLOR_TETRIS_L_ORANGE, COLOR_WHITE, COLOR_GOLD, COLOR_MAGENTA, COLOR_MAGENTA, COLOR_MAGENTA };
 
 
-const PalEnt *const rc_kPal[PT_COUNT] =
+const uint32_t *const rc_kPal[PT_COUNT] =
 {
     kPalGoblin, kPalBat, kP_HOBGOB, kPalSkel, kPalBeholder, kPalLich, kPalBeholderHot,
     kPalFlaskFire, kPalFlaskFrost, kPalFlaskVenom, kPalFlaskMana, kPalBolt,
@@ -1440,16 +1535,18 @@ const PalEnt *const rc_kPal[PT_COUNT] =
     kP_PUDDLE_WEB, kP_PUDDLE_BLAST, kP_WARN, kP_WAVE_SLIME,
     kP_WAVE_FIRE, kP_WAVE_ICE, kP_WAVE_STORM, kP_WAVE_NOVA,
     kP_ALERT,
-    kP_MERCHANT, kP_ARCHER, kP_KEY, kP_HEART, kP_ALTAR, kP_CHEST_GOOD
+    kP_MERCHANT, kP_ARCHER, kP_KEY, kP_HEART, kP_ALTAR, kP_CHEST_GOOD,
+    kP_GOLEM_EARTH, kP_ROCK, kP_SPIKE, kP_MARK_EARTH, kP_MARK_BLUE, kP_MARK_WHITE, kP_MARK_GREEN
 };
 
 
-// Sprite tint: 0 none, 1 white (hit), 2 orange (burning), 3 ice blue (frozen)
-const uint32_t rc_kTint[4] = { 0, COLOR_WHITE, COLOR_TETRIS_L_ORANGE, COLOR_SKY_BLUE };
+// Sprite tint: 0 none, 1 white (hit), 2 orange (burning), 3 ice blue (frozen), 4 gold (Golden Cataclysm)
+const uint32_t rc_kTint[5] = { 0, COLOR_WHITE, COLOR_TETRIS_L_ORANGE, COLOR_SKY_BLUE, COLOR_GOLD };
 
 
+// tile 6 = the Earth Golem's seal walls (packed earth)
 const uint32_t rc_kWallBase[TILE_KINDS] =
-    { 0, COLOR_GRAY, COLOR_GRAY, COLOR_BROWN, COLOR_ORANGE, COLOR_TURQUOISE, COLOR_SKY_BLUE, COLOR_GRAY };
+    { 0, COLOR_GRAY, COLOR_GRAY, COLOR_BROWN, COLOR_ORANGE, COLOR_TURQUOISE, 0x006B4A2AUL, COLOR_GRAY };
 
 const uint16_t rc_kShadeMul[4] = { 256, 190, 130, 84 };
 
@@ -1491,187 +1588,354 @@ const uint32_t rc_kBannerRgb[TH_COUNT] =
     0x00C8B040UL,       // Arcane Observatory: gold
 };
 
-const char rc_kWpnArm[] =
-    ".....kssssssssk.kk.."
-    ".....ksssssssskkssk."
-    ".....kssssssssqkssk."
-    ".....kssssssssqkkk.."
-    "....kkqqqqqqqqkk...."
-    "..kccccccccccck....."
-    ".kccdccccccccdck...."
-    "kccdcccccccccccdck..";
+// rc_kWpnArm (ASCII source: edit these rows, then run tools/wpnpack.py)
+//   .....kssssssssk.kk..
+//   .....ksssssssskkssk.
+//   .....kssssssssqkssk.
+//   .....kssssssssqkkk..
+//   ....kkqqqqqqqqkk....
+//   ..kccccccccccck.....
+//   .kccdccccccccdck....
+//   kccdcccccccccccdck..
+const uint16_t rc_kWpnArm[40] =
+{
+    0x0000, 0x2210, 0x2222, 0x0122, 0x0011,
+    0x0000, 0x2210, 0x2222, 0x1122, 0x0122,
+    0x0000, 0x2210, 0x2222, 0x1322, 0x0122,
+    0x0000, 0x2210, 0x2222, 0x1322, 0x0011,
+    0x0000, 0x3311, 0x3333, 0x1133, 0x0000,
+    0x4100, 0x4444, 0x4444, 0x0144, 0x0000,
+    0x4410, 0x4445, 0x4444, 0x1454, 0x0000,
+    0x5441, 0x4444, 0x4444, 0x5444, 0x0014,
+};
 
 
 // ---- 0: RAY WAND (cyan crystal on a slim silver wand)
-static const char kArtRay[] =
-    "...................."
-    ".........kk........."
-    "........kghk........"
-    "........kggk........"
-    "........kggk........"
-    ".........kk........."
-    ".......kkwxkk......."
-    "........kwxk........"
-    "........kwxk........"
-    "........kwxk........";
+// kArtRay (ASCII source: edit these rows, then run tools/wpnpack.py)
+//   ....................
+//   .........kk.........
+//   ........kghk........
+//   ........kggk........
+//   ........kggk........
+//   .........kk.........
+//   .......kkwxkk.......
+//   ........kwxk........
+//   ........kwxk........
+//   ........kwxk........
+static const uint16_t kArtRay[50] =
+{
+    0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x0110, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1981, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1881, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1881, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x0110, 0x0000, 0x0000,
+    0x0000, 0x1000, 0x1761, 0x0001, 0x0000,
+    0x0000, 0x0000, 0x1761, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1761, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1761, 0x0000, 0x0000,
+};
 
 
 // ---- 1: PRISM STAFF (gold shaft, glass prism)
-static const char kArtPrism[] =
-    ".........kk........."
-    "........kghk........"
-    ".......kgghgk......."
-    "......kgggghgk......"
-    "......kkkkkkkk......"
-    ".......kkwxkk......."
-    "......kkkwxkkk......"
-    "........kwxk........"
-    "........kwxk........"
-    "........kwxk........";
+// kArtPrism (ASCII source: edit these rows, then run tools/wpnpack.py)
+//   .........kk.........
+//   ........kghk........
+//   .......kgghgk.......
+//   ......kgggghgk......
+//   ......kkkkkkkk......
+//   .......kkwxkk.......
+//   ......kkkwxkkk......
+//   ........kwxk........
+//   ........kwxk........
+//   ........kwxk........
+static const uint16_t kArtPrism[50] =
+{
+    0x0000, 0x0000, 0x0110, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1981, 0x0000, 0x0000,
+    0x0000, 0x1000, 0x8988, 0x0001, 0x0000,
+    0x0000, 0x8100, 0x9888, 0x0018, 0x0000,
+    0x0000, 0x1100, 0x1111, 0x0011, 0x0000,
+    0x0000, 0x1000, 0x1761, 0x0001, 0x0000,
+    0x0000, 0x1100, 0x1761, 0x0011, 0x0000,
+    0x0000, 0x0000, 0x1761, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1761, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1761, 0x0000, 0x0000,
+};
 
 
 // ---- 2: LANCE (wooden haft, steel blade, red tassel)
 // ---- 3: STORM ROD (steel fork with a spark between the prongs)
-static const char kArtStorm[] =
-    "......k......k......"
-    "......kw....wk......"
-    ".......kw..wk......."
-    ".......kwggwk......."
-    "........kwwk........"
-    "........kxwk........"
-    ".......kkwxkk......."
-    "........kwxk........"
-    "........kwxk........"
-    "........kwxk........";
+// kArtStorm (ASCII source: edit these rows, then run tools/wpnpack.py)
+//   ......k......k......
+//   ......kw....wk......
+//   .......kw..wk.......
+//   .......kwggwk.......
+//   ........kwwk........
+//   ........kxwk........
+//   .......kkwxkk.......
+//   ........kwxk........
+//   ........kwxk........
+//   ........kwxk........
+static const uint16_t kArtStorm[50] =
+{
+    0x0000, 0x0100, 0x0000, 0x0010, 0x0000,
+    0x0000, 0x6100, 0x0000, 0x0016, 0x0000,
+    0x0000, 0x1000, 0x6006, 0x0001, 0x0000,
+    0x0000, 0x1000, 0x6886, 0x0001, 0x0000,
+    0x0000, 0x0000, 0x1661, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1671, 0x0000, 0x0000,
+    0x0000, 0x1000, 0x1761, 0x0001, 0x0000,
+    0x0000, 0x0000, 0x1761, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1761, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1761, 0x0000, 0x0000,
+};
 
 
 // ---- 4: SUNFIRE (golden staff, burning sun)
-static const char kArtSun[] =
-    ".........ff........."
-    ".......kkkkkk......."
-    "......kgghhggk......"
-    "......kghhhhgk......"
-    "......kgghhggk......"
-    ".......kkkkkk......."
-    "......kkkwxkkk......"
-    "........kwxk........"
-    "........kwxk........"
-    "........kwxk........";
+// kArtSun (ASCII source: edit these rows, then run tools/wpnpack.py)
+//   .........ff.........
+//   .......kkkkkk.......
+//   ......kgghhggk......
+//   ......kghhhhgk......
+//   ......kgghhggk......
+//   .......kkkkkk.......
+//   ......kkkwxkkk......
+//   ........kwxk........
+//   ........kwxk........
+//   ........kwxk........
+static const uint16_t kArtSun[50] =
+{
+    0x0000, 0x0000, 0x0AA0, 0x0000, 0x0000,
+    0x0000, 0x1000, 0x1111, 0x0001, 0x0000,
+    0x0000, 0x8100, 0x8998, 0x0018, 0x0000,
+    0x0000, 0x8100, 0x9999, 0x0018, 0x0000,
+    0x0000, 0x8100, 0x8998, 0x0018, 0x0000,
+    0x0000, 0x1000, 0x1111, 0x0001, 0x0000,
+    0x0000, 0x1100, 0x1761, 0x0011, 0x0000,
+    0x0000, 0x0000, 0x1761, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1761, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1761, 0x0000, 0x0000,
+};
 
 
 // ---- 5: FIRE FLASK (round bulb, burning wick)
-static const char kArtFire[] =
-    ".........ff........."
-    "........fyyf........"
-    "........krrk........"
-    "........kwwk........"
-    "........kwxk........"
-    ".......kwggxk......."
-    "......kwggghxk......"
-    ".....kwgggghgxk....."
-    "....kgggggghgggk...."
-    "....kgggggggggxk....";
+// kArtFire (ASCII source: edit these rows, then run tools/wpnpack.py)
+//   .........ff.........
+//   ........fyyf........
+//   ........krrk........
+//   ........kwwk........
+//   ........kwxk........
+//   .......kwggxk.......
+//   ......kwggghxk......
+//   .....kwgggghgxk.....
+//   ....kgggggghgggk....
+//   ....kgggggggggxk....
+static const uint16_t kArtFire[50] =
+{
+    0x0000, 0x0000, 0x0AA0, 0x0000, 0x0000,
+    0x0000, 0x0000, 0xABBA, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1CC1, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1661, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1761, 0x0000, 0x0000,
+    0x0000, 0x1000, 0x7886, 0x0001, 0x0000,
+    0x0000, 0x6100, 0x9888, 0x0017, 0x0000,
+    0x0000, 0x8610, 0x9888, 0x0178, 0x0000,
+    0x0000, 0x8881, 0x9888, 0x1888, 0x0000,
+    0x0000, 0x8881, 0x8888, 0x1788, 0x0000,
+};
 
 
 // ---- 6: FROST FLASK (tall vial, ice crystal stopper)
-static const char kArtFrost[] =
-    ".........hh........."
-    "........hffh........"
-    "........khhk........"
-    "........kwwk........"
-    ".......kwggxk......."
-    ".......kwgghk......."
-    ".......kwggxk......."
-    ".......kgghgk......."
-    ".......kggggk......."
-    ".......kggggk.......";
+// kArtFrost (ASCII source: edit these rows, then run tools/wpnpack.py)
+//   .........hh.........
+//   ........hffh........
+//   ........khhk........
+//   ........kwwk........
+//   .......kwggxk.......
+//   .......kwgghk.......
+//   .......kwggxk.......
+//   .......kgghgk.......
+//   .......kggggk.......
+//   .......kggggk.......
+static const uint16_t kArtFrost[50] =
+{
+    0x0000, 0x0000, 0x0990, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x9AA9, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1991, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1661, 0x0000, 0x0000,
+    0x0000, 0x1000, 0x7886, 0x0001, 0x0000,
+    0x0000, 0x1000, 0x9886, 0x0001, 0x0000,
+    0x0000, 0x1000, 0x7886, 0x0001, 0x0000,
+    0x0000, 0x1000, 0x8988, 0x0001, 0x0000,
+    0x0000, 0x1000, 0x8888, 0x0001, 0x0000,
+    0x0000, 0x1000, 0x8888, 0x0001, 0x0000,
+};
 
 
 // ---- 7: VENOM FLASK (skull stopper, toxic liquid)
-static const char kArtVenom[] =
-    ".......kyyyyk......."
-    "......kyrkkryk......"
-    ".......kkyykk......."
-    "........kwwk........"
-    ".......kwggxk......."
-    "......kwgghgxk......"
-    ".....kwggggggxk....."
-    ".....kwghggggxk....."
-    ".....kggggggggk....."
-    "....kgghggggggxk....";
+// kArtVenom (ASCII source: edit these rows, then run tools/wpnpack.py)
+//   .......kyyyyk.......
+//   ......kyrkkryk......
+//   .......kkyykk.......
+//   ........kwwk........
+//   .......kwggxk.......
+//   ......kwgghgxk......
+//   .....kwggggggxk.....
+//   .....kwghggggxk.....
+//   .....kggggggggk.....
+//   ....kgghggggggxk....
+static const uint16_t kArtVenom[50] =
+{
+    0x0000, 0x1000, 0xBBBB, 0x0001, 0x0000,
+    0x0000, 0xB100, 0xC11C, 0x001B, 0x0000,
+    0x0000, 0x1000, 0x1BB1, 0x0001, 0x0000,
+    0x0000, 0x0000, 0x1661, 0x0000, 0x0000,
+    0x0000, 0x1000, 0x7886, 0x0001, 0x0000,
+    0x0000, 0x6100, 0x8988, 0x0017, 0x0000,
+    0x0000, 0x8610, 0x8888, 0x0178, 0x0000,
+    0x0000, 0x8610, 0x8889, 0x0178, 0x0000,
+    0x0000, 0x8810, 0x8888, 0x0188, 0x0000,
+    0x0000, 0x9881, 0x8888, 0x1788, 0x0000,
+};
 
 
 // ---- 8: ELIXIR (heart bottle with a gold ribbon)
-static const char kArtElixir[] =
-    ".........kk........."
-    "........kyyk........"
-    "........kwwk........"
-    ".......rrrrrr......."
-    ".......kwggxk......."
-    ".....kwggkkggxk....."
-    "....kwgggghgggxk...."
-    "....kggggggggggk...."
-    "....kkggggggggkk...."
-    "......kkggggkk......";
+// kArtElixir (ASCII source: edit these rows, then run tools/wpnpack.py)
+//   .........kk.........
+//   ........kyyk........
+//   ........kwwk........
+//   .......rrrrrr.......
+//   .......kwggxk.......
+//   .....kwggkkggxk.....
+//   ....kwgggghgggxk....
+//   ....kggggggggggk....
+//   ....kkggggggggkk....
+//   ......kkggggkk......
+static const uint16_t kArtElixir[50] =
+{
+    0x0000, 0x0000, 0x0110, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1BB1, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1661, 0x0000, 0x0000,
+    0x0000, 0xC000, 0xCCCC, 0x000C, 0x0000,
+    0x0000, 0x1000, 0x7886, 0x0001, 0x0000,
+    0x0000, 0x8610, 0x8118, 0x0178, 0x0000,
+    0x0000, 0x8861, 0x8988, 0x1788, 0x0000,
+    0x0000, 0x8881, 0x8888, 0x1888, 0x0000,
+    0x0000, 0x8811, 0x8888, 0x1188, 0x0000,
+    0x0000, 0x1100, 0x8888, 0x0011, 0x0000,
+};
 
 
 // ---- 9: HASTE BREW (golden draught, lightning swirl)
-static const char kArtHaste[] =
-    ".........kk........."
-    "........kyyk........"
-    "........kwwk........"
-    "........kwwk........"
-    ".......kwggxk......."
-    "......kwgyggxk......"
-    ".....kwggyyggxk....."
-    ".....kwgggyggxk....."
-    "....kggggyyggggk...."
-    "....kggggyggggxk....";
+// kArtHaste (ASCII source: edit these rows, then run tools/wpnpack.py)
+//   .........kk.........
+//   ........kyyk........
+//   ........kwwk........
+//   ........kwwk........
+//   .......kwggxk.......
+//   ......kwgyggxk......
+//   .....kwggyyggxk.....
+//   .....kwgggyggxk.....
+//   ....kggggyyggggk....
+//   ....kggggyggggxk....
+static const uint16_t kArtHaste[50] =
+{
+    0x0000, 0x0000, 0x0110, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1BB1, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1661, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1661, 0x0000, 0x0000,
+    0x0000, 0x1000, 0x7886, 0x0001, 0x0000,
+    0x0000, 0x6100, 0x88B8, 0x0017, 0x0000,
+    0x0000, 0x8610, 0x8BB8, 0x0178, 0x0000,
+    0x0000, 0x8610, 0x8B88, 0x0178, 0x0000,
+    0x0000, 0x8881, 0x8BB8, 0x1888, 0x0000,
+    0x0000, 0x8881, 0x88B8, 0x1788, 0x0000,
+};
 
 
 // ---- 10: ARCANE TOME (open spellbook, glowing runes)
-static const char kArtTome[] =
-    ".....f........f....."
-    "...kkkkkkkkkkkkkk..."
-    "...khhhhhxxhhhhhk..."
-    "...khhgghxxhgghhk..."
-    "...khhghhxxhhghhk..."
-    "...khhgghxxhgghhk..."
-    "...khhhhhxxhhhhhk..."
-    "...kwwwwwxxwwwwwk..."
-    "...kkkkkkxxkkkkkk..."
-    "...kkkkkxxxxkkkkk...";
+// kArtTome (ASCII source: edit these rows, then run tools/wpnpack.py)
+//   .....f........f.....
+//   ...kkkkkkkkkkkkkk...
+//   ...khhhhhxxhhhhhk...
+//   ...khhgghxxhgghhk...
+//   ...khhghhxxhhghhk...
+//   ...khhgghxxhgghhk...
+//   ...khhhhhxxhhhhhk...
+//   ...kwwwwwxxwwwwwk...
+//   ...kkkkkkxxkkkkkk...
+//   ...kkkkkxxxxkkkkk...
+static const uint16_t kArtTome[50] =
+{
+    0x0000, 0x00A0, 0x0000, 0x0A00, 0x0000,
+    0x1000, 0x1111, 0x1111, 0x1111, 0x0001,
+    0x1000, 0x9999, 0x9779, 0x9999, 0x0001,
+    0x1000, 0x8899, 0x9779, 0x9988, 0x0001,
+    0x1000, 0x9899, 0x9779, 0x9989, 0x0001,
+    0x1000, 0x8899, 0x9779, 0x9988, 0x0001,
+    0x1000, 0x9999, 0x9779, 0x9999, 0x0001,
+    0x1000, 0x6666, 0x6776, 0x6666, 0x0001,
+    0x1000, 0x1111, 0x1771, 0x1111, 0x0001,
+    0x1000, 0x1111, 0x7777, 0x1111, 0x0001,
+};
 
 
 // ---- 11: WARP RUNE (glowing rune stone)
-static const char kArtWarp[] =
-    ".........ff........."
-    "........kkkk........"
-    ".......kwwwwk......."
-    "......kwggggwk......"
-    "......kwghhgwk......"
-    "......kwghhgwk......"
-    "......kwggggwk......"
-    "......kwwwwwwk......"
-    "......kxwwwwxk......"
-    "......kkxwwxkk......";
+// kArtWarp (ASCII source: edit these rows, then run tools/wpnpack.py)
+//   .........ff.........
+//   ........kkkk........
+//   .......kwwwwk.......
+//   ......kwggggwk......
+//   ......kwghhgwk......
+//   ......kwghhgwk......
+//   ......kwggggwk......
+//   ......kwwwwwwk......
+//   ......kxwwwwxk......
+//   ......kkxwwxkk......
+static const uint16_t kArtWarp[50] =
+{
+    0x0000, 0x0000, 0x0AA0, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1111, 0x0000, 0x0000,
+    0x0000, 0x1000, 0x6666, 0x0001, 0x0000,
+    0x0000, 0x6100, 0x8888, 0x0016, 0x0000,
+    0x0000, 0x6100, 0x8998, 0x0016, 0x0000,
+    0x0000, 0x6100, 0x8998, 0x0016, 0x0000,
+    0x0000, 0x6100, 0x8888, 0x0016, 0x0000,
+    0x0000, 0x6100, 0x6666, 0x0016, 0x0000,
+    0x0000, 0x7100, 0x6666, 0x0017, 0x0000,
+    0x0000, 0x1100, 0x7667, 0x0011, 0x0000,
+};
 
 
 // ---- 12: AEGIS CHARM (round shield medallion)
-static const char kArtAegis[] =
-    ".........kk........."
-    "........kyyk........"
-    ".......kkyykk......."
-    "......kyyyyyyk......"
-    ".....kywwhhwwyk....."
-    ".....kywwhhwwyk....."
-    ".....kywhhhhwyk....."
-    ".....kywwhhwwyk....."
-    ".....kkywwwwykk....."
-    ".....kkkywwykkk.....";
+// kArtAegis (ASCII source: edit these rows, then run tools/wpnpack.py)
+//   .........kk.........
+//   ........kyyk........
+//   .......kkyykk.......
+//   ......kyyyyyyk......
+//   .....kywwhhwwyk.....
+//   .....kywwhhwwyk.....
+//   .....kywhhhhwyk.....
+//   .....kywwhhwwyk.....
+//   .....kkywwwwykk.....
+//   .....kkkywwykkk.....
+static const uint16_t kArtAegis[50] =
+{
+    0x0000, 0x0000, 0x0110, 0x0000, 0x0000,
+    0x0000, 0x0000, 0x1BB1, 0x0000, 0x0000,
+    0x0000, 0x1000, 0x1BB1, 0x0001, 0x0000,
+    0x0000, 0xB100, 0xBBBB, 0x001B, 0x0000,
+    0x0000, 0x6B10, 0x6996, 0x01B6, 0x0000,
+    0x0000, 0x6B10, 0x6996, 0x01B6, 0x0000,
+    0x0000, 0x6B10, 0x9999, 0x01B6, 0x0000,
+    0x0000, 0x6B10, 0x6996, 0x01B6, 0x0000,
+    0x0000, 0xB110, 0x6666, 0x011B, 0x0000,
+    0x0000, 0x1110, 0xB66B, 0x0111, 0x0000,
+};
 
 
-const char *const rc_kWpnArt[NUM_SLOT] =
+const uint16_t *const rc_kWpnArt[WPN_ARTS] =
 {
     kArtRay, kArtPrism, kArtStorm, kArtSun,
     kArtFire, kArtFrost, kArtVenom, kArtElixir, kArtHaste,
@@ -1679,35 +1943,46 @@ const char *const rc_kWpnArt[NUM_SLOT] =
 };
 
 
-static const PalEnt kWpnPalRay[]   = WPAL(COLOR_TETRIS_GRID,COLOR_CHARCOAL,COLOR_CHARCOAL,COLOR_LIGHT_GRAY,COLOR_GRAY,COLOR_TURQUOISE,COLOR_WHITE,COLOR_SKY_BLUE,COLOR_GOLD,COLOR_CRIMSON);
+static const uint32_t kWpnPalRay[WPN_SYMS] = WPAL(COLOR_TETRIS_GRID,COLOR_CHARCOAL,COLOR_CHARCOAL,COLOR_LIGHT_GRAY,COLOR_GRAY,COLOR_TURQUOISE,COLOR_WHITE,COLOR_SKY_BLUE,COLOR_GOLD,COLOR_CRIMSON);
 
-static const PalEnt kWpnPalPrism[] = WPAL(COLOR_TETRIS_GRID,COLOR_DARK_PURPLE,COLOR_DARK_GRAY,COLOR_CORAL,COLOR_OLIVE,COLOR_VIOLET,COLOR_WHITE,COLOR_TURQUOISE,COLOR_KHAKI,COLOR_CORAL);
-
-
-static const PalEnt kWpnPalStorm[] = WPAL(COLOR_TETRIS_GRID,COLOR_CHARCOAL,COLOR_DARK_GRAY,COLOR_SILVER,COLOR_GRAY,COLOR_PLUM,COLOR_WHITE,COLOR_SKY_BLUE,COLOR_KHAKI,COLOR_CORAL);
-
-static const PalEnt kWpnPalSun[]   = WPAL(COLOR_BLACK,COLOR_BROWN,COLOR_MAROON,COLOR_ORANGE,COLOR_OLIVE,COLOR_CORAL,COLOR_KHAKI,COLOR_TETRIS_L_ORANGE,COLOR_KHAKI,COLOR_CRIMSON);
-
-static const PalEnt kWpnPalFire[]  = WPAL(COLOR_BLACK,COLOR_BROWN,COLOR_MAROON,COLOR_LIGHT_GRAY,COLOR_GRAY,COLOR_TETRIS_L_ORANGE,COLOR_KHAKI,COLOR_TETRIS_L_ORANGE,COLOR_GOLD,COLOR_OLIVE);
-
-static const PalEnt kWpnPalFrost[] = WPAL(COLOR_TETRIS_GRID,COLOR_CHARCOAL,COLOR_CHARCOAL,COLOR_WHITE,COLOR_SKY_BLUE,COLOR_SKY_BLUE,COLOR_WHITE,COLOR_SKY_BLUE,COLOR_WHITE,COLOR_SKY_BLUE);
-
-static const PalEnt kWpnPalVenom[] = WPAL(COLOR_BLACK,COLOR_DARK_GRAY,COLOR_TETRIS_GRID,COLOR_LIGHT_GRAY,COLOR_GRAY,COLOR_GREEN,COLOR_MINT,COLOR_MINT,COLOR_LIGHT_GRAY,COLOR_CRIMSON);
-
-static const PalEnt kWpnPalElixir[]= WPAL(COLOR_BLACK,COLOR_DARK_GRAY,COLOR_TETRIS_GRID,COLOR_LIGHT_GRAY,COLOR_GRAY,COLOR_CRIMSON,COLOR_PLUM,COLOR_CORAL,COLOR_OLIVE,COLOR_GOLD);
-
-static const PalEnt kWpnPalHaste[] = WPAL(COLOR_TETRIS_GRID,COLOR_OLIVE,COLOR_DARK_GRAY,COLOR_LIGHT_GRAY,COLOR_GRAY,COLOR_GOLD,COLOR_KHAKI,COLOR_KHAKI,COLOR_WHITE,COLOR_ORANGE);
-
-static const PalEnt kWpnPalTome[]  = WPAL(COLOR_TETRIS_GRID,COLOR_DARK_PURPLE,COLOR_DARK_GRAY,COLOR_DARK_PURPLE,COLOR_DARK_PURPLE,COLOR_VIOLET,COLOR_LIGHT_GRAY,COLOR_WHITE,COLOR_GOLD,COLOR_VIOLET);
-
-static const PalEnt kWpnPalWarp[]  = WPAL(COLOR_TETRIS_GRID,COLOR_CHARCOAL,COLOR_TETRIS_GRID,COLOR_TEAL,COLOR_CHARCOAL,COLOR_TURQUOISE,COLOR_WHITE,COLOR_SKY_BLUE,COLOR_WHITE,COLOR_TURQUOISE);
-
-static const PalEnt kWpnPalAegis[] = WPAL(COLOR_TETRIS_GRID,COLOR_CHARCOAL,COLOR_CHARCOAL,COLOR_GRAY,COLOR_CHARCOAL,COLOR_SKY_BLUE,COLOR_WHITE,COLOR_SKY_BLUE,COLOR_GOLD,COLOR_GOLD);
+static const uint32_t kWpnPalPrism[WPN_SYMS] = WPAL(COLOR_TETRIS_GRID,COLOR_DARK_PURPLE,COLOR_DARK_GRAY,COLOR_CORAL,COLOR_OLIVE,COLOR_VIOLET,COLOR_WHITE,COLOR_TURQUOISE,COLOR_KHAKI,COLOR_CORAL);
 
 
-const PalEnt *const rc_kWpnPal[NUM_SLOT] =
+static const uint32_t kWpnPalStorm[WPN_SYMS] = WPAL(COLOR_TETRIS_GRID,COLOR_CHARCOAL,COLOR_DARK_GRAY,COLOR_SILVER,COLOR_GRAY,COLOR_PLUM,COLOR_WHITE,COLOR_SKY_BLUE,COLOR_KHAKI,COLOR_CORAL);
+
+static const uint32_t kWpnPalSun[WPN_SYMS] = WPAL(COLOR_BLACK,COLOR_BROWN,COLOR_MAROON,COLOR_ORANGE,COLOR_OLIVE,COLOR_CORAL,COLOR_KHAKI,COLOR_TETRIS_L_ORANGE,COLOR_KHAKI,COLOR_CRIMSON);
+
+static const uint32_t kWpnPalFire[WPN_SYMS] = WPAL(COLOR_BLACK,COLOR_BROWN,COLOR_MAROON,COLOR_LIGHT_GRAY,COLOR_GRAY,COLOR_TETRIS_L_ORANGE,COLOR_KHAKI,COLOR_TETRIS_L_ORANGE,COLOR_GOLD,COLOR_OLIVE);
+
+static const uint32_t kWpnPalFrost[WPN_SYMS] = WPAL(COLOR_TETRIS_GRID,COLOR_CHARCOAL,COLOR_CHARCOAL,COLOR_WHITE,COLOR_SKY_BLUE,COLOR_SKY_BLUE,COLOR_WHITE,COLOR_SKY_BLUE,COLOR_WHITE,COLOR_SKY_BLUE);
+
+static const uint32_t kWpnPalVenom[WPN_SYMS] = WPAL(COLOR_BLACK,COLOR_DARK_GRAY,COLOR_TETRIS_GRID,COLOR_LIGHT_GRAY,COLOR_GRAY,COLOR_GREEN,COLOR_MINT,COLOR_MINT,COLOR_LIGHT_GRAY,COLOR_CRIMSON);
+
+static const uint32_t kWpnPalElixir[WPN_SYMS] = WPAL(COLOR_BLACK,COLOR_DARK_GRAY,COLOR_TETRIS_GRID,COLOR_LIGHT_GRAY,COLOR_GRAY,COLOR_CRIMSON,COLOR_PLUM,COLOR_CORAL,COLOR_OLIVE,COLOR_GOLD);
+
+static const uint32_t kWpnPalHaste[WPN_SYMS] = WPAL(COLOR_TETRIS_GRID,COLOR_OLIVE,COLOR_DARK_GRAY,COLOR_LIGHT_GRAY,COLOR_GRAY,COLOR_GOLD,COLOR_KHAKI,COLOR_KHAKI,COLOR_WHITE,COLOR_ORANGE);
+
+static const uint32_t kWpnPalTome[WPN_SYMS] = WPAL(COLOR_TETRIS_GRID,COLOR_DARK_PURPLE,COLOR_DARK_GRAY,COLOR_DARK_PURPLE,COLOR_DARK_PURPLE,COLOR_VIOLET,COLOR_LIGHT_GRAY,COLOR_WHITE,COLOR_GOLD,COLOR_VIOLET);
+
+static const uint32_t kWpnPalWarp[WPN_SYMS] = WPAL(COLOR_TETRIS_GRID,COLOR_CHARCOAL,COLOR_TETRIS_GRID,COLOR_TEAL,COLOR_CHARCOAL,COLOR_TURQUOISE,COLOR_WHITE,COLOR_SKY_BLUE,COLOR_WHITE,COLOR_TURQUOISE);
+
+static const uint32_t kWpnPalAegis[WPN_SYMS] = WPAL(COLOR_TETRIS_GRID,COLOR_CHARCOAL,COLOR_CHARCOAL,COLOR_GRAY,COLOR_CHARCOAL,COLOR_SKY_BLUE,COLOR_WHITE,COLOR_SKY_BLUE,COLOR_GOLD,COLOR_GOLD);
+
+
+// Class staffs and the Mana Potion reuse the art above with their own colours.
+//                                       outline           sleeve             sleeve shade      body              body shade        gem               highlight      flash                accent            accent 2
+static const uint32_t kWpnPalInfernal[WPN_SYMS] = WPAL(COLOR_BLACK,COLOR_MAROON,COLOR_BLACK,COLOR_CRIMSON,COLOR_MAROON,COLOR_TETRIS_L_ORANGE,COLOR_GOLD,COLOR_ORANGE,COLOR_GOLD,COLOR_CRIMSON);
+static const uint32_t kWpnPalThunder[WPN_SYMS] = WPAL(COLOR_TETRIS_GRID,COLOR_NAVY,COLOR_CHARCOAL,COLOR_SILVER,COLOR_GRAY,COLOR_GOLD,COLOR_WHITE,COLOR_GOLD,COLOR_SKY_BLUE,COLOR_GOLD);
+static const uint32_t kWpnPalGrave[WPN_SYMS] = WPAL(COLOR_BLACK,COLOR_CHARCOAL,COLOR_BLACK,COLOR_LIGHT_GRAY,COLOR_GRAY,COLOR_MINT,COLOR_WHITE,COLOR_GREEN,COLOR_LIGHT_GRAY,COLOR_MINT);
+static const uint32_t kWpnPalPEngine[WPN_SYMS] = WPAL(COLOR_TETRIS_GRID,COLOR_NAVY,COLOR_CHARCOAL,COLOR_SKY_BLUE,COLOR_TEAL,COLOR_VIOLET,COLOR_WHITE,COLOR_PINK,COLOR_TURQUOISE,COLOR_VIOLET);
+static const uint32_t kWpnPalEldritch[WPN_SYMS] = WPAL(COLOR_BLACK,COLOR_DARK_PURPLE,COLOR_BLACK,COLOR_DARK_GRAY,COLOR_BLACK,COLOR_GREEN,COLOR_MINT,COLOR_GREEN,COLOR_DARK_PURPLE,COLOR_GREEN);
+static const uint32_t kWpnPalGilded[WPN_SYMS] = WPAL(COLOR_BROWN,COLOR_MAROON,COLOR_BROWN,COLOR_GOLD,COLOR_ORANGE,COLOR_KHAKI,COLOR_WHITE,COLOR_GOLD,COLOR_CRIMSON,COLOR_GOLD);
+static const uint32_t kWpnPalMana[WPN_SYMS] = WPAL(COLOR_BLACK,COLOR_DARK_GRAY,COLOR_TETRIS_GRID,COLOR_LIGHT_GRAY,COLOR_GRAY,COLOR_BLUE,COLOR_SKY_BLUE,COLOR_SKY_BLUE,COLOR_OLIVE,COLOR_GOLD);
+
+const uint32_t *const rc_kWpnPal[WPN_PALS] =
 {
     kWpnPalRay, kWpnPalPrism, kWpnPalStorm, kWpnPalSun,
     kWpnPalFire, kWpnPalFrost, kWpnPalVenom, kWpnPalElixir, kWpnPalHaste,
-    kWpnPalTome, kWpnPalWarp, kWpnPalAegis
+    kWpnPalTome, kWpnPalWarp, kWpnPalAegis,
+    kWpnPalInfernal, kWpnPalThunder, kWpnPalGrave, kWpnPalPEngine, kWpnPalEldritch, kWpnPalGilded, kWpnPalMana
 };
